@@ -37,9 +37,18 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'rest_framework',  # Django REST Framework
-    'corsheaders',     # CORS設定用
-    'mvp_app',         # カスタムアプリ
+    'rest_framework',           # Django REST Framework
+    'rest_framework_simplejwt', # JWT認証
+    'corsheaders',              # CORS設定用
+    'accounts',                 # ユーザー認証・プロフィール管理
+    'challenges',               # 課題管理
+    'proposals',                # 提案管理
+    'selection',                # ユーザー選出機能
+    'payments',                 # 報酬管理
+    'moderation',               # モデレーション管理
+    'notifications',            # 通知管理
+    'analytics',                # 分析・まとめ機能
+    'mvp_app',                  # 既存のアプリ（必要に応じて削除または統合）
 ]
 
 MIDDLEWARE = [
@@ -136,9 +145,27 @@ CORS_ALLOW_ALL_ORIGINS = True  # 開発環境のみ
 # REST Framework設定
 REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': [
-        'rest_framework.permissions.AllowAny',  # 開発環境用（本番では適切に制限）
+        'rest_framework.permissions.IsAuthenticated',  # 認証が必要
+    ],
+    'DEFAULT_AUTHENTICATION_CLASSES': [
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
     ],
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
 }
+
+# JWT設定
+from datetime import timedelta
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ROTATE_REFRESH_TOKENS': True,
+}
+
+# カスタムユーザーモデル設定
+AUTH_USER_MODEL = 'accounts.User'
+
+# メディアファイル設定
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'
