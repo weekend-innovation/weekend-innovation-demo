@@ -119,7 +119,7 @@ export default function Home() {
             >
               無料で始める
             </Link>
-          </div>
+        </div>
         </section>
       </main>
 

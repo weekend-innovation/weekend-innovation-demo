@@ -24,8 +24,8 @@ urlpatterns = [
     
     # API endpoints
     path('api/auth/', include('accounts.urls')),
+    path('api/challenges/', include('challenges.urls')),
     # 他のアプリのURLも今後追加予定
-    # path('api/challenges/', include('challenges.urls')),
     # path('api/proposals/', include('proposals.urls')),
     # path('api/payments/', include('payments.urls')),
 ]
