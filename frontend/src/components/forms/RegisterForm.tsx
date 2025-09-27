@@ -90,9 +90,9 @@ export function RegisterForm() {
       
       // 登録成功後、ユーザータイプに応じてリダイレクト
       if (response.user.user_type === 'contributor') {
-        router.push('/contributor/dashboard');
+        router.push('/dashboard/contributor');
       } else {
-        router.push('/proposer/dashboard');
+        router.push('/dashboard/proposer');
       }
     } catch (err: any) {
       setError(err.message || '登録に失敗しました');

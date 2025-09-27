@@ -16,8 +16,8 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
     title: '',
     description: '',
     reward_amount: 0,
-    adoption_reward: 0,
-    required_participants: 1,
+    adoption_reward: 50,
+    required_participants: 50,
     deadline: ''
   });
 
@@ -27,26 +27,65 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   // 初期データの設定
   useEffect(() => {
     if (initialData && mode === 'edit') {
+      const participants = initialData.required_participants || 50;
       setFormData({
         title: initialData.title || '',
         description: initialData.description || '',
-        reward_amount: initialData.reward_amount || 0,
-        adoption_reward: initialData.adoption_reward || 0,
-        required_participants: initialData.required_participants || 1,
+        reward_amount: initialData.reward_amount || calculateProposalReward(participants),
+        adoption_reward: initialData.adoption_reward || 50,
+        required_participants: participants,
         deadline: initialData.deadline || ''
       });
+    } else if (mode === 'create') {
+      // 新規作成時は提案報酬を自動計算
+      setFormData(prev => ({
+        ...prev,
+        reward_amount: calculateProposalReward(prev.required_participants)
+      }));
     }
   }, [initialData, mode]);
+
+  // 提案報酬の自動計算
+  const calculateProposalReward = (participants: number): number => {
+    // 選出人数×1万円 + 選出人数×雑費（1人あたり5,000円と仮定）
+    const baseReward = participants * 10000; // 1万円×選出人数
+    const miscellaneousFees = participants * 5000; // 雑費（サーバー利用料等）
+    return baseReward + miscellaneousFees;
+  };
 
   // 入力値の変更処理
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
+    let processedValue = value;
+
+    // 選出人数の特別処理
+    if (name === 'required_participants') {
+      // 先頭の0を削除（空文字列の場合は空文字列を保持）
+      if (value === '') {
+        processedValue = '';
+      } else {
+        // 先頭の0を削除し、空文字列になった場合は空文字列を保持
+        processedValue = value.replace(/^0+/, '');
+        if (processedValue === '') {
+          processedValue = '';
+        }
+      }
+    }
+
+    const newFormData = {
+      ...formData,
       [name]: name.includes('_amount') || name === 'required_participants' 
-        ? Number(value) || 0 
-        : value
-    }));
+        ? (processedValue === '' ? 0 : Number(processedValue) || 0)
+        : processedValue
+    };
+
+    // 選出人数が変更された場合、提案報酬を自動計算
+    if (name === 'required_participants') {
+      const participants = processedValue === '' ? 0 : Number(processedValue) || 0;
+      newFormData.reward_amount = calculateProposalReward(participants);
+    }
+
+    setFormData(newFormData);
     
     // エラーをクリア
     if (errors[name]) {
@@ -68,16 +107,15 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       newErrors.description = '課題内容は必須です';
     }
 
-    if (formData.reward_amount <= 0) {
-      newErrors.reward_amount = '提案報酬は0円より大きい必要があります';
-    }
+    // 提案報酬は自動計算のためバリデーション不要
 
     if (formData.adoption_reward <= 0) {
       newErrors.adoption_reward = '採用報酬は0円より大きい必要があります';
     }
 
-    if (formData.required_participants <= 0) {
-      newErrors.required_participants = '選出人数は1人以上である必要があります';
+    if (formData.required_participants < 50) {
+      alert('選出人数は50人以上である必要があります。');
+      newErrors.required_participants = '選出人数は50人以上である必要があります';
     }
 
     if (!formData.deadline) {
@@ -155,28 +193,22 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="reward_amount" className="block text-sm font-medium text-gray-700 mb-2">
-            提案報酬（円） <span className="text-red-500">*</span>
+            提案報酬（円） <span className="text-gray-500 text-sm">（自動計算）</span>
           </label>
           <input
             type="number"
             id="reward_amount"
             name="reward_amount"
             value={formData.reward_amount}
-            onChange={handleChange}
-            min="1"
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.reward_amount ? 'border-red-500' : 'border-gray-300'
-            }`}
+            readOnly
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
             placeholder="0"
           />
-          {errors.reward_amount && (
-            <p className="mt-1 text-sm text-red-600">{errors.reward_amount}</p>
-          )}
         </div>
 
         <div>
           <label htmlFor="adoption_reward" className="block text-sm font-medium text-gray-700 mb-2">
-            採用報酬（円） <span className="text-red-500">*</span>
+            採用報酬（万円） <span className="text-red-500">*</span>
           </label>
           <input
             type="number"
@@ -185,10 +217,11 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
             value={formData.adoption_reward}
             onChange={handleChange}
             min="1"
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            step="1"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
               errors.adoption_reward ? 'border-red-500' : 'border-gray-300'
             }`}
-            placeholder="0"
+            placeholder="50"
           />
           {errors.adoption_reward && (
             <p className="mt-1 text-sm text-red-600">{errors.adoption_reward}</p>
@@ -206,17 +239,21 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
             type="number"
             id="required_participants"
             name="required_participants"
-            value={formData.required_participants}
+            value={formData.required_participants === 0 ? '' : formData.required_participants}
             onChange={handleChange}
-            min="1"
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            min="50"
+            step="1"
+            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
               errors.required_participants ? 'border-red-500' : 'border-gray-300'
             }`}
-            placeholder="1"
+            placeholder="50"
           />
           {errors.required_participants && (
             <p className="mt-1 text-sm text-red-600">{errors.required_participants}</p>
           )}
+          <p className="mt-1 text-sm text-gray-500">
+            最低50人から設定可能です
+          </p>
         </div>
 
         <div>

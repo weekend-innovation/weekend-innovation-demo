@@ -7,9 +7,9 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Challenge } from '../../types/challenge';
-import { getChallenge } from '../../lib/challengeAPI';
-import { useAuth } from '../../contexts/AuthContext';
+import type { Challenge } from '../../../types/challenge';
+import { getChallenge } from '../../../lib/challengeAPI';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const ChallengeDetailPage: React.FC = () => {
   const params = useParams();

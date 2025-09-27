@@ -11,13 +11,10 @@
  */
 
 import Link from 'next/link';
-import { Header } from '@/components/layout/Header';
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      {/* ヘッダーコンポーネント - ナビゲーション・認証状態表示 */}
-      <Header />
       
       <main>
         {/* ヒーローセクション - メインタイトル・新規登録・ログインボタン */}

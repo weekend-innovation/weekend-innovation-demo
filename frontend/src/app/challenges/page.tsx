@@ -24,7 +24,7 @@ const ChallengesPage: React.FC = () => {
       setError(null);
       
       const response: ChallengeListResponse = await getChallenges();
-      setChallenges(response.results);
+      setChallenges(response.results || []);
     } catch (err) {
       setError(err instanceof Error ? err.message : '課題の取得に失敗しました');
     } finally {
@@ -94,6 +94,14 @@ const ChallengesPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
+          <div className="flex items-center gap-4 mb-4">
+            <Link
+              href={user?.user_type === 'contributor' ? '/dashboard/contributor' : '/dashboard/proposer'}
+              className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
+            >
+              ← 戻る
+            </Link>
+          </div>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -120,7 +128,7 @@ const ChallengesPage: React.FC = () => {
         </div>
 
         {/* 課題一覧 */}
-        {challenges.length === 0 ? (
+        {!challenges || challenges.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg mb-4">
               {user?.user_type === 'contributor' 
@@ -153,7 +161,7 @@ const ChallengesPage: React.FC = () => {
         )}
 
         {/* ページネーション（TODO: 実装予定） */}
-        {challenges.length > 0 && (
+        {challenges && challenges.length > 0 && (
           <div className="mt-8 flex justify-center">
             <div className="text-gray-600 text-sm">
               表示中: {challenges.length}件

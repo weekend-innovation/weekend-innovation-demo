@@ -66,10 +66,10 @@ const CreateChallengePage: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center gap-4 mb-4">
             <Link
-              href="/challenges"
+              href="/dashboard/contributor"
               className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
             >
-              ← 課題一覧に戻る
+              ← 戻る
             </Link>
           </div>
           <h1 className="text-3xl font-bold text-gray-900">新しい課題を投稿</h1>
@@ -94,30 +94,6 @@ const CreateChallengePage: React.FC = () => {
           />
         </div>
 
-        {/* ヒント */}
-        <div className="mt-8 bg-blue-50 border border-blue-200 rounded-lg p-6">
-          <h3 className="text-lg font-medium text-blue-900 mb-3">
-            効果的な課題投稿のコツ
-          </h3>
-          <ul className="space-y-2 text-blue-800">
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-1">•</span>
-              <span>課題の背景と解決したい問題を明確に記述してください</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-1">•</span>
-              <span>期待する成果や条件を具体的に記載してください</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-1">•</span>
-              <span>適切な報酬設定で質の高い提案を引き出しましょう</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-blue-600 mt-1">•</span>
-              <span>十分な期間を設けて、多くの提案者に参加してもらいましょう</span>
-            </li>
-          </ul>
-        </div>
       </div>
     </div>
   );

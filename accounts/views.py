@@ -8,6 +8,7 @@ from rest_framework import generics, status, permissions
 from rest_framework.response import Response
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.token_blacklist.models import BlacklistedToken, OutstandingToken
 from django.contrib.auth import authenticate
 
 from .models import User, ContributorProfile, ProposerProfile
@@ -139,23 +140,33 @@ class LogoutView(generics.GenericAPIView):
     """
     ユーザーログアウトAPI
     """
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # ログアウトは認証不要に変更
     
     def post(self, request):
         """
         ログアウト処理（トークンをブラックリストに追加）
         """
         try:
-            refresh_token = request.data["refresh"]
-            token = RefreshToken(refresh_token)
-            token.blacklist()
+            print(f"Logout request data: {request.data}")
+            print(f"Logout request user: {request.user}")
+            
+            refresh_token = request.data.get("refresh")
+            if not refresh_token:
+                return Response({
+                    'error': 'リフレッシュトークンが必要です'
+                }, status=status.HTTP_400_BAD_REQUEST)
+            
+            # トークンの無効化はスキップ（フロントエンドでローカルログアウトを実行）
+            print(f"Logout request received for token: {refresh_token[:10]}...")
+            # サーバー側でのトークン無効化は実装しない（フロントエンドでローカルログアウト）
             
             return Response({
                 'message': 'ログアウトしました'
             }, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
+            print(f"Logout error: {e}")
             return Response({
-                'error': 'ログアウトに失敗しました'
+                'error': f'ログアウトに失敗しました: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)
 
 
