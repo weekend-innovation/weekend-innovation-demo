@@ -4,7 +4,7 @@
  * 結論と理由を分離して入力
  */
 import React, { useState, useEffect } from 'react';
-import type { ProposalFormProps, CreateProposalRequest, UpdateProposalRequest } from '../../types/proposal';
+import type { ProposalFormProps, CreateProposalRequest, UpdateProposalRequest } from '@/types/proposal';
 
 const ProposalForm: React.FC<ProposalFormProps> = ({
   challengeId,
@@ -35,7 +35,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
   }, [initialData, mode, challengeId]);
 
   // 入力値の変更処理
-  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
@@ -54,14 +54,14 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
 
     if (!formData.conclusion.trim()) {
       newErrors.conclusion = '結論は必須です';
-    } else if (formData.conclusion.length < 10) {
-      newErrors.conclusion = '結論は10文字以上で入力してください';
+    } else if (formData.conclusion.length > 500) {
+      newErrors.conclusion = '結論は500文字以内で入力してください';
     }
 
     if (!formData.reasoning.trim()) {
       newErrors.reasoning = '理由は必須です';
-    } else if (formData.reasoning.length < 20) {
-      newErrors.reasoning = '理由は20文字以上で入力してください';
+    } else if (formData.reasoning.length > 1000) {
+      newErrors.reasoning = '理由は1000文字以内で入力してください';
     }
 
     setErrors(newErrors);
@@ -85,7 +85,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
           結論 <span className="text-red-500">*</span>
         </label>
         <p className="text-sm text-gray-600 mb-3">
-          あなたの提案の結論を簡潔にまとめてください。
+          提案の結論を簡潔にまとめてください。（500文字以内）
         </p>
         <textarea
           id="conclusion"
@@ -93,10 +93,11 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
           value={formData.conclusion}
           onChange={handleChange}
           rows={4}
+          maxLength={500}
           className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             errors.conclusion ? 'border-red-500' : 'border-gray-300'
           }`}
-          placeholder="例: この課題を解決するために、AIを活用した自動化システムを導入することを提案します。"
+          placeholder="提案の結論を入力してください"
         />
         {errors.conclusion && (
           <p className="mt-1 text-sm text-red-600">{errors.conclusion}</p>
@@ -112,63 +113,46 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
           理由 <span className="text-red-500">*</span>
         </label>
         <p className="text-sm text-gray-600 mb-3">
-          なぜその結論に至ったのか、その理由と根拠を詳しく説明してください。
+          理由を詳しく説明してください。（1000文字以内）
         </p>
         <textarea
           id="reasoning"
           name="reasoning"
           value={formData.reasoning}
           onChange={handleChange}
-          rows={8}
+          rows={6}
+          maxLength={1000}
           className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
             errors.reasoning ? 'border-red-500' : 'border-gray-300'
           }`}
-          placeholder="例: 現在の手作業による処理では時間がかかり、人的ミスも発生しやすい状況です。AIを活用することで、処理時間を80%短縮し、精度を95%以上に向上させることができます。また、既存のシステムとの連携も容易で、導入コストも抑えられます。"
+          placeholder="提案の理由を入力してください"
         />
         {errors.reasoning && (
           <p className="mt-1 text-sm text-red-600">{errors.reasoning}</p>
         )}
         <p className="mt-1 text-sm text-gray-500">
-          {formData.reasoning.length}/2000文字
+          {formData.reasoning.length}/1000文字
         </p>
       </div>
 
       {/* ヒントセクション */}
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="text-sm font-medium text-blue-900 mb-2">
-          効果的な提案のコツ
+        <h3 className="text-base font-medium text-blue-900 mb-2">
+          提案について
         </h3>
-        <ul className="space-y-1 text-sm text-blue-800">
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-1">•</span>
-            <span>結論は具体的で実現可能な内容にしてください</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-1">•</span>
-            <span>理由では根拠となるデータや事例を挙げてください</span>
-          </li>
-          <li className="flex items-start gap-2">
-            <span className="text-blue-600 mt-1">•</span>
-            <span>課題の背景を理解し、解決策の効果を明確に示してください</span>
-          </li>
-        </ul>
+        <p className="text-base text-blue-800">
+          大量の解決案を評価する必要があるため、簡潔に表現することが望ましいです。
+        </p>
       </div>
 
       {/* 送信ボタン */}
-      <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-        <button
-          type="button"
-          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
-          disabled={isLoading}
-        >
-          キャンセル
-        </button>
+      <div className="flex justify-end pt-6 border-t border-gray-200">
         <button
           type="submit"
           disabled={isLoading}
           className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
         >
-          {isLoading ? '処理中...' : mode === 'create' ? '提案を投稿' : '更新'}
+          {isLoading ? '処理中...' : mode === 'create' ? '解決案を提案' : '更新'}
         </button>
       </div>
     </form>

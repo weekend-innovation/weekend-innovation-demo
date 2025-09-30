@@ -6,10 +6,10 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import ProposalCard from '../../components/proposals/ProposalCard';
-import type { ProposalListItem, ProposalListResponse } from '../../types/proposal';
-import { getProposals } from '../../lib/proposalAPI';
-import { useAuth } from '../../contexts/AuthContext';
+import ProposalCard from '@/components/proposals/ProposalCard';
+import type { ProposalListItem, ProposalListResponse } from '@/types/proposal';
+import { getProposals } from '@/lib/proposalAPI';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ProposalsPage: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -19,13 +19,50 @@ const ProposalsPage: React.FC = () => {
 
   // 提案一覧の取得
   const fetchProposals = async () => {
+    console.log('fetchProposals called');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('user:', user);
+    
+    // 認証されていない場合はAPI呼び出しを避ける
+    if (!isAuthenticated || !user) {
+      console.log('Not authenticated, skipping API calls');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
+      console.log('Calling getProposals API...');
       const response: ProposalListResponse = await getProposals();
-      setProposals(response.results || []);
+      console.log('Proposals API response:', response);
+      console.log('Response type:', typeof response);
+      console.log('Response is array:', Array.isArray(response));
+      console.log('Response.results:', response.results);
+      if (response.results && response.results.length > 0) {
+        console.log('First proposal structure:', response.results[0]);
+        console.log('First proposal challenge field:', response.results[0].challenge_id);
+      }
+      
+      // レスポンスが配列の場合は直接使用、オブジェクトの場合はresultsプロパティを使用
+      let proposalsData: ProposalListItem[] = [];
+      if (Array.isArray(response)) {
+        proposalsData = response;
+        console.log('Using response as array');
+      } else if (response && response.results) {
+        proposalsData = response.results;
+        console.log('Using response.results');
+      } else if (response) {
+        // 単一のオブジェクトの場合は空配列にする
+        proposalsData = [];
+        console.log('Single response object, setting empty array');
+      }
+      
+      setProposals(proposalsData);
+      console.log('Proposals set:', proposalsData);
     } catch (err) {
+      console.error('Error fetching proposals:', err);
       setError(err instanceof Error ? err.message : '提案の取得に失敗しました');
     } finally {
       setLoading(false);
@@ -33,14 +70,13 @@ const ProposalsPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchProposals();
-  }, []);
+    if (isAuthenticated && user) {
+      fetchProposals();
+    } else if (!isAuthenticated) {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user]);
 
-  // 提案カードのクリック処理
-  const handleProposalView = (proposal: ProposalListItem) => {
-    // 提案詳細ページに遷移
-    window.location.href = `/proposals/${proposal.id}`;
-  };
 
   // 提案編集処理（提案者のみ）
   const handleProposalEdit = (proposal: ProposalListItem) => {
@@ -102,23 +138,23 @@ const ProposalsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href={user?.user_type === 'proposer' ? '/dashboard/proposer' : '/dashboard/contributor'}
-              className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
-            >
-              ← 戻る
+          {/* パンくずリスト */}
+          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
+            <Link href="/dashboard" className="hover:text-gray-700">
+              ダッシュボード
             </Link>
-          </div>
+            <span>/</span>
+            <span className="text-gray-900 font-medium">解決案一覧</span>
+          </nav>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
-                {user?.user_type === 'proposer' ? '投稿した提案' : '提案一覧'}
+                {user?.user_type === 'proposer' ? '提案した解決案' : '解決案一覧'}
               </h1>
               <p className="mt-2 text-gray-600">
                 {user?.user_type === 'proposer' 
-                  ? 'あなたが投稿した提案の一覧です'
-                  : 'あなたの課題に対する提案の一覧です'
+                  ? 'あなたが提案した解決案の一覧です'
+                  : 'あなたの課題に対する解決案の一覧です'
                 }
               </p>
             </div>
@@ -129,7 +165,7 @@ const ProposalsPage: React.FC = () => {
                 href="/challenges"
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
               >
-                新しい提案を投稿
+                新しい解決案を提案
               </Link>
             )}
           </div>
@@ -140,7 +176,7 @@ const ProposalsPage: React.FC = () => {
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg mb-4">
               {user?.user_type === 'proposer' 
-                ? 'まだ提案を投稿していません'
+                ? 'まだ解決案を提案していません'
                 : '現在、提案はありません'
               }
             </div>
@@ -149,22 +185,29 @@ const ProposalsPage: React.FC = () => {
                 href="/challenges"
                 className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
               >
-                最初の提案を投稿
+                最初の解決案を提案
               </Link>
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="space-y-6">
             {proposals.map((proposal) => (
-              <ProposalCard
-                key={proposal.id}
-                proposal={proposal}
-                showActions={true}
-                onView={handleProposalView}
-                onEdit={user?.user_type === 'proposer' ? handleProposalEdit : undefined}
-                onDelete={user?.user_type === 'proposer' ? handleProposalDelete : undefined}
-                onAdopt={user?.user_type === 'contributor' ? handleProposalAdopt : undefined}
-              />
+                    <ProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      showActions={true}
+                      showEditDelete={false}
+                      showStatus={false}
+                      showComments={true}
+                      showChallengeInfo={true}
+                      onEdit={user?.user_type === 'proposer' ? handleProposalEdit : undefined}
+                      onDelete={user?.user_type === 'proposer' ? handleProposalDelete : undefined}
+                      onAdopt={user?.user_type === 'contributor' ? handleProposalAdopt : undefined}
+                      onComments={(proposal) => {
+                        // TODO: コメント表示機能を実装
+                        console.log('コメント表示:', proposal.id);
+                      }}
+                    />
             ))}
           </div>
         )}

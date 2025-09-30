@@ -79,32 +79,16 @@ export function Header() {
 
           {/* デスクトップメニュー - 削除（ハンバーガーメニューのみ使用） */}
 
-          {/* デスクトップメニュー（未認証時） */}
-          {!user && (
-            <div className="hidden md:flex items-center space-x-4">
-              <Link
-                href="/auth/register"
-                className="bg-white text-black px-4 py-2 rounded hover:bg-gray-100 transition-colors"
-              >
-                新規登録
-              </Link>
-              <Link
-                href="/auth/login"
-                className="border border-white text-white px-4 py-2 rounded hover:bg-white hover:text-black transition-colors"
-              >
-                ログイン
-              </Link>
-            </div>
-          )}
+          {/* デスクトップメニュー（未認証時） - 削除 */}
 
           {/* ハンバーガーメニューボタン（認証時のみ） */}
           {user && (
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-2 text-gray-300 hover:text-white"
+              className="p-2 text-gray-300 hover:text-white cursor-pointer"
             >
               <svg
-                className="w-6 h-6"
+                className="w-8 h-8"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -135,9 +119,9 @@ export function Header() {
                   <h2 className="text-lg font-semibold text-gray-900">メニュー</h2>
                   <button
                     onClick={() => setIsMenuOpen(false)}
-                    className="p-2 text-gray-400 hover:text-gray-600"
+                    className="p-2 text-gray-400 hover:text-gray-600 cursor-pointer"
                   >
-                    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
                   </button>
@@ -147,22 +131,47 @@ export function Header() {
                 <div className="flex-1 py-4">
                   <div className="space-y-2">
                     {user.user_type === 'contributor' && (
-                      <Link
-                        href="/dashboard/contributor" 
-                        className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        ダッシュボード
-                      </Link>
+                      <>
+                        <Link
+                          href="/dashboard/contributor" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          ダッシュボード
+                        </Link>
+                        <Link
+                          href="/challenges" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          課題一覧
+                        </Link>
+                      </>
                     )}
                     {user.user_type === 'proposer' && (
-                      <Link
-                        href="/dashboard/proposer" 
-                        className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
-                        onClick={() => setIsMenuOpen(false)}
-                      >
-                        ダッシュボード
-                      </Link>
+                      <>
+                        <Link
+                          href="/dashboard/proposer" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          ダッシュボード
+                        </Link>
+                        <Link
+                          href="/proposals" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          解決案一覧
+                        </Link>
+                        <Link
+                          href="/challenges" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          課題一覧
+                        </Link>
+                      </>
                     )}
                     <Link
                       href="/profile"

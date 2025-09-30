@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-o50jz9%r@z&*1dwewlp@jrr#t^2fvi($n^zj1ak2pu7p&4*#e@
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost', '[::1]', 'testserver']
 
 
 # Application definition
@@ -43,12 +43,11 @@ INSTALLED_APPS = [
     'accounts',                 # ユーザー認証・プロフィール管理
     'challenges',               # 課題管理
     'proposals',                # 提案管理
-    'selection',                # ユーザー選出機能
+    'selections',               # ユーザー選出機能
     'payments',                 # 報酬管理
     'moderation',               # モデレーション管理
     'notifications',            # 通知管理
     'analytics',                # 分析・まとめ機能
-    'mvp_app',                  # 既存のアプリ（必要に応じて削除または統合）
 ]
 
 MIDDLEWARE = [
@@ -153,6 +152,8 @@ REST_FRAMEWORK = {
     'DEFAULT_RENDERER_CLASSES': [
         'rest_framework.renderers.JSONRenderer',
     ],
+    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
+    'PAGE_SIZE': 20,
 }
 
 # JWT設定
@@ -169,3 +170,24 @@ AUTH_USER_MODEL = 'accounts.User'
 # メディアファイル設定
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ログ設定
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+        'proposals': {
+            'handlers': ['console'],
+            'level': 'DEBUG',
+        },
+    },
+}

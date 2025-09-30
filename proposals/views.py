@@ -3,12 +3,16 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
-from .models import Proposal, ProposalComment, ProposalEvaluation
+from django.utils import timezone
+import random
+import logging
+from .models import Proposal, AnonymousName
+from challenges.models import Challenge
 from .serializers import (
-    ProposalSerializer, ProposalCreateSerializer, ProposalListSerializer,
-    ProposalCommentSerializer, ProposalCommentCreateSerializer,
-    ProposalEvaluationSerializer, ProposalEvaluationCreateSerializer
+    ProposalSerializer, ProposalCreateSerializer, ProposalListSerializer
 )
+
+logger = logging.getLogger(__name__)
 
 class ProposalListCreateView(generics.ListCreateAPIView):
     """
@@ -30,25 +34,71 @@ class ProposalListCreateView(generics.ListCreateAPIView):
         
         if user.user_type == 'proposer':
             # 提案者: 自分の提案のみ
-            return Proposal.objects.filter(proposer=user, is_deleted=False)
+            return Proposal.objects.filter(proposer=user)
         elif user.user_type == 'contributor':
             # 投稿者: 自分の課題に対する提案のみ
             return Proposal.objects.filter(
-                challenge__contributor=user,
-                is_deleted=False
+                challenge__contributor=user
             )
         
         return Proposal.objects.none()
     
     def perform_create(self, serializer):
         """提案作成時の処理"""
-        user = self.request.user
-        
-        # 提案者のみ作成可能
-        if user.user_type != 'proposer':
-            raise permissions.PermissionDenied("提案者のみ提案を作成できます。")
-        
-        serializer.save(proposer=user)
+        try:
+            logger.debug(f"Proposal creation started for user: {self.request.user.id}")
+            user = self.request.user
+            
+            # 提案者のみ作成可能
+            if user.user_type != 'proposer':
+                logger.warning(f"Non-proposer user {user.id} attempted to create proposal")
+                raise permissions.PermissionDenied("提案者のみ提案を作成できます。")
+            
+            # 1課題1提案制限の確認と既存提案の削除
+            challenge_id = serializer.validated_data.get('challenge').id
+            logger.debug(f"Challenge ID: {challenge_id}")
+            
+            existing_proposals = Proposal.objects.filter(
+                proposer=user,
+                challenge_id=challenge_id
+            ).order_by('-created_at')
+            
+            if existing_proposals.exists():
+                logger.warning(f"User {user.id} already has {existing_proposals.count()} proposal(s) for challenge {challenge_id}")
+                
+                # 既存の提案を全て削除（最新の1つ以外）
+                proposals_to_delete = existing_proposals[1:]  # 最新以外
+                for proposal in proposals_to_delete:
+                    logger.info(f"Deleting existing proposal {proposal.id} for user {user.id}, challenge {challenge_id}")
+                    proposal.delete()
+                
+                # 最新の提案も削除（完全に新しい提案で置き換え）
+                if existing_proposals.exists():
+                    latest_proposal = existing_proposals.first()
+                    logger.info(f"Deleting latest proposal {latest_proposal.id} for user {user.id}, challenge {challenge_id}")
+                    latest_proposal.delete()
+            
+            # 匿名名をランダムに割り当て
+            anonymous_name = self.get_random_anonymous_name()
+            logger.debug(f"Selected anonymous name: {anonymous_name}")
+            
+            serializer.save(
+                proposer=user,
+                anonymous_name=anonymous_name,
+                is_anonymous=True
+            )
+            logger.info(f"Proposal created successfully for user {user.id}, challenge {challenge_id}")
+            
+        except Exception as e:
+            logger.error(f"Error in perform_create: {str(e)}", exc_info=True)
+            raise
+    
+    def get_random_anonymous_name(self):
+        """ランダムな匿名名を取得"""
+        anonymous_names = list(AnonymousName.objects.all())
+        if anonymous_names:
+            return random.choice(anonymous_names)
+        return None
 
 class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -65,12 +115,11 @@ class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
         
         if user.user_type == 'proposer':
             # 提案者: 自分の提案のみ
-            return Proposal.objects.filter(proposer=user, is_deleted=False)
+            return Proposal.objects.filter(proposer=user)
         elif user.user_type == 'contributor':
-            # 投稿者: 自分の課題に対する提案のみ
+            # 投稿者: 自分の課題に対する提案のみ閲覧可能
             return Proposal.objects.filter(
-                challenge__contributor=user,
-                is_deleted=False
+                challenge__contributor=user
             )
         
         return Proposal.objects.none()
@@ -79,169 +128,73 @@ class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
         """オブジェクト取得時の処理"""
         obj = super().get_object()
         
-        # 投稿者の場合、閲覧のみ可能
+        # 提案者の場合、更新・削除のみ可能
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             if self.request.user.user_type != 'proposer':
                 raise permissions.PermissionDenied("提案者のみ提案を編集・削除できます。")
         
         return obj
-    
-    def destroy(self, request, *args, **kwargs):
-        """提案削除時の処理（論理削除）"""
-        proposal = self.get_object()
-        
-        # 提案者のみ削除可能
-        if request.user.user_type != 'proposer':
-            raise permissions.PermissionDenied("提案者のみ提案を削除できます。")
-        
-        proposal.is_deleted = True
-        proposal.save()
-        return Response(status=status.HTTP_204_NO_CONTENT)
 
-class ProposalCommentListCreateView(generics.ListCreateAPIView):
+class ProposalByChallengeView(generics.ListAPIView):
     """
-    提案コメント一覧取得・作成API
-    提案者・投稿者のみ使用可能
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_serializer_class(self):
-        """HTTPメソッドに応じてシリアライザーを切り替え"""
-        if self.request.method == 'POST':
-            return ProposalCommentCreateSerializer
-        return ProposalCommentSerializer
-    
-    def get_queryset(self):
-        """提案IDに基づいてコメントを取得"""
-        proposal_id = self.kwargs.get('proposal_id')
-        return ProposalComment.objects.filter(
-            proposal_id=proposal_id,
-            is_deleted=False
-        )
-    
-    def perform_create(self, serializer):
-        """コメント作成時の処理"""
-        proposal_id = self.kwargs.get('proposal_id')
-        proposal = get_object_or_404(Proposal, id=proposal_id)
-        
-        # 提案者・投稿者のみコメント可能
-        user = self.request.user
-        if not (user.user_type == 'proposer' or 
-                (user.user_type == 'contributor' and proposal.challenge.contributor == user)):
-            raise permissions.PermissionDenied("コメントの投稿権限がありません。")
-        
-        serializer.save(commenter=self.request.user, proposal=proposal)
-
-class ProposalEvaluationListCreateView(generics.ListCreateAPIView):
-    """
-    提案評価一覧取得・作成API
-    提案者・投稿者のみ使用可能
-    """
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_serializer_class(self):
-        """HTTPメソッドに応じてシリアライザーを切り替え"""
-        if self.request.method == 'POST':
-            return ProposalEvaluationCreateSerializer
-        return ProposalEvaluationSerializer
-    
-    def get_queryset(self):
-        """提案IDに基づいて評価を取得"""
-        proposal_id = self.kwargs.get('proposal_id')
-        return ProposalEvaluation.objects.filter(proposal_id=proposal_id)
-    
-    def perform_create(self, serializer):
-        """評価作成時の処理"""
-        proposal_id = self.kwargs.get('proposal_id')
-        proposal = get_object_or_404(Proposal, id=proposal_id)
-        
-        # 提案者・投稿者のみ評価可能
-        user = self.request.user
-        if not (user.user_type == 'proposer' or 
-                (user.user_type == 'contributor' and proposal.challenge.contributor == user)):
-            raise permissions.PermissionDenied("評価の投稿権限がありません。")
-        
-        serializer.save(evaluator=self.request.user, proposal=proposal)
-
-class ProposalEvaluationDetailView(generics.RetrieveUpdateDestroyAPIView):
-    """
-    提案評価詳細取得・更新・削除API
-    評価者のみ操作可能
-    """
-    serializer_class = ProposalEvaluationSerializer
-    permission_classes = [permissions.IsAuthenticated]
-    
-    def get_queryset(self):
-        """評価者の評価のみ"""
-        return ProposalEvaluation.objects.filter(evaluator=self.request.user)
-    
-    def get_object(self):
-        """オブジェクト取得時の処理"""
-        proposal_id = self.kwargs.get('proposal_id')
-        evaluation_id = self.kwargs.get('pk')
-        
-        return get_object_or_404(
-            ProposalEvaluation,
-            id=evaluation_id,
-            proposal_id=proposal_id,
-            evaluator=self.request.user
-        )
-
-class ProposalByChallengeListView(generics.ListAPIView):
-    """
-    特定課題の提案一覧取得API
-    課題の投稿者・選出された提案者のみ閲覧可能
+    課題別提案一覧取得API
+    特定の課題に対する提案一覧を取得
     """
     serializer_class = ProposalListSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        """課題IDに基づいて提案を取得"""
-        challenge_id = self.kwargs.get('challenge_id')
+        """指定された課題の提案一覧を返す"""
+        challenge_id = self.kwargs['challenge_id']
         user = self.request.user
         
-        # 課題の投稿者または選出された提案者のみ閲覧可能
-        # TODO: 選出機能実装後に selections__proposer=user を追加
-        if user.user_type == 'contributor':
-            return Proposal.objects.filter(
-                challenge_id=challenge_id,
-                challenge__contributor=user,
-                is_deleted=False
-            )
-        elif user.user_type == 'proposer':
-            return Proposal.objects.filter(
-                challenge_id=challenge_id,
-                is_deleted=False
-            )
+        # 課題の存在確認と権限チェック
+        challenge = get_object_or_404(
+            Challenge,
+            id=challenge_id
+        )
         
-        return Proposal.objects.none()
+        # 投稿者の場合、自分の課題の提案のみ閲覧可能
+        if user.user_type == 'contributor':
+            if challenge.contributor != user:
+                raise permissions.PermissionDenied("自分の課題の提案のみ閲覧できます。")
+        # 提案者の場合、自分の提案済み課題の提案のみ閲覧可能
+        elif user.user_type == 'proposer':
+            # ユーザーがこの課題に提案しているかチェック
+            user_proposal = Proposal.objects.filter(
+                proposer=user,
+                challenge_id=challenge_id
+            ).first()
+            
+            if not user_proposal:
+                raise permissions.PermissionDenied("解決案を投稿すると、他の提案者の解決案も閲覧できるようになります。")
+        
+        return Proposal.objects.filter(challenge_id=challenge_id)
 
-class ProposalAdoptionView(generics.UpdateAPIView):
+class UserProposalForChallengeView(generics.ListAPIView):
     """
-    提案採用API
-    課題の投稿者のみ使用可能
+    ユーザーの特定課題への提案状況確認API
+    提案者が特定の課題に対して既に提案しているかチェック
     """
-    serializer_class = ProposalSerializer
+    serializer_class = ProposalListSerializer
     permission_classes = [permissions.IsAuthenticated]
     
     def get_queryset(self):
-        """課題の投稿者のみ"""
-        return Proposal.objects.filter(
-            challenge__contributor=self.request.user,
-            is_deleted=False
+        """ユーザーの特定課題への提案を返す"""
+        challenge_id = self.kwargs['challenge_id']
+        user = self.request.user
+        
+        # 提案者のみ利用可能
+        if user.user_type != 'proposer':
+            raise permissions.PermissionDenied("提案者のみ利用できます。")
+        
+        # 課題の存在確認
+        get_object_or_404(
+            Challenge,
+            id=challenge_id
         )
-    
-    def update(self, request, *args, **kwargs):
-        """提案採用処理"""
-        proposal = self.get_object()
         
-        # 投稿者のみ採用可能
-        if request.user.user_type != 'contributor':
-            raise permissions.PermissionDenied("投稿者のみ提案を採用できます。")
-        
-        # 採用フラグを設定
-        proposal.is_adopted = True
-        proposal.save()
-        
-        serializer = self.get_serializer(proposal)
-        return Response(serializer.data)
+        return Proposal.objects.filter(
+            proposer=user,
+            challenge_id=challenge_id
+        )

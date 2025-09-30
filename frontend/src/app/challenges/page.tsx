@@ -8,7 +8,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import ChallengeCard from '../../components/challenges/ChallengeCard';
 import type { ChallengeListItem, ChallengeListResponse } from '../../types/challenge';
-import { getChallenges } from '../../lib/challengeAPI';
+import { getChallenges, deleteChallenge } from '../../lib/challengeAPI';
+import { getUserProposalForChallenge } from '../../lib/proposalAPI';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ChallengesPage: React.FC = () => {
@@ -16,16 +17,68 @@ const ChallengesPage: React.FC = () => {
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [userProposals, setUserProposals] = useState<{[key: number]: any}>({});
 
   // 課題一覧の取得
   const fetchChallenges = async () => {
+    // 認証されていない場合はAPI呼び出しを避ける
+    if (!isAuthenticated || !user) {
+      console.log('Not authenticated, skipping API calls');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
-      const response: ChallengeListResponse = await getChallenges();
-      setChallenges(response.results || []);
+      const response: any = await getChallenges();
+      
+      // レスポンスが配列の場合とオブジェクトの場合を両方処理
+      let challengesData = [];
+      if (Array.isArray(response)) {
+        challengesData = response;
+      } else if (response && response.results) {
+        challengesData = response.results;
+      }
+      
+      // 提案者ユーザーの場合、各課題の提案状況をチェック
+      if (user.user_type === 'proposer') {
+        const proposalStatus: {[key: number]: any} = {};
+        for (const challenge of challengesData) {
+          try {
+            const proposal = await getUserProposalForChallenge(challenge.id);
+            if (proposal) {
+              proposalStatus[challenge.id] = proposal;
+            }
+          } catch (err) {
+            // 提案がない場合は無視
+            console.log(`No proposal found for challenge ${challenge.id}`);
+          }
+        }
+        setUserProposals(proposalStatus);
+      }
+      
+      // 期限順（期限が近いものが上に来る順）でソート
+      challengesData.sort((a: ChallengeListItem, b: ChallengeListItem) => {
+        const deadlineA = new Date(a.deadline);
+        const deadlineB = new Date(b.deadline);
+        return deadlineA.getTime() - deadlineB.getTime();
+      });
+      
+      // デバッグ: 報酬データを確認
+      console.log('Challenge reward data:', challengesData.map((c: ChallengeListItem) => ({
+        id: c.id,
+        title: c.title,
+        reward_amount: c.reward_amount,
+        adoption_reward: c.adoption_reward,
+        reward_amount_man: Math.floor(c.reward_amount / 10000),
+        adoption_reward_man: Math.floor(c.adoption_reward / 10000)
+      })));
+      
+      setChallenges(challengesData);
     } catch (err) {
+      console.error('課題一覧取得エラー:', err);
       setError(err instanceof Error ? err.message : '課題の取得に失敗しました');
     } finally {
       setLoading(false);
@@ -33,8 +86,26 @@ const ChallengesPage: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchChallenges();
-  }, []);
+    // 認証されている場合のみ課題一覧を取得
+    if (isAuthenticated && user) {
+      fetchChallenges();
+    } else if (!isAuthenticated) {
+      setLoading(false);
+      setError('ログインが必要です');
+    }
+  }, [isAuthenticated, user]);
+
+  // ページフォーカス時に課題一覧を更新
+  useEffect(() => {
+    const handleFocus = () => {
+      if (isAuthenticated && user) {
+        fetchChallenges();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [isAuthenticated, user]);
 
   // 課題カードのクリック処理
   const handleChallengeView = (challenge: ChallengeListItem) => {
@@ -52,10 +123,41 @@ const ChallengesPage: React.FC = () => {
   // 課題削除処理（投稿者のみ）
   const handleChallengeDelete = async (challenge: ChallengeListItem) => {
     if (user?.user_type === 'contributor' && confirm('この課題を削除しますか？')) {
-      // TODO: 削除API呼び出し
-      console.log('削除処理:', challenge.id);
+      try {
+        await deleteChallenge(challenge.id);
+        console.log('課題削除成功:', challenge.id);
+        // 削除後に課題一覧を再取得
+        fetchChallenges();
+      } catch (error) {
+        console.error('課題削除エラー:', error);
+        alert('課題の削除に失敗しました。');
+      }
     }
   };
+
+  // 未認証の場合の表示
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-medium text-yellow-800 mb-2">
+              ログインが必要です
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              課題一覧を表示するにはログインしてください。
+            </p>
+            <Link
+              href="/auth/login"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              ログイン
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ローディング表示
   if (loading) {
@@ -94,14 +196,16 @@ const ChallengesPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href={user?.user_type === 'contributor' ? '/dashboard/contributor' : '/dashboard/proposer'}
-              className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
-            >
-              ← 戻る
+          {/* パンくずリスト */}
+          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
+            <Link href="/dashboard" className="hover:text-gray-700">
+              ダッシュボード
             </Link>
-          </div>
+            <span>/</span>
+            <span className="text-gray-900 font-medium">
+              {user?.user_type === 'contributor' ? '投稿した課題' : '課題一覧'}
+            </span>
+          </nav>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -117,12 +221,20 @@ const ChallengesPage: React.FC = () => {
             
             {/* 投稿者のみ課題作成ボタンを表示 */}
             {user?.user_type === 'contributor' && (
-              <Link
-                href="/challenges/create"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                新しい課題を投稿
-              </Link>
+              <div className="flex gap-3">
+                <button
+                  onClick={fetchChallenges}
+                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+                >
+                  更新
+                </button>
+                <Link
+                  href="/challenges/create"
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                >
+                  新しい課題を投稿
+                </Link>
+              </div>
             )}
           </div>
         </div>
@@ -146,17 +258,56 @@ const ChallengesPage: React.FC = () => {
             )}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {challenges.map((challenge) => (
-              <ChallengeCard
-                key={challenge.id}
-                challenge={challenge}
-                showActions={true}
-                onView={handleChallengeView}
-                onEdit={user?.user_type === 'contributor' ? handleChallengeEdit : undefined}
-                onDelete={user?.user_type === 'contributor' ? handleChallengeDelete : undefined}
-              />
-            ))}
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="space-y-6">
+              {(() => {
+                if (user?.user_type === 'proposer') {
+                  // 提案者ユーザーの場合、提案済みと未提案を分離
+                  const proposedChallenges = challenges.filter(challenge => userProposals[challenge.id]);
+                  const unproposedChallenges = challenges.filter(challenge => !userProposals[challenge.id]);
+                  
+                  return (
+                    <>
+                      {/* 未提案の課題 */}
+                      {unproposedChallenges.map((challenge) => (
+                        <ChallengeCard
+                          key={challenge.id}
+                          challenge={challenge}
+                          showActions={true}
+                          userType="proposer"
+                          onView={handleChallengeView}
+                        />
+                      ))}
+                      
+                      {/* 提案済みの課題 */}
+                      {proposedChallenges.map((challenge) => (
+                        <ChallengeCard
+                          key={challenge.id}
+                          challenge={challenge}
+                          showActions={true}
+                          userType="proposer"
+                          isProposed={true}
+                          onView={handleChallengeView}
+                        />
+                      ))}
+                    </>
+                  );
+                } else {
+                  // 投稿者ユーザーの場合、通常通り表示
+                  return challenges.map((challenge) => (
+                    <ChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      showActions={true}
+                      userType="contributor"
+                      onView={handleChallengeView}
+                      onEdit={handleChallengeEdit}
+                      onDelete={handleChallengeDelete}
+                    />
+                  ));
+                }
+              })()}
+            </div>
           </div>
         )}
 

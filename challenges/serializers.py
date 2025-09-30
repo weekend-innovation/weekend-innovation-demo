@@ -58,16 +58,26 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
     課題作成専用シリアライザー
     投稿者のみが使用可能
     """
+    # 関連する投稿者の情報を表示用に含める
+    contributor_info = UserSerializer(source='contributor', read_only=True)
+    
     class Meta:
         model = Challenge
         fields = [
+            'id',
             'title',
             'description',
+            'contributor',
+            'contributor_info',
             'reward_amount',
             'adoption_reward',
             'required_participants',
-            'deadline'
+            'deadline',
+            'status',
+            'created_at',
+            'updated_at'
         ]
+        read_only_fields = ['id', 'contributor', 'status', 'created_at', 'updated_at']
     
     def validate_required_participants(self, value):
         """選出人数のバリデーション"""

@@ -11,9 +11,11 @@ import type { ProposalListItem } from '../../../types/proposal';
 import { getChallenges } from '../../../lib/challengeAPI';
 import { getProposals } from '../../../lib/proposalAPI';
 import { useAuth } from '../../../contexts/AuthContext';
+import ProposalCard from '../../../components/proposals/ProposalCard';
+import ChallengeCard from '../../../components/challenges/ChallengeCard';
 
 const ContributorDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -21,17 +23,35 @@ const ContributorDashboard: React.FC = () => {
 
   // ダッシュボードデータの取得
   const fetchDashboardData = async () => {
+    console.log('fetchDashboardData called');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('user:', user);
+    console.log('token:', token);
+    
+    // 認証されていない場合はAPI呼び出しを避ける
+    if (!isAuthenticated || !user) {
+      console.log('Not authenticated, skipping API calls');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
       
       // 課題データの取得
+      console.log('Fetching challenges...');
+      console.log('User:', user);
+      console.log('Is authenticated:', isAuthenticated);
+      console.log('Token:', token);
       const challengesResponse = await getChallenges();
-      setChallenges(challengesResponse.results || []);
+      const challengesData = Array.isArray(challengesResponse) ? challengesResponse : (challengesResponse.results || []);
+      setChallenges(challengesData);
       
       // 提案データの取得
       const proposalsResponse = await getProposals();
-      setProposals(proposalsResponse.results || []);
+      console.log('Proposals response:', proposalsResponse);
+      setProposals(proposalsResponse.results || proposalsResponse || []);
       
     } catch (err) {
       console.error('Dashboard data fetch error:', err);
@@ -45,8 +65,12 @@ const ContributorDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isAuthenticated && user) {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user]);
 
   // 統計情報の計算（安全な処理）
   const totalChallenges = challenges?.length || 0;
@@ -54,11 +78,21 @@ const ContributorDashboard: React.FC = () => {
   const totalProposals = proposals?.length || 0;
   const adoptedProposals = proposals?.filter(p => p.is_adopted).length || 0;
 
-  // 最近の課題（最新5件）
-  const recentChallenges = challenges?.slice(0, 5) || [];
+  // 最近の課題（投稿者自身の課題、期限順でソートして最新1件）
+  const recentChallenges = challenges
+    ?.sort((a, b) => {
+      const deadlineA = new Date(a.deadline);
+      const deadlineB = new Date(b.deadline);
+      return deadlineA.getTime() - deadlineB.getTime();
+    })
+    .slice(0, 1) || [];
   
-  // 最近の提案（最新5件）
+  // 最近の提案（投稿者が投稿した課題に対する提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
+  
+  // デバッグログ
+  console.log('Recent proposals:', recentProposals);
+  console.log('Proposals length:', proposals?.length);
 
   // ローディング表示
   if (loading) {
@@ -140,8 +174,7 @@ const ContributorDashboard: React.FC = () => {
 
         </div>
 
-
-        <div className="space-y-8">
+        <div className="mt-8 space-y-8">
           {/* 最近の課題 */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <div className="flex justify-between items-center mb-4">
@@ -156,31 +189,33 @@ const ContributorDashboard: React.FC = () => {
             {recentChallenges.length === 0 ? (
               <p className="text-gray-500 text-center py-4">まだ課題を投稿していません</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {recentChallenges.map((challenge) => (
-                  <div key={challenge.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{challenge.title}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(challenge.created_at).toLocaleDateString('ja-JP')} • 
-                        {challenge.status === 'open' ? '募集中' : challenge.status === 'closed' ? '締切' : '完了'}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-gray-500">
-                        ¥{challenge.reward_amount.toLocaleString()}
-                      </span>
-                    </div>
-                  </div>
+                  <ChallengeCard
+                    key={challenge.id}
+                    challenge={challenge}
+                    showActions={true}
+                    userType="contributor"
+                    onView={(challenge) => {
+                      window.location.href = `/challenges/${challenge.id}`;
+                    }}
+                    onEdit={(challenge) => {
+                      window.location.href = `/challenges/${challenge.id}/edit`;
+                    }}
+                    onDelete={(challenge) => {
+                      // TODO: 削除機能を実装
+                      console.log('Delete challenge:', challenge.id);
+                    }}
+                  />
                 ))}
               </div>
             )}
           </div>
 
-          {/* 最近の提案 */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+          {/* 最近の解決案 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">最近の提案</h2>
+              <h2 className="text-lg font-semibold text-gray-900">最近の解決案</h2>
               <Link
                 href="/proposals"
                 className="text-blue-600 hover:text-blue-800 text-sm font-medium"
@@ -189,28 +224,17 @@ const ContributorDashboard: React.FC = () => {
               </Link>
             </div>
             {recentProposals.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">まだ提案がありません</p>
+              <p className="text-gray-500 text-center py-4">あなたの課題に対する解決案はまだありません</p>
             ) : (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {recentProposals.map((proposal) => (
-                  <div key={proposal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{proposal.challenge_title}</p>
-                      <p className="text-xs text-gray-500">
-                        {proposal.proposer_name} • {new Date(proposal.created_at).toLocaleDateString('ja-JP')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {proposal.is_adopted && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          採用済み
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {proposal.evaluation_count}評価
-                      </span>
-                    </div>
-                  </div>
+                  <ProposalCard
+                    key={proposal.id}
+                    proposal={proposal}
+                    showActions={false}
+                    showStatus={false}
+                    showChallengeInfo={true}
+                  />
                 ))}
               </div>
             )}

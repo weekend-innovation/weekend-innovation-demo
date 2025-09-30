@@ -30,6 +30,7 @@ export interface Challenge {
 export interface ChallengeListItem {
   id: number;
   title: string;
+  description: string;
   contributor_name: string;
   reward_amount: number;
   adoption_reward: number;
@@ -104,6 +105,8 @@ export interface ChallengeFilters {
 export interface ChallengeCardProps {
   challenge: ChallengeListItem;
   showActions?: boolean;
+  userType?: 'contributor' | 'proposer';
+  isProposed?: boolean;
   onView?: (challenge: ChallengeListItem) => void;
   onEdit?: (challenge: ChallengeListItem) => void;
   onDelete?: (challenge: ChallengeListItem) => void;

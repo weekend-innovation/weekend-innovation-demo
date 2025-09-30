@@ -8,39 +8,66 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Challenge } from '../../../types/challenge';
-import { getChallenge } from '../../../lib/challengeAPI';
+import type { Proposal } from '../../../types/proposal';
+import { getChallenge, deleteChallenge } from '../../../lib/challengeAPI';
+import { getProposalsByChallenge, getUserProposalForChallenge } from '../../../lib/proposalAPI';
 import { useAuth } from '../../../contexts/AuthContext';
+import ProposalCard from '../../../components/proposals/ProposalCard';
 
 const ChallengeDetailPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [proposals, setProposals] = useState<Proposal[]>([]);
+  const [userProposal, setUserProposal] = useState<Proposal | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const challengeId = params.id as string;
 
-  // 課題詳細の取得
-  const fetchChallenge = async () => {
+  // 課題詳細と解決案の取得
+  const fetchChallengeData = async () => {
     try {
       setLoading(true);
       setError(null);
       
+      // 課題詳細の取得
       const challengeData = await getChallenge(parseInt(challengeId));
       setChallenge(challengeData);
+      
+      // 提案者の場合、解決案を取得
+      if (user?.user_type === 'proposer' && isAuthenticated) {
+        // ユーザーの提案状況を確認
+        const userProposalData = await getUserProposalForChallenge(parseInt(challengeId));
+        setUserProposal(userProposalData);
+        
+        // ユーザーが提案済みの場合のみ、他の提案も取得
+        if (userProposalData) {
+          const proposalsData = await getProposalsByChallenge(parseInt(challengeId));
+          setProposals(proposalsData.results);
+        }
+      }
+      
+      // 投稿者の場合は全ての解決案を取得
+      if (user?.user_type === 'contributor' && isAuthenticated) {
+        const proposalsData = await getProposalsByChallenge(parseInt(challengeId));
+        setProposals(proposalsData.results);
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : '課題の取得に失敗しました');
+      setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    if (challengeId) {
-      fetchChallenge();
+    if (challengeId && isAuthenticated && user) {
+      fetchChallengeData();
+    } else if (!isAuthenticated) {
+      setLoading(false);
     }
-  }, [challengeId]);
+  }, [challengeId, isAuthenticated, user]);
 
   // 期限の表示形式
   const formatDeadline = (deadline: string) => {
@@ -49,15 +76,28 @@ const ChallengeDetailPage: React.FC = () => {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
       weekday: 'long'
     });
   };
 
   // 報酬の表示形式
   const formatReward = (amount: number) => {
-    return `¥${amount.toLocaleString()}`;
+    // 0の場合は空文字を返す
+    if (amount === 0) {
+      return '';
+    }
+    // 1万円未満の場合は円単位で表示
+    if (amount < 10000) {
+      return `${amount}円`;
+    }
+    // 1万円以上の場合は万円単位で表示
+    const amountInMan = amount / 10000;
+    // 整数の場合は小数点を表示しない
+    if (amountInMan % 1 === 0) {
+      return `${Math.floor(amountInMan)}万円`;
+    }
+    // 小数点がある場合は1桁まで表示
+    return `${amountInMan.toFixed(1)}万円`;
   };
 
   // ステータスに応じた表示色とラベル
@@ -117,20 +157,26 @@ const ChallengeDetailPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ナビゲーション */}
+        {/* パンくずリスト */}
         <div className="mb-6">
-          <Link
-            href="/challenges"
-            className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
-          >
-            ← 課題一覧に戻る
-          </Link>
+          <nav className="flex items-center space-x-2 text-sm text-gray-500">
+            <Link href="/dashboard" className="hover:text-gray-700">
+              ダッシュボード
+            </Link>
+            <span>/</span>
+            <Link href="/challenges" className="hover:text-gray-700">
+              課題一覧
+            </Link>
+            <span>/</span>
+            <span className="text-gray-900 font-medium">課題詳細</span>
+          </nav>
         </div>
 
-        {/* 課題ヘッダー */}
+        {/* 課題概要と内容（コンパクト） */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <div className="flex justify-between items-start mb-4">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
+          <div className="mb-4">
+            <div className="flex items-start justify-between mb-2">
+              <h1 className="text-2xl font-bold text-gray-900 flex-1 pr-4">
                 {challenge.title}
               </h1>
               <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -138,101 +184,166 @@ const ChallengeDetailPage: React.FC = () => {
                 <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
               </div>
             </div>
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${statusDisplay.color}`}>
-              {statusDisplay.label}
-            </span>
           </div>
 
-          {/* 報酬情報 */}
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500 mb-1">提案報酬</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatReward(challenge.reward_amount)}
-              </p>
+          {/* 報酬と期限（コンパクト） */}
+          <div className="space-y-4 mb-4">
+            {/* 報酬情報（2列） */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-blue-50 rounded-lg p-3 text-center">
+                <p className="text-sm text-blue-600 font-medium mb-1">提案報酬</p>
+                <p className="text-lg font-bold text-blue-900">
+                  {formatReward(challenge.reward_amount)}
+                </p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-3 text-center">
+                <p className="text-sm text-green-600 font-medium mb-1">採用報酬</p>
+                <p className="text-lg font-bold text-green-900">
+                  {formatReward(challenge.adoption_reward)}
+                </p>
+              </div>
             </div>
-            <div className="bg-gray-50 rounded-lg p-4">
-              <p className="text-sm text-gray-500 mb-1">採用報酬</p>
-              <p className="text-2xl font-bold text-gray-900">
-                {formatReward(challenge.adoption_reward)}
-              </p>
-            </div>
-          </div>
-
-          {/* 選出人数と期限 */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="bg-blue-50 rounded-lg p-4">
-              <p className="text-sm text-blue-600 mb-1">選出人数</p>
-              <p className="text-xl font-semibold text-blue-900">
-                {challenge.required_participants}人
-              </p>
-            </div>
-            <div className="bg-orange-50 rounded-lg p-4">
-              <p className="text-sm text-orange-600 mb-1">期限</p>
-              <p className="text-lg font-semibold text-orange-900">
+            {/* 期限（1列） */}
+            <div className="bg-red-50 rounded-lg p-3 text-center">
+              <p className="text-sm text-red-600 font-medium mb-1">期限</p>
+              <p className="text-lg font-bold text-red-900">
                 {formatDeadline(challenge.deadline)}
               </p>
             </div>
           </div>
+
+          {/* 課題内容 */}
+          <div className="border-t border-gray-200 pt-4">
+            <h2 className="text-lg font-semibold text-gray-900 mb-3">課題内容</h2>
+            <div className="prose max-w-none">
+              <p className="text-gray-700 whitespace-pre-wrap">
+                {challenge.description}
+              </p>
+            </div>
+          </div>
         </div>
 
-        {/* 課題内容 */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4">課題内容</h2>
-          <div className="prose max-w-none">
-            <p className="text-gray-700 whitespace-pre-wrap">
-              {challenge.description}
+        {/* 解決案表示セクション */}
+        {(user?.user_type === 'contributor' || (user?.user_type === 'proposer' && userProposal)) && (
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
+            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+              解決案 ({proposals.length}件)
+            </h2>
+            
+            {proposals.length === 0 ? (
+              <p className="text-gray-600 text-center py-8">
+                まだ解決案が投稿されていません。
+              </p>
+            ) : (
+              <div className="space-y-4">
+                {user?.user_type === 'proposer' ? (
+                  (() => {
+                    // デバッグ: 提案データとユーザー情報を確認
+                    console.log('Proposals data:', proposals);
+                    console.log('User ID:', user?.id);
+                    console.log('First proposal structure:', proposals[0]);
+                    console.log('All proposal proposer fields:', proposals.map(p => ({ id: p.id, proposer: p.proposer, proposer_info: p.proposer_info })));
+                    console.log('Full proposal structure:', JSON.stringify(proposals[0], null, 2));
+                    
+                    // 自分の解決案と他の解決案を分離
+                    // proposer_nameフィールドで判定
+                    const myProposal = proposals.find(p => {
+                      console.log(`Checking proposal ${p.id}: proposer_name=${p.proposer_name}, user.username=${user?.username}`);
+                      return p.proposer_name === user?.username;
+                    });
+                    const otherProposals = proposals.filter(p => p.proposer_name !== user?.username)
+                      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    
+                    console.log('My proposal:', myProposal);
+                    console.log('Other proposals count:', otherProposals.length);
+                    
+                    return (
+                      <>
+                        {/* 自分の解決案（最上位） */}
+                        {myProposal && (
+                          <div className="border-2 border-blue-200 rounded-lg p-1">
+                            <div className="bg-blue-50 rounded-lg p-4 mb-2">
+                              <h3 className="text-sm font-medium text-blue-900 mb-1">あなたの解決案</h3>
+                            </div>
+                            <ProposalCard
+                              key={myProposal.id}
+                              proposal={myProposal}
+                              showActions={true}
+                              showStatus={false}
+                              showComments={false} // 自分の解決案にはコメントボタン不要
+                              showChallengeInfo={false}
+                              onComments={(proposal) => {
+                                console.log('コメント表示:', proposal.id);
+                              }}
+                            />
+                          </div>
+                        )}
+                        
+                        {/* 他の解決案（最新順） */}
+                        {otherProposals.length > 0 && (
+                          <>
+                            {myProposal && (
+                              <div className="bg-gray-50 rounded-lg p-4 mb-2">
+                                <h3 className="text-sm font-medium text-gray-700 mb-1">他の解決案 ({otherProposals.length}件)</h3>
+                              </div>
+                            )}
+                            {otherProposals.map((proposal) => (
+                              <ProposalCard
+                                key={proposal.id}
+                                proposal={proposal}
+                                showActions={true}
+                                showStatus={false}
+                                showComments={true}
+                                showChallengeInfo={false}
+                                onComments={(proposal) => {
+                                  console.log('コメント表示:', proposal.id);
+                                }}
+                              />
+                            ))}
+                          </>
+                        )}
+                      </>
+                    );
+                  })()
+                ) : (
+                  // 投稿者ユーザーの場合は通常の表示
+                  proposals.map((proposal) => (
+                    <ProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      showActions={true}
+                      showStatus={false}
+                      showComments={true}
+                      showChallengeInfo={false}
+                      onComments={(proposal) => {
+                        console.log('コメント表示:', proposal.id);
+                      }}
+                    />
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* 提案者の未投稿時の案内 */}
+        {user?.user_type === 'proposer' && !userProposal && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+            <h3 className="text-lg font-medium text-blue-900 mb-2">
+              解決案を提案してください
+            </h3>
+            <p className="text-blue-800 mb-4">
+              解決案を提案すると、他の提案者の解決案も閲覧できるようになります。
             </p>
+            <Link
+              href={`/challenges/${challenge.id}/propose`}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              解決案を提案する
+            </Link>
           </div>
-        </div>
+        )}
 
-        {/* アクションボタン */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-          <div className="flex gap-4">
-            {/* 投稿者の場合 */}
-            {user?.user_type === 'contributor' && user.id === challenge.contributor && (
-              <>
-                <Link
-                  href={`/challenges/${challenge.id}/edit`}
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                >
-                  課題を編集
-                </Link>
-                <button
-                  onClick={() => {
-                    if (confirm('この課題を削除しますか？')) {
-                      // TODO: 削除処理
-                      console.log('削除処理:', challenge.id);
-                    }
-                  }}
-                  className="bg-red-600 text-white px-6 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
-                >
-                  課題を削除
-                </button>
-              </>
-            )}
-
-            {/* 提案者の場合 */}
-            {user?.user_type === 'proposer' && challenge.status === 'open' && (
-              <Link
-                href={`/challenges/${challenge.id}/propose`}
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-              >
-                解決案を提案
-              </Link>
-            )}
-
-            {/* 未認証ユーザー */}
-            {!isAuthenticated && (
-              <Link
-                href="/auth/login"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                ログインして参加
-              </Link>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

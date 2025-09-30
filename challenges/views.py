@@ -29,8 +29,15 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
             return Challenge.objects.filter(contributor=user)
         elif user.user_type == 'proposer':
             # 提案者: 選出された課題のみ表示
-            # TODO: 選出機能実装後に selections__proposer=user を追加
-            return Challenge.objects.filter(status='open')
+            from selections.models import Selection
+            selected_challenges = Selection.objects.filter(
+                selected_users=user,
+                status='completed'
+            ).values_list('challenge_id', flat=True)
+            return Challenge.objects.filter(
+                id__in=selected_challenges,
+                status='open'
+            )
         
         return Challenge.objects.none()
     
@@ -41,6 +48,11 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         # 投稿者のみ作成可能
         if user.user_type != 'contributor':
             raise permissions.PermissionDenied("投稿者のみ課題を作成できます。")
+        
+        # 万円単位の入力を円単位に変換
+        validated_data = serializer.validated_data
+        validated_data['reward_amount'] = validated_data['reward_amount'] * 10000
+        validated_data['adoption_reward'] = validated_data['adoption_reward'] * 10000
         
         serializer.save(contributor=user)
 
@@ -77,6 +89,17 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
                 raise permissions.PermissionDenied("投稿者のみ課題を編集・削除できます。")
         
         return obj
+    
+    def perform_update(self, serializer):
+        """課題更新時の処理"""
+        # 万円単位の入力を円単位に変換
+        validated_data = serializer.validated_data
+        if 'reward_amount' in validated_data:
+            validated_data['reward_amount'] = validated_data['reward_amount'] * 10000
+        if 'adoption_reward' in validated_data:
+            validated_data['adoption_reward'] = validated_data['adoption_reward'] * 10000
+        
+        serializer.save()
     
     def destroy(self, request, *args, **kwargs):
         """課題削除時の処理"""

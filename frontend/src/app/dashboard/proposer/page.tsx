@@ -11,16 +11,31 @@ import type { ChallengeListItem } from '../../../types/challenge';
 import { getProposals } from '../../../lib/proposalAPI';
 import { getChallenges } from '../../../lib/challengeAPI';
 import { useAuth } from '../../../contexts/AuthContext';
+import ProposalCard from '../../../components/proposals/ProposalCard';
+import ChallengeCard from '../../../components/challenges/ChallengeCard';
 
 const ProposerDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, token, isAuthenticated } = useAuth();
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasNewChallenges, setHasNewChallenges] = useState<boolean>(false);
 
   // ダッシュボードデータの取得
   const fetchDashboardData = async () => {
+    console.log('fetchDashboardData called');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('user:', user);
+    console.log('token:', token);
+    
+    // 認証されていない場合はAPI呼び出しを避ける
+    if (!isAuthenticated || !user) {
+      console.log('Not authenticated, skipping API calls');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError(null);
@@ -28,12 +43,26 @@ const ProposerDashboard: React.FC = () => {
       // 提案データの取得
       const proposalsResponse = await getProposals();
       console.log('Proposals response:', proposalsResponse);
-      setProposals(proposalsResponse.results || []);
+      const proposalsData = proposalsResponse.results || proposalsResponse || [];
+      setProposals(proposalsData);
       
-      // 課題データの取得（募集中の課題）
+      // 課題データの取得（提案者の場合、選出された課題のみ）
+      console.log('Fetching challenges for proposer...');
+      console.log('User:', user);
+      console.log('Is authenticated:', isAuthenticated);
+      console.log('Token:', token);
       const challengesResponse = await getChallenges();
-      console.log('Challenges response:', challengesResponse);
-      setChallenges(challengesResponse.results || []);
+      const challengesData = Array.isArray(challengesResponse) ? challengesResponse : (challengesResponse.results || []);
+      
+      // 選出された課題に対して提案していない課題があるかチェック
+      const hasUnproposedChallenges = challengesData.some(challenge => {
+        // この課題に対する提案があるかチェック
+        return !proposalsData.some(proposal => proposal.challenge === challenge.id);
+      });
+      
+      setHasNewChallenges(hasUnproposedChallenges);
+      
+      setChallenges(challengesData);
       
     } catch (err) {
       console.error('Dashboard data fetch error:', err);
@@ -47,8 +76,12 @@ const ProposerDashboard: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    if (isAuthenticated && user) {
+      fetchDashboardData();
+    } else {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user]);
 
   // 統計情報の計算（安全な処理）
   const totalProposals = proposals?.length || 0;
@@ -56,7 +89,12 @@ const ProposerDashboard: React.FC = () => {
   const totalEvaluations = proposals?.reduce((sum, p) => sum + (p.evaluation_count || 0), 0) || 0;
   const averageEvaluation = totalProposals > 0 ? Math.round((totalEvaluations / totalProposals) * 10) / 10 : 0;
 
-  // 最近の提案（最新5件）
+  // 課題詳細表示処理
+  const handleChallengeView = (challenge: ChallengeListItem) => {
+    window.location.href = `/challenges/${challenge.id}`;
+  };
+
+  // 最近の提案（提案者自身の提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
   
   // 評価の多い提案（上位5件）
@@ -64,8 +102,15 @@ const ProposerDashboard: React.FC = () => {
     ?.sort((a, b) => (b.evaluation_count || 0) - (a.evaluation_count || 0))
     .slice(0, 5) || [];
 
-  // 募集中の課題（最新5件）
-  const openChallenges = challenges?.filter(c => c.status === 'open').slice(0, 5) || [];
+  // 募集中の課題（選出された課題のみ、期限順でソートして最新1件）
+  const openChallenges = challenges
+    ?.filter(c => c.status === 'open')
+    .sort((a, b) => {
+      const deadlineA = new Date(a.deadline);
+      const deadlineB = new Date(b.deadline);
+      return deadlineA.getTime() - deadlineB.getTime();
+    })
+    .slice(0, 1) || [];
 
   // ローディング表示
   if (loading) {
@@ -110,7 +155,7 @@ const ProposerDashboard: React.FC = () => {
               href="/challenges"
               className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
             >
-              新しい提案を投稿
+              新しい解決案を提案
             </Link>
           </div>
         </div>
@@ -148,74 +193,66 @@ const ProposerDashboard: React.FC = () => {
         </div>
 
 
-        <div className="space-y-8">
-          {/* 最近の提案 */}
-          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold text-gray-900">最近の提案</h2>
-              <Link
-                href="/proposals"
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
-              >
-                すべて見る
-              </Link>
-            </div>
-            {recentProposals.length === 0 ? (
-              <p className="text-gray-500 text-center py-4">まだ提案を投稿していません</p>
-            ) : (
-              <div className="space-y-3">
-                {recentProposals.map((proposal) => (
-                  <div key={proposal.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">{proposal.challenge_title}</p>
-                      <p className="text-xs text-gray-500">
-                        {new Date(proposal.created_at).toLocaleDateString('ja-JP')}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {proposal.is_adopted && (
-                        <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-100 text-green-800">
-                          採用済み
-                        </span>
-                      )}
-                      <span className="text-xs text-gray-500">
-                        {proposal.evaluation_count}評価
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-        </div>
-
         {/* 募集中の課題 */}
         <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-semibold text-gray-900">募集中の課題</h2>
             <Link
               href="/challenges"
-              className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+              className="text-blue-600 hover:text-blue-800 text-sm font-medium relative inline-block"
             >
               すべて見る
+              {hasNewChallenges && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+              )}
             </Link>
           </div>
           {openChallenges.length === 0 ? (
             <p className="text-gray-500 text-center py-4">現在、募集中の課題はありません</p>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="space-y-4">
               {openChallenges.map((challenge) => (
-                <div key={challenge.id} className="p-4 bg-gray-50 rounded-lg">
-                  <h3 className="text-sm font-medium text-gray-900 mb-2">{challenge.title}</h3>
-                  <div className="flex justify-between items-center text-xs text-gray-500">
-                    <span>報酬: ¥{challenge.reward_amount.toLocaleString()}</span>
-                    <span>期限: {new Date(challenge.deadline).toLocaleDateString('ja-JP')}</span>
-                  </div>
-                </div>
+                <ChallengeCard
+                  key={challenge.id}
+                  challenge={challenge}
+                  showActions={true}
+                  userType="proposer"
+                  onView={handleChallengeView}
+                />
               ))}
             </div>
           )}
+        </div>
+
+        <div className="mt-8 space-y-8">
+            {/* 最近の解決案 */}
+            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">最近の解決案</h2>
+                <Link
+                  href="/proposals"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                >
+                  すべて見る
+                </Link>
+              </div>
+              {recentProposals.length === 0 ? (
+                <p className="text-gray-500 text-center py-4">まだ解決案を提案していません</p>
+              ) : (
+                <div className="space-y-4">
+                  {recentProposals.map((proposal) => (
+                    <ProposalCard
+                      key={proposal.id}
+                      proposal={proposal}
+                      showActions={false}
+                      showStatus={false}
+                      showChallengeInfo={true}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
         </div>
       </div>
     </div>

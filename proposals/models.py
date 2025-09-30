@@ -1,154 +1,82 @@
 from django.db import models
-from django.contrib.auth import get_user_model
+from django.conf import settings
 
-# カスタムユーザーモデルを取得
-User = get_user_model()
+class AnonymousName(models.Model):
+    """
+    匿名化用の名前モデル
+    動物、植物、無機物の名前を管理
+    """
+    CATEGORY_CHOICES = [
+        ('animal', 'Animal'),
+        ('plant', 'Plant'),
+        ('inorganic', 'Inorganic'),
+    ]
+    
+    name = models.CharField(max_length=100, unique=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Anonymous Name'
+        verbose_name_plural = 'Anonymous Names'
+    
+    def __str__(self):
+        return f"{self.name} ({self.get_category_display()})"
 
 class Proposal(models.Model):
     """
     提案モデル
-    提案者が課題に対する解決案を提案するためのモデル
-    結論と理由を分離して管理
     """
-    challenge = models.ForeignKey(
-        'challenges.Challenge', 
-        on_delete=models.CASCADE, 
-        related_name='proposals',
-        verbose_name="課題"
-    )
-    proposer = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='proposals',
-        verbose_name="提案者"
-    )
+    STATUS_CHOICES = [
+        ('draft', 'Draft'),
+        ('submitted', 'Submitted'),
+        ('under_review', 'Under Review'),
+        ('adopted', 'Adopted'),
+        ('rejected', 'Rejected'),
+    ]
     
-    # 結論と理由を分離
-    conclusion = models.TextField(verbose_name="結論")
-    reasoning = models.TextField(verbose_name="理由")
+    # 基本情報
+    conclusion = models.TextField(default='')
+    reasoning = models.TextField(default='')
     
-    # ステータス管理
-    is_adopted = models.BooleanField(default=False, verbose_name="採用フラグ")
-    is_deleted = models.BooleanField(default=False, verbose_name="削除フラグ")
+    # 関連情報
+    challenge = models.ForeignKey('challenges.Challenge', on_delete=models.CASCADE, related_name='proposals')
+    proposer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposals')
     
-    # システム情報
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+    # 匿名化関連
+    anonymous_name = models.ForeignKey(AnonymousName, on_delete=models.SET_NULL, null=True, blank=True)
+    is_anonymous = models.BooleanField(default=True)
+    
+    # ステータス
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='submitted')
+    is_adopted = models.BooleanField(default=False)
+    
+    # 評価関連
+    rating = models.DecimalField(max_digits=3, decimal_places=2, null=True, blank=True)
+    rating_count = models.IntegerField(default=0)
+    
+    # タイムスタンプ
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         ordering = ['-created_at']
-        verbose_name = "提案"
-        verbose_name_plural = "提案一覧"
-        # 同じ課題に対して同じ提案者は1つの提案のみ可能
-        unique_together = ['challenge', 'proposer']
+        verbose_name = 'Proposal'
+        verbose_name_plural = 'Proposals'
     
     def __str__(self):
-        return f"{self.challenge.title} - {self.proposer.username}"
+        if self.is_anonymous and self.anonymous_name:
+            return f"{self.title} (by {self.anonymous_name.name})"
+        return f"{self.title} (by {self.proposer.username})"
     
-    @property
-    def is_active(self):
-        """提案がアクティブかどうかを判定"""
-        return not self.is_deleted
-    
-    @property
-    def is_selected(self):
-        """提案が選出されているかどうかを判定"""
-        return hasattr(self, 'selection') and self.selection is not None
-
-class ProposalComment(models.Model):
-    """
-    提案コメントモデル
-    理由・推論過程のみにコメント可能
-    """
-    COMMENT_TARGETS = [
-        ('reasoning', '理由'),
-        ('inference', '推論過程'),
-    ]
-    
-    proposal = models.ForeignKey(
-        Proposal, 
-        on_delete=models.CASCADE, 
-        related_name='comments',
-        verbose_name="提案"
-    )
-    commenter = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='proposal_comments',
-        verbose_name="コメント投稿者"
-    )
-    target_section = models.CharField(
-        max_length=20, 
-        choices=COMMENT_TARGETS, 
-        verbose_name="コメント対象"
-    )
-    
-    # コメントも結論と理由を分離
-    conclusion = models.TextField(verbose_name="コメントの結論")
-    reasoning = models.TextField(verbose_name="コメントの理由")
-    
-    # ステータス管理
-    is_deleted = models.BooleanField(default=False, verbose_name="削除フラグ")
-    
-    # システム情報
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
-    
-    class Meta:
-        ordering = ['created_at']
-        verbose_name = "提案コメント"
-        verbose_name_plural = "提案コメント一覧"
-    
-    def __str__(self):
-        return f"{self.proposal.challenge.title} - {self.commenter.username}のコメント"
-    
-    @property
-    def is_active(self):
-        """コメントがアクティブかどうかを判定"""
-        return not self.is_deleted
-
-class ProposalEvaluation(models.Model):
-    """
-    提案評価モデル
-    提案に対する「思い付いたか」の評価
-    """
-    EVALUATION_CHOICES = [
-        ('yes', 'Yes'),
-        ('maybe', 'Maybe'),
-        ('no', 'No'),
-    ]
-    
-    proposal = models.ForeignKey(
-        Proposal, 
-        on_delete=models.CASCADE, 
-        related_name='evaluations',
-        verbose_name="提案"
-    )
-    evaluator = models.ForeignKey(
-        User, 
-        on_delete=models.CASCADE, 
-        related_name='proposal_evaluations',
-        verbose_name="評価者"
-    )
-    evaluation = models.CharField(
-        max_length=10, 
-        choices=EVALUATION_CHOICES, 
-        verbose_name="評価"
-    )
-    
-    # システム情報
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
-    
-    class Meta:
-        ordering = ['-created_at']
-        verbose_name = "提案評価"
-        verbose_name_plural = "提案評価一覧"
-        # 同じ提案に対して同じ評価者は1つの評価のみ可能
-        unique_together = ['proposal', 'evaluator']
-    
-    def __str__(self):
-        return f"{self.proposal.challenge.title} - {self.evaluator.username}: {self.evaluation}"
-    
-    @property
-    def evaluation_display(self):
-        """評価の表示名を取得"""
-        return dict(self.EVALUATION_CHOICES)[self.evaluation]
+    def get_display_name(self, request_user=None):
+        """表示用の名前を返す"""
+        # リクエストユーザーが提案者本人の場合は実名を返す
+        if request_user and request_user == self.proposer:
+            return self.proposer.username
+        
+        # それ以外の場合は匿名名を返す（匿名化されている場合）
+        if self.is_anonymous and self.anonymous_name:
+            return self.anonymous_name.name
+        return self.proposer.username

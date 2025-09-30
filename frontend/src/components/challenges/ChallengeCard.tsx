@@ -8,6 +8,8 @@ import type { ChallengeListItem, ChallengeCardProps } from '../../types/challeng
 const ChallengeCard: React.FC<ChallengeCardProps> = ({
   challenge,
   showActions = false,
+  userType = 'contributor',
+  isProposed = false,
   onView,
   onEdit,
   onDelete
@@ -32,84 +34,133 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     return date.toLocaleDateString('ja-JP', {
       year: 'numeric',
       month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
+      day: 'numeric'
     });
   };
 
   // 報酬の表示形式
   const formatReward = (amount: number) => {
-    return `¥${amount.toLocaleString()}`;
+    // 0の場合は空文字を返す
+    if (amount === 0) {
+      return '';
+    }
+    // 1万円未満の場合は円単位で表示
+    if (amount < 10000) {
+      return `${amount}円`;
+    }
+    // 1万円以上の場合は万円単位で表示
+    const amountInMan = amount / 10000;
+    // 整数の場合は小数点を表示しない
+    if (amountInMan % 1 === 0) {
+      return `${Math.floor(amountInMan)}万円`;
+    }
+    // 小数点がある場合は1桁まで表示
+    return `${amountInMan.toFixed(1)}万円`;
   };
 
   const statusDisplay = getStatusDisplay(challenge.status);
 
   return (
-    <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6">
-      {/* ヘッダー部分 */}
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-gray-900 mb-2 line-clamp-2">
+    <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 ${
+      challenge.status === 'closed' || challenge.status === 'completed' 
+        ? 'bg-gray-100 border border-gray-300 opacity-75' 
+        : isProposed
+        ? 'bg-gray-200 border border-gray-500 opacity-50'
+        : 'bg-white border border-gray-200'
+    }`}>
+      {/* タイトル */}
+      <div className="mb-4">
+        {isProposed && (
+          <div className="flex justify-end mb-2">
+            <span className="px-3 py-1 text-sm rounded-full bg-blue-600 text-white font-medium">
+              提案済み
+            </span>
+          </div>
+        )}
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-xl font-bold text-gray-900 flex-1 pr-4">
             {challenge.title}
           </h3>
-          <p className="text-sm text-gray-600">
-            投稿者: {challenge.contributor_name}
-          </p>
+          <div className="text-right">
+            <div className="flex items-center gap-4 text-sm text-gray-600">
+              <span>投稿者: {challenge.contributor_name}</span>
+              <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
+            </div>
+          </div>
         </div>
-        <span className={`px-2 py-1 text-xs font-medium rounded-full ${statusDisplay.color}`}>
-          {statusDisplay.label}
-        </span>
+      </div>
+
+      {/* 説明文 */}
+      <div className="mb-4">
+        <p className="text-gray-700 leading-relaxed">
+          {challenge.description}
+        </p>
       </div>
 
       {/* 報酬情報 */}
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500 mb-1">提案報酬</p>
-          <p className="text-lg font-semibold text-gray-900">
+        <div className="bg-blue-50 rounded-lg p-4 text-center">
+          <p className="text-sm text-blue-600 font-medium mb-2">提案報酬</p>
+          <p className="text-2xl font-bold text-blue-900">
             {formatReward(challenge.reward_amount)}
           </p>
         </div>
-        <div className="bg-gray-50 rounded-lg p-3">
-          <p className="text-xs text-gray-500 mb-1">採用報酬</p>
-          <p className="text-lg font-semibold text-gray-900">
+        <div className="bg-green-50 rounded-lg p-4 text-center">
+          <p className="text-sm text-green-600 font-medium mb-2">採用報酬</p>
+          <p className="text-2xl font-bold text-green-900">
             {formatReward(challenge.adoption_reward)}
           </p>
         </div>
       </div>
 
-      {/* 選出人数と期限 */}
-      <div className="flex justify-between items-center text-sm text-gray-600 mb-4">
-        <span>選出人数: {challenge.required_participants}人</span>
-        <span>期限: {formatDeadline(challenge.deadline)}</span>
+      {/* 詳細情報 */}
+      <div className="bg-gray-50 rounded-lg p-3 mb-4">
+        <div className="flex justify-between items-center text-sm text-gray-600">
+          <span className="font-medium">選出人数: {challenge.required_participants}人</span>
+          <span className="font-medium">期限: {formatDeadline(challenge.deadline)}</span>
+        </div>
       </div>
 
       {/* アクションボタン */}
       {showActions && (
-        <div className="flex gap-2 pt-4 border-t border-gray-100">
-          {onView && (
-            <button
-              onClick={() => onView(challenge)}
-              className="flex-1 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium"
-            >
-              詳細を見る
-            </button>
-          )}
-          {onEdit && (
-            <button
-              onClick={() => onEdit(challenge)}
-              className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 text-sm font-medium"
-            >
-              編集
-            </button>
-          )}
-          {onDelete && (
-            <button
-              onClick={() => onDelete(challenge)}
-              className="px-4 py-2 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors duration-200 text-sm font-medium"
-            >
-              削除
-            </button>
+        <div className="flex gap-4 pt-4 border-t border-gray-200">
+          {userType === 'contributor' ? (
+            <>
+              {onView && (
+                <button
+                  onClick={() => onView(challenge)}
+                  className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 hover:shadow-md transition-all duration-200 font-medium border border-gray-300 cursor-pointer"
+                >
+                  詳細を見る
+                </button>
+              )}
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(challenge)}
+                  className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200 font-medium cursor-pointer"
+                >
+                  編集
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(challenge)}
+                  className="px-6 py-3 border border-red-300 text-red-700 rounded-lg hover:bg-red-50 transition-colors duration-200 font-medium cursor-pointer"
+                >
+                  削除
+                </button>
+              )}
+            </>
+          ) : (
+            /* 提案者の場合 */
+            onView && (
+              <button
+                onClick={() => onView(challenge)}
+                className="flex-1 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-300 hover:shadow-md transition-all duration-200 font-medium border border-gray-300 cursor-pointer"
+              >
+                詳細を見る
+              </button>
+            )
           )}
         </div>
       )}

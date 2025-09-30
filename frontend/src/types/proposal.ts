@@ -2,9 +2,18 @@
  * 提案関連の型定義
  */
 
+// 匿名名情報
+export interface AnonymousName {
+  id: number;
+  name: string;
+  category: 'animal' | 'plant' | 'inorganic';
+}
+
 // 提案の基本情報
 export interface Proposal {
   id: number;
+  conclusion: string;
+  reasoning: string;
   challenge: number;
   challenge_info?: {
     id: number;
@@ -24,16 +33,13 @@ export interface Proposal {
     email: string;
     user_type: 'contributor' | 'proposer';
   };
-  conclusion: string;
-  reasoning: string;
+  anonymous_name?: AnonymousName;
+  is_anonymous: boolean;
+  display_name: string;
+  status: 'draft' | 'submitted' | 'under_review' | 'adopted' | 'rejected';
   is_adopted: boolean;
-  is_deleted: boolean;
-  evaluation_count: number;
-  evaluation_summary: {
-    yes: number;
-    maybe: number;
-    no: number;
-  };
+  rating?: number;
+  rating_count: number;
   created_at: string;
   updated_at: string;
 }
@@ -41,13 +47,19 @@ export interface Proposal {
 // 提案一覧表示用（必要最小限の情報）
 export interface ProposalListItem {
   id: number;
-  challenge: number;
+  conclusion: string;
+  reasoning: string;
+  challenge_id: number;
   challenge_title: string;
   proposer_name: string;
-  conclusion: string;
+  anonymous_name_info?: AnonymousName;
+  is_anonymous: boolean;
+  status: 'draft' | 'submitted' | 'under_review' | 'adopted' | 'rejected';
   is_adopted: boolean;
-  evaluation_count: number;
+  rating?: number;
+  rating_count: number;
   created_at: string;
+  updated_at: string;
 }
 
 // 提案作成リクエスト
@@ -163,10 +175,16 @@ export interface ProposalFilters {
 export interface ProposalCardProps {
   proposal: ProposalListItem;
   showActions?: boolean;
+  showEditDelete?: boolean;
+  showStatus?: boolean;
+  showComments?: boolean;
+  showChallengeInfo?: boolean;
+  challengeId?: number;
   onView?: (proposal: ProposalListItem) => void;
   onEdit?: (proposal: ProposalListItem) => void;
   onDelete?: (proposal: ProposalListItem) => void;
   onAdopt?: (proposal: ProposalListItem) => void;
+  onComments?: (proposal: ProposalListItem) => void;
 }
 
 // 提案フォーム用のプロパティ

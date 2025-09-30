@@ -45,11 +45,11 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
     }
   }, [initialData, mode]);
 
-  // 提案報酬の自動計算
+  // 提案報酬の自動計算（万円単位）
   const calculateProposalReward = (participants: number): number => {
-    // 選出人数×1万円 + 選出人数×雑費（1人あたり5,000円と仮定）
-    const baseReward = participants * 10000; // 1万円×選出人数
-    const miscellaneousFees = participants * 5000; // 雑費（サーバー利用料等）
+    // 選出人数×1万円 + 選出人数×雑費（1人あたり0.5万円と仮定）
+    const baseReward = participants * 1; // 1万円×選出人数
+    const miscellaneousFees = participants * 0.5; // 雑費（0.5万円×選出人数）
     return baseReward + miscellaneousFees;
   };
 
@@ -135,9 +135,15 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   // フォーム送信処理
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log('フォーム送信開始');
+    console.log('フォームデータ:', formData);
+    console.log('バリデーション結果:', validateForm());
     
     if (validateForm()) {
+      console.log('フォーム送信データ:', formData);
       onSubmit(formData);
+    } else {
+      console.log('バリデーションエラー:', errors);
     }
   };
 
@@ -193,7 +199,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
           <label htmlFor="reward_amount" className="block text-sm font-medium text-gray-700 mb-2">
-            提案報酬（円） <span className="text-gray-500 text-sm">（自動計算）</span>
+            提案報酬（万円） <span className="text-gray-500 text-sm">（自動計算）</span>
           </label>
           <input
             type="number"
@@ -261,12 +267,27 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
             期限 <span className="text-red-500">*</span>
           </label>
           <input
-            type="datetime-local"
+            type="date"
             id="deadline"
             name="deadline"
-            value={formData.deadline}
-            onChange={handleChange}
-            min={minDateTime}
+            value={formData.deadline ? formData.deadline.split('T')[0] : ''}
+            onChange={(e) => {
+              // 日付を選択した際に、時間を23:59に自動設定
+              const selectedDate = e.target.value;
+              if (selectedDate) {
+                const deadlineWithTime = `${selectedDate}T23:59`;
+                setFormData(prev => ({
+                  ...prev,
+                  deadline: deadlineWithTime
+                }));
+              } else {
+                setFormData(prev => ({
+                  ...prev,
+                  deadline: ''
+                }));
+              }
+            }}
+            min={new Date().toISOString().split('T')[0]}
             className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.deadline ? 'border-red-500' : 'border-gray-300'
             }`}
@@ -281,6 +302,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
         <button
           type="button"
+          onClick={() => window.history.back()}
           className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors duration-200"
           disabled={isLoading}
         >

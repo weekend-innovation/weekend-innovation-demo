@@ -10,16 +10,9 @@ urlpatterns = [
     # 提案詳細・更新・削除
     path('<int:pk>/', views.ProposalDetailView.as_view(), name='proposal-detail'),
     
-    # 提案採用
-    path('<int:pk>/adopt/', views.ProposalAdoptionView.as_view(), name='proposal-adopt'),
-    
     # 特定課題の提案一覧
-    path('challenge/<int:challenge_id>/', views.ProposalByChallengeListView.as_view(), name='proposal-by-challenge'),
+    path('challenge/<int:challenge_id>/', views.ProposalByChallengeView.as_view(), name='proposal-by-challenge'),
     
-    # 提案コメント
-    path('<int:proposal_id>/comments/', views.ProposalCommentListCreateView.as_view(), name='proposal-comment-list-create'),
-    
-    # 提案評価
-    path('<int:proposal_id>/evaluations/', views.ProposalEvaluationListCreateView.as_view(), name='proposal-evaluation-list-create'),
-    path('<int:proposal_id>/evaluations/<int:pk>/', views.ProposalEvaluationDetailView.as_view(), name='proposal-evaluation-detail'),
+    # ユーザーの特定課題への提案状況確認
+    path('user-challenge/<int:challenge_id>/', views.UserProposalForChallengeView.as_view(), name='user-proposal-for-challenge'),
 ]

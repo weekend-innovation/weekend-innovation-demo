@@ -7,44 +7,61 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import ProposalForm from '../../../../components/proposals/ProposalForm';
-import type { CreateProposalRequest } from '../../../../types/proposal';
-import { createProposal } from '../../../../lib/proposalAPI';
-import { getChallenge } from '../../../../lib/challengeAPI';
-import type { Challenge } from '../../../../types/challenge';
-import { useAuth } from '../../../../contexts/AuthContext';
+import ProposalForm from '@/components/proposals/ProposalForm';
+import type { CreateProposalRequest } from '@/types/proposal';
+import { createProposal, getUserProposalForChallenge } from '@/lib/proposalAPI';
+import { getChallenge } from '@/lib/challengeAPI';
+import type { Challenge } from '@/types/challenge';
+import type { Proposal } from '@/types/proposal';
+import { useAuth } from '@/contexts/AuthContext';
 
 const ProposePage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
+  const [existingProposal, setExistingProposal] = useState<Proposal | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const challengeId = parseInt(params.id as string);
 
-  // 課題情報の取得
-  const fetchChallenge = async () => {
+  // 課題情報と既存提案の取得
+  const fetchChallengeData = async () => {
+    // 認証されていない場合はAPI呼び出しを避ける
+    if (!isAuthenticated || !user) {
+      console.log('Not authenticated, skipping API calls');
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setIsLoading(true);
       setError(null);
       
+      // 課題詳細の取得
       const challengeData = await getChallenge(challengeId);
       setChallenge(challengeData);
+      
+      // 既存の提案を確認
+      const userProposal = await getUserProposalForChallenge(challengeId);
+      setExistingProposal(userProposal);
+      
     } catch (err) {
-      setError(err instanceof Error ? err.message : '課題の取得に失敗しました');
+      setError(err instanceof Error ? err.message : 'データの取得に失敗しました');
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (challengeId) {
-      fetchChallenge();
+    if (challengeId && isAuthenticated && user) {
+      fetchChallengeData();
+    } else if (!isAuthenticated) {
+      setIsLoading(false);
     }
-  }, [challengeId]);
+  }, [challengeId, isAuthenticated, user]);
 
   // 認証チェック
   if (!isAuthenticated || user?.user_type !== 'proposer') {
@@ -70,6 +87,32 @@ const ProposePage: React.FC = () => {
     );
   }
 
+  // 既存提案がある場合の表示
+  if (existingProposal) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-medium text-yellow-800 mb-2">
+              既に提案済みです
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              この課題には既に解決案を投稿しています。1つの課題につき1つの提案のみ投稿できます。
+            </p>
+            <div className="flex gap-4">
+              <Link
+                href={`/challenges/${challengeId}`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                課題詳細に戻る
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // 提案投稿処理
   const handleSubmit = async (data: CreateProposalRequest) => {
     try {
@@ -78,8 +121,8 @@ const ProposePage: React.FC = () => {
 
       const newProposal = await createProposal(data);
       
-      // 投稿成功時は提案詳細ページに遷移
-      router.push(`/proposals/${newProposal.id}`);
+      // 投稿成功時は課題詳細ページに遷移
+      router.push(`/challenges/${challengeId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : '提案の投稿に失敗しました');
     } finally {
@@ -153,17 +196,26 @@ const ProposePage: React.FC = () => {
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href={`/challenges/${challengeId}`}
-              className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
-            >
-              ← 課題詳細に戻る
+          {/* パンくずリスト */}
+          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
+            <Link href="/dashboard" className="hover:text-gray-700">
+              ダッシュボード
             </Link>
-          </div>
+            <span>/</span>
+            <Link href="/challenges" className="hover:text-gray-700">
+              課題一覧
+            </Link>
+            <span>/</span>
+            <Link href={`/challenges/${challengeId}`} className="hover:text-gray-700">
+              課題詳細
+            </Link>
+            <span>/</span>
+            <span className="text-gray-900 font-medium">解決案を提案</span>
+          </nav>
+          
           <h1 className="text-3xl font-bold text-gray-900">解決案を提案</h1>
           <p className="mt-2 text-gray-600">
-            課題「{challenge.title}」に対する解決案を提案してください。
+            課題「{challenge?.title || 'この課題'}」に対する解決案を提案してください。
           </p>
         </div>
 
@@ -172,22 +224,8 @@ const ProposePage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 mb-4">課題内容</h2>
           <div className="prose max-w-none">
             <p className="text-gray-700 whitespace-pre-wrap">
-              {challenge.description}
+              {challenge?.description || '課題情報を読み込み中...'}
             </p>
-          </div>
-          <div className="mt-4 grid grid-cols-2 gap-4">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-sm text-gray-500 mb-1">提案報酬</p>
-              <p className="text-lg font-semibold text-gray-900">
-                ¥{challenge.reward_amount.toLocaleString()}
-              </p>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-sm text-gray-500 mb-1">採用報酬</p>
-              <p className="text-lg font-semibold text-gray-900">
-                ¥{challenge.adoption_reward.toLocaleString()}
-              </p>
-            </div>
           </div>
         </div>
 
