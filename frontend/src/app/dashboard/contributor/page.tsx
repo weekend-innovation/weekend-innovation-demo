@@ -233,6 +233,7 @@ const ContributorDashboard: React.FC = () => {
                     proposal={proposal}
                     showActions={false}
                     showStatus={false}
+                    showComments={true}
                     showChallengeInfo={true}
                   />
                 ))}

@@ -97,6 +97,20 @@ const ProposerDashboard: React.FC = () => {
   // 最近の提案（提案者自身の提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
   
+  // 未読コメント数の合計
+  const totalUnreadComments = proposals?.reduce((sum, p) => sum + (p.unread_comment_count || 0), 0) || 0;
+  
+  // コメント表示時のコールバック
+  const handleComments = (proposal: any) => {
+    // 提案リスト内の該当提案の未読コメント数を更新
+    if (proposals) {
+      const updatedProposals = proposals.map(p => 
+        p.id === proposal.id ? { ...p, unread_comment_count: 0 } : p
+      );
+      setProposals(updatedProposals);
+    }
+  };
+  
   // 評価の多い提案（上位5件）
   const topEvaluatedProposals = proposals
     ?.sort((a, b) => (b.evaluation_count || 0) - (a.evaluation_count || 0))
@@ -231,9 +245,14 @@ const ProposerDashboard: React.FC = () => {
                 <h2 className="text-lg font-semibold text-gray-900">最近の解決案</h2>
                 <Link
                   href="/proposals"
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  className="text-blue-600 hover:text-blue-800 text-sm font-medium relative inline-block"
                 >
                   すべて見る
+                  {totalUnreadComments > 0 && (
+                    <span className="absolute -top-1 -right-3 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
+                      {totalUnreadComments}
+                    </span>
+                  )}
                 </Link>
               </div>
               {recentProposals.length === 0 ? (
@@ -246,7 +265,9 @@ const ProposerDashboard: React.FC = () => {
                       proposal={proposal}
                       showActions={false}
                       showStatus={false}
+                      showComments={true}
                       showChallengeInfo={true}
+                      onComments={handleComments}
                     />
                   ))}
                 </div>

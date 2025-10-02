@@ -261,7 +261,7 @@ const ChallengeDetailPage: React.FC = () => {
                       <>
                         {/* 自分の解決案（最上位） */}
                         {myProposal && (
-                          <div className="border-2 border-blue-200 rounded-lg p-1">
+                          <div className="border-2 border-blue-600 rounded-lg p-1">
                             <div className="bg-blue-50 rounded-lg p-4 mb-2">
                               <h3 className="text-sm font-medium text-blue-900 mb-1">あなたの解決案</h3>
                             </div>
@@ -270,10 +270,16 @@ const ChallengeDetailPage: React.FC = () => {
                               proposal={myProposal}
                               showActions={true}
                               showStatus={false}
-                              showComments={false} // 自分の解決案にはコメントボタン不要
+                              showComments={true} // 自分の解決案のコメントも表示可能
                               showChallengeInfo={false}
                               onComments={(proposal) => {
-                                console.log('コメント表示:', proposal.id);
+                                // 提案リスト内の該当提案の未読コメント数を更新
+                                if (proposals) {
+                                  const updatedProposals = proposals.map(p => 
+                                    p.id === proposal.id ? { ...p, unread_comment_count: 0 } : p
+                                  );
+                                  setProposals(updatedProposals);
+                                }
                               }}
                             />
                           </div>
@@ -296,7 +302,13 @@ const ChallengeDetailPage: React.FC = () => {
                                 showComments={true}
                                 showChallengeInfo={false}
                                 onComments={(proposal) => {
-                                  console.log('コメント表示:', proposal.id);
+                                  // 提案リスト内の該当提案の未読コメント数を更新
+                                  if (proposals) {
+                                    const updatedProposals = proposals.map(p => 
+                                      p.id === proposal.id ? { ...p, unread_comment_count: 0 } : p
+                                    );
+                                    setProposals(updatedProposals);
+                                  }
                                 }}
                               />
                             ))}
@@ -316,7 +328,13 @@ const ChallengeDetailPage: React.FC = () => {
                       showComments={true}
                       showChallengeInfo={false}
                       onComments={(proposal) => {
-                        console.log('コメント表示:', proposal.id);
+                        // 提案リスト内の該当提案の未読コメント数を更新
+                        if (proposals) {
+                          const updatedProposals = proposals.map(p => 
+                            p.id === proposal.id ? { ...p, unread_comment_count: 0 } : p
+                          );
+                          setProposals(updatedProposals);
+                        }
                       }}
                     />
                   ))

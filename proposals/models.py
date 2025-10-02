@@ -80,3 +80,106 @@ class Proposal(models.Model):
         if self.is_anonymous and self.anonymous_name:
             return self.anonymous_name.name
         return self.proposer.username
+
+
+class ProposalComment(models.Model):
+    """
+    提案コメントモデル
+    理由・推論過程へのコメントのみ許可
+    """
+    COMMENT_TARGETS = [
+        ('reasoning', '理由'),
+        ('inference', '推論過程'),
+    ]
+    
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='comments')
+    commenter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_comments')
+    target_section = models.CharField(max_length=20, choices=COMMENT_TARGETS, verbose_name="コメント対象")
+    conclusion = models.TextField(verbose_name="コメントの結論")
+    reasoning = models.TextField(verbose_name="コメントの理由")
+    is_deleted = models.BooleanField(default=False, verbose_name="削除フラグ")
+    is_read = models.BooleanField(default=False, verbose_name="既読フラグ")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Proposal Comment'
+        verbose_name_plural = 'Proposal Comments'
+    
+    def __str__(self):
+        return f"Comment on {self.proposal.id} - {self.target_section}"
+
+
+class ProposalEvaluation(models.Model):
+    """
+    提案評価モデル
+    同じく選出された提案者のみが評価可能
+    """
+    EVALUATION_CHOICES = [
+        ('yes', 'Yes'),
+        ('maybe', 'Maybe'),
+        ('no', 'No'),
+    ]
+    
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='evaluations')
+    evaluator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_evaluations')
+    evaluation = models.CharField(max_length=10, choices=EVALUATION_CHOICES, verbose_name="評価")
+    score = models.IntegerField(verbose_name="点数", default=0)  # No=2, Maybe=1, Yes=0
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['proposal', 'evaluator']
+        verbose_name = 'Proposal Evaluation'
+        verbose_name_plural = 'Proposal Evaluations'
+    
+    def save(self, *args, **kwargs):
+        # 評価に応じて点数を自動設定
+        if self.evaluation == 'no':
+            self.score = 2
+        elif self.evaluation == 'maybe':
+            self.score = 1
+        elif self.evaluation == 'yes':
+            self.score = 0
+        super().save(*args, **kwargs)
+    
+    def __str__(self):
+        return f"Evaluation {self.evaluation} on Proposal {self.proposal.id}"
+
+
+class ProposalCommentReply(models.Model):
+    """
+    コメント返信モデル
+    提案者のみが返信可能
+    """
+    comment = models.ForeignKey(ProposalComment, on_delete=models.CASCADE, related_name='replies')
+    replier = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_comment_replies')
+    content = models.TextField(verbose_name="返信内容")
+    is_deleted = models.BooleanField(default=False, verbose_name="削除フラグ")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['created_at']
+        verbose_name = 'Proposal Comment Reply'
+        verbose_name_plural = 'Proposal Comment Replies'
+    
+    def __str__(self):
+        return f"Reply to Comment {self.comment.id}"
+
+
+class ProposalReference(models.Model):
+    """
+    提案参考モデル
+    回答編集権限を持つユーザーが参考として保存
+    """
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='references')
+    referencer = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_references')
+    notes = models.TextField(blank=True, verbose_name="参考メモ")
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        unique_together = ['proposal', 'referencer']
+        verbose_name = 'Proposal Reference'
+        verbose_name_plural = 'Proposal References'
+    
+    def __str__(self):
+        return f"Reference to Proposal {self.proposal.id}"

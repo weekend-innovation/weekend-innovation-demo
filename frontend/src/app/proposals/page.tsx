@@ -204,8 +204,13 @@ const ProposalsPage: React.FC = () => {
                       onDelete={user?.user_type === 'proposer' ? handleProposalDelete : undefined}
                       onAdopt={user?.user_type === 'contributor' ? handleProposalAdopt : undefined}
                       onComments={(proposal) => {
-                        // TODO: コメント表示機能を実装
-                        console.log('コメント表示:', proposal.id);
+                        // 提案リスト内の該当提案の未読コメント数を更新
+                        if (proposals) {
+                          const updatedProposals = proposals.map(p => 
+                            p.id === proposal.id ? { ...p, unread_comment_count: 0 } : p
+                          );
+                          setProposals(updatedProposals);
+                        }
                       }}
                     />
             ))}

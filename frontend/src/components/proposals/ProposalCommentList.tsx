@@ -1,0 +1,225 @@
+/**
+ * 提案コメント一覧コンポーネント
+ * コメント表示、返信機能を含む
+ */
+import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
+import ProposalCommentReplyForm from './ProposalCommentReplyForm';
+import ProposalCommentForm from './ProposalCommentForm';
+import ProposalEditForm from './ProposalEditForm';
+import type { ProposalCommentListProps } from '../../types/proposal';
+
+const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
+  proposalId,
+  proposal,
+  proposalState,
+  comments,
+  onAddComment,
+  onReply,
+  onEdit,
+  onReference,
+  isAddingComment = false,
+  isReplying = false,
+  isEditing = false,
+  editingCommentId = null,
+  setEditingCommentId,
+  canComment = false,
+  canReply = false,
+  canReference = false
+}) => {
+  const { user } = useAuth();
+  const [replyingCommentId, setReplyingCommentId] = useState<number | null>(null);
+
+  const handleAddComment = (comment: any) => {
+    onAddComment(comment);
+  };
+
+  const handleReply = (commentId: number, reply: any) => {
+    onReply(commentId, reply);
+    setReplyingCommentId(null);
+  };
+
+  const handleStartReply = (commentId: number) => {
+    setReplyingCommentId(commentId);
+  };
+
+  const handleCancelReply = () => {
+    setReplyingCommentId(null);
+  };
+
+  // 通報ハンドラー（次のフェーズで実装予定）
+  const handleReport = (commentId: number) => {
+    alert('通報機能は次のフェーズで実装予定です。');
+  };
+
+  // 参考ハンドラー（解決案編集機能）
+  const handleReference = (commentId: number) => {
+    if (setEditingCommentId) {
+      setEditingCommentId(commentId);
+    }
+  };
+
+  const handleStartEdit = (commentId: number) => {
+    if (setEditingCommentId) {
+      setEditingCommentId(commentId);
+    }
+  };
+
+  const handleCancelEdit = () => {
+    if (setEditingCommentId) {
+      setEditingCommentId(null);
+    }
+  };
+
+  const handleEdit = (proposalId: number, data: { conclusion: string; reasoning: string }) => {
+    // 解決案編集機能
+    if (setEditingCommentId) {
+      setEditingCommentId(null);
+    }
+    onEdit(proposalId, data);
+  };
+
+  const getTargetSectionLabel = (targetSection: 'reasoning' | 'inference') => {
+    switch (targetSection) {
+      case 'reasoning':
+        return '理由';
+      case 'inference':
+        return '推論過程';
+      default:
+        return targetSection;
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('ja-JP', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* コメント一覧 */}
+      {comments.length > 0 ? (
+        <div className="space-y-3">
+          <h4 className="font-medium text-gray-900">コメント一覧 ({comments.length}件)</h4>
+          
+          {comments.map((comment) => (
+            <div key={comment.id} className="bg-white border rounded-lg p-4">
+              {/* コメントヘッダー */}
+              <div className="flex justify-between items-start mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium text-gray-900">{comment.commenter_name}</span>
+                  <span className={`text-xs px-2 py-1 rounded ${
+                    comment.target_section === 'reasoning' 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-pink-100 text-pink-800'
+                  }`}>
+                    {getTargetSectionLabel(comment.target_section)}へのコメント
+                  </span>
+                </div>
+                <span className="text-sm text-gray-500">
+                  {formatDate(comment.created_at)}
+                </span>
+              </div>
+
+              {/* コメント内容 */}
+              <div className="space-y-3">
+                <div>
+                  <h5 className="font-medium text-gray-700 mb-1">【結論】</h5>
+                  <div className="bg-pink-50 rounded-lg p-3">
+                    <p className="text-gray-600 text-sm leading-relaxed">{comment.conclusion}</p>
+                  </div>
+                </div>
+                
+                <div>
+                  <h5 className="font-medium text-gray-700 mb-1">【理由】</h5>
+                  <div className="bg-green-50 rounded-lg p-3">
+                    <p className="text-gray-600 text-sm leading-relaxed">{comment.reasoning}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* 返信セクション */}
+              {comment.replies && comment.replies.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h6 className="font-medium text-gray-700 text-sm">返信:</h6>
+                  {comment.replies.map((reply) => (
+                    <div key={reply.id} className="bg-gray-50 rounded p-3">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-gray-800 text-sm">{reply.replier_name}</span>
+                        <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
+                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed">{reply.content}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* アクションボタン */}
+              {canReply && user && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  {replyingCommentId === comment.id ? (
+                    <ProposalCommentReplyForm
+                      commentId={comment.id}
+                      onSubmit={(reply) => handleReply(comment.id, reply)}
+                      onCancel={handleCancelReply}
+                      isLoading={isReplying}
+                    />
+                  ) : editingCommentId === comment.id ? (
+                    <ProposalEditForm
+                      proposal={proposalState || proposal}
+                      referenceCommentId={comment.id}
+                      onSubmit={(proposalId, data) => handleEdit(proposalId, data)}
+                      onCancel={handleCancelEdit}
+                      isLoading={isEditing}
+                    />
+                  ) : (
+                    <div className="flex justify-end gap-2">
+                      <button
+                        onClick={() => handleStartReply(comment.id)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                      >
+                        返信
+                      </button>
+                      <button
+                        onClick={() => handleReference(comment.id)}
+                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                      >
+                        参考
+                      </button>
+                      <button
+                        onClick={() => handleReport(comment.id)}
+                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                      >
+                        通報
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-4">
+          <p className="text-gray-500 text-sm">まだコメントがありません。</p>
+        </div>
+      )}
+
+      {/* コメント追加セクション */}
+      {canComment && (
+        <ProposalCommentForm
+          onSubmit={handleAddComment}
+          isLoading={isAddingComment}
+        />
+      )}
+
+    </div>
+  );
+};
+
+export default ProposalCommentList;

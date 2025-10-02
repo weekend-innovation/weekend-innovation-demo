@@ -60,6 +60,8 @@ export interface ProposalListItem {
   rating_count: number;
   created_at: string;
   updated_at: string;
+  unread_comment_count?: number;
+  total_comment_count?: number;
 }
 
 // 提案作成リクエスト
@@ -80,25 +82,36 @@ export interface ProposalComment {
   id: number;
   proposal: number;
   commenter: number;
-  commenter_info?: {
-    id: number;
-    username: string;
-    email: string;
-    user_type: 'contributor' | 'proposer';
-  };
+  commenter_name: string;
   target_section: 'reasoning' | 'inference';
   conclusion: string;
   reasoning: string;
   is_deleted: boolean;
   created_at: string;
+  replies?: ProposalCommentReply[];
 }
 
 // 提案コメント作成リクエスト
 export interface CreateProposalCommentRequest {
-  proposal: number;
   target_section: 'reasoning' | 'inference';
   conclusion: string;
   reasoning: string;
+}
+
+// 提案コメント返信
+export interface ProposalCommentReply {
+  id: number;
+  comment: number;
+  replier: number;
+  replier_name: string;
+  content: string;
+  is_deleted: boolean;
+  created_at: string;
+}
+
+// 提案コメント返信作成リクエスト
+export interface CreateProposalCommentReplyRequest {
+  content: string;
 }
 
 // 提案評価
@@ -106,21 +119,30 @@ export interface ProposalEvaluation {
   id: number;
   proposal: number;
   evaluator: number;
-  evaluator_info?: {
-    id: number;
-    username: string;
-    email: string;
-    user_type: 'contributor' | 'proposer';
-  };
+  evaluator_name: string;
   evaluation: 'yes' | 'maybe' | 'no';
-  evaluation_display: string;
+  score: number; // No=2, Maybe=1, Yes=0
   created_at: string;
 }
 
 // 提案評価作成リクエスト
 export interface CreateProposalEvaluationRequest {
-  proposal: number;
   evaluation: 'yes' | 'maybe' | 'no';
+}
+
+// 提案参考
+export interface ProposalReference {
+  id: number;
+  proposal: number;
+  referencer: number;
+  referencer_name: string;
+  notes: string;
+  created_at: string;
+}
+
+// 提案参考作成リクエスト
+export interface CreateProposalReferenceRequest {
+  notes?: string;
 }
 
 // 提案一覧取得レスポンス
@@ -131,8 +153,13 @@ export interface ProposalListResponse {
   results: ProposalListItem[];
 }
 
-// 提案詳細取得レスポンス
-export interface ProposalDetailResponse extends Proposal {}
+// 提案詳細取得レスポンス（コメント・評価情報を含む）
+export interface ProposalDetailResponse extends Proposal {
+  comments: ProposalComment[];
+  evaluations: ProposalEvaluation[];
+  user_evaluation?: ProposalEvaluation;
+  user_reference?: ProposalReference;
+}
 
 // 提案コメント一覧取得レスポンス
 export interface ProposalCommentListResponse {
@@ -204,13 +231,6 @@ export interface ProposalCommentProps {
   onDelete?: (comment: ProposalComment) => void;
 }
 
-// 提案評価表示用のプロパティ
-export interface ProposalEvaluationProps {
-  evaluation: ProposalEvaluation;
-  showActions?: boolean;
-  onEdit?: (evaluation: ProposalEvaluation) => void;
-  onDelete?: (evaluation: ProposalEvaluation) => void;
-}
 
 // ダッシュボード用の統計情報
 export interface DashboardStats {
@@ -220,4 +240,51 @@ export interface DashboardStats {
   average_evaluation: number;
   recent_proposals: ProposalListItem[];
   top_evaluated_proposals: ProposalListItem[];
+}
+
+// 評価・コメント機能用のコンポーネントプロパティ
+export interface ProposalEvaluationProps {
+  proposalId: number;
+  userEvaluation?: ProposalEvaluation;
+  onEvaluate: (proposalId: number, evaluation: 'yes' | 'maybe' | 'no') => void;
+  isEvaluating?: boolean;
+}
+
+export interface ProposalCommentListProps {
+  proposalId: number;
+  proposal: ProposalListItem;
+  proposalState?: ProposalListItem;
+  comments: ProposalComment[];
+  onAddComment: (comment: CreateProposalCommentRequest) => void;
+  onReply: (commentId: number, reply: CreateProposalCommentReplyRequest) => void;
+  onEdit: (proposalId: number, data: { conclusion: string; reasoning: string }) => void;
+  onReference?: (commentId: number) => void;
+  isAddingComment?: boolean;
+  isReplying?: boolean;
+  isEditing?: boolean;
+  editingCommentId?: number | null;
+  setEditingCommentId?: (commentId: number | null) => void;
+  canComment?: boolean;
+  canReply?: boolean;
+  canReference?: boolean;
+}
+
+export interface ProposalCommentFormProps {
+  onSubmit: (comment: CreateProposalCommentRequest) => void;
+  isLoading?: boolean;
+}
+
+export interface ProposalCommentReplyFormProps {
+  commentId: number;
+  onSubmit: (reply: CreateProposalCommentReplyRequest) => void;
+  onCancel: () => void;
+  isLoading?: boolean;
+}
+
+// 参考ログ
+export interface ReferenceLog {
+  id: string;
+  commentId: number;
+  commentConclusion: string;
+  editedAt: string;
 }

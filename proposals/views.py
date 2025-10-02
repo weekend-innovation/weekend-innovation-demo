@@ -6,10 +6,13 @@ from django.db.models import Q
 from django.utils import timezone
 import random
 import logging
-from .models import Proposal, AnonymousName
+from .models import Proposal, AnonymousName, ProposalComment, ProposalEvaluation, ProposalCommentReply, ProposalReference
 from challenges.models import Challenge
+from selections.models import Selection
 from .serializers import (
-    ProposalSerializer, ProposalCreateSerializer, ProposalListSerializer
+    ProposalSerializer, ProposalCreateSerializer, ProposalListSerializer,
+    ProposalCommentSerializer, ProposalCommentCreateSerializer, ProposalCommentReplySerializer,
+    ProposalEvaluationSerializer, ProposalReferenceSerializer, ProposalDetailSerializer
 )
 
 logger = logging.getLogger(__name__)
@@ -198,3 +201,229 @@ class UserProposalForChallengeView(generics.ListAPIView):
             proposer=user,
             challenge_id=challenge_id
         )
+
+
+class ProposalCommentListCreateView(generics.ListCreateAPIView):
+    """
+    提案コメント一覧取得・作成API
+    同じく選出された提案者のみがコメント可能
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ProposalCommentCreateSerializer
+        return ProposalCommentSerializer
+    
+    def get_queryset(self):
+        """指定された提案のコメント一覧を返す"""
+        proposal_id = self.kwargs['proposal_id']
+        return ProposalComment.objects.filter(
+            proposal_id=proposal_id,
+            is_deleted=False
+        ).order_by('created_at')
+    
+    def list(self, request, *args, **kwargs):
+        """コメント一覧取得時に未読フラグをクリア"""
+        proposal_id = self.kwargs['proposal_id']
+        proposal = get_object_or_404(Proposal, id=proposal_id)
+        user = request.user
+        
+        # 自分の提案のコメントを取得した場合、未読フラグをクリア
+        if proposal.proposer == user:
+            ProposalComment.objects.filter(
+                proposal_id=proposal_id,
+                is_deleted=False,
+                is_read=False
+            ).update(is_read=True)
+        
+        return super().list(request, *args, **kwargs)
+    
+    def perform_create(self, serializer):
+        """コメント作成時の処理"""
+        proposal_id = self.kwargs['proposal_id']
+        proposal = get_object_or_404(Proposal, id=proposal_id)
+        user = self.request.user
+        
+        # 同じく選出された提案者のみがコメント可能
+        if not self.is_user_selected_for_challenge(user, proposal.challenge):
+            raise permissions.PermissionDenied("同じく選出された提案者のみがコメントできます。")
+        
+        # 自分の提案にはコメントできない
+        if proposal.proposer == user:
+            raise permissions.PermissionDenied("自分の解決案にはコメントできません。")
+        
+        serializer.save(
+            proposal=proposal,
+            commenter=user
+        )
+    
+    def create(self, request, *args, **kwargs):
+        """コメント作成時のレスポンスをProposalCommentSerializerで返す"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        
+        # 作成されたコメントをProposalCommentSerializerで返す
+        instance = serializer.instance
+        response_serializer = ProposalCommentSerializer(instance, context={'request': request})
+        headers = self.get_success_headers(response_serializer.data)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+    
+    def is_user_selected_for_challenge(self, user, challenge):
+        """ユーザーが課題に選出されているかチェック"""
+        return Selection.objects.filter(
+            challenge=challenge,
+            selected_users=user
+        ).exists()
+
+
+class ProposalEvaluationCreateView(generics.CreateAPIView):
+    """
+    提案評価作成API
+    同じく選出された提案者のみが評価可能
+    """
+    serializer_class = ProposalEvaluationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        """評価作成時の処理"""
+        proposal_id = self.kwargs['proposal_id']
+        proposal = get_object_or_404(Proposal, id=proposal_id)
+        user = self.request.user
+        
+        # 同じく選出された提案者のみが評価可能
+        if not self.is_user_selected_for_challenge(user, proposal.challenge):
+            raise permissions.PermissionDenied("同じく選出された提案者のみが評価できます。")
+        
+        # 自分の提案は評価できない
+        if proposal.proposer == user:
+            raise permissions.PermissionDenied("自分の解決案は評価できません。")
+
+
+class ProposalEvaluationRetrieveView(generics.RetrieveAPIView):
+    """
+    提案評価取得API
+    現在のユーザーの評価データを取得
+    """
+    serializer_class = ProposalEvaluationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_object(self):
+        """現在のユーザーの評価データを取得"""
+        proposal_id = self.kwargs['proposal_id']
+        proposal = get_object_or_404(Proposal, id=proposal_id)
+        user = self.request.user
+        
+        try:
+            evaluation = ProposalEvaluation.objects.get(
+                proposal=proposal,
+                evaluator=user
+            )
+            return evaluation
+        except ProposalEvaluation.DoesNotExist:
+            # 評価データが存在しない場合は404を返す
+            from django.http import Http404
+            raise Http404("評価データが見つかりません。")
+        
+        # 既存の評価がある場合は更新
+        evaluation, created = ProposalEvaluation.objects.get_or_create(
+            proposal=proposal,
+            evaluator=user,
+            defaults={'evaluation': serializer.validated_data['evaluation']}
+        )
+        
+        if not created:
+            evaluation.evaluation = serializer.validated_data['evaluation']
+            evaluation.save()
+    
+    def is_user_selected_for_challenge(self, user, challenge):
+        """ユーザーが課題に選出されているかチェック"""
+        return Selection.objects.filter(
+            challenge=challenge,
+            selected_users=user
+        ).exists()
+
+
+class ProposalCommentReplyCreateView(generics.CreateAPIView):
+    """
+    コメント返信作成API
+    提案者のみが返信可能
+    """
+    serializer_class = ProposalCommentReplySerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        """返信作成時の処理"""
+        comment_id = self.kwargs['comment_id']
+        comment = get_object_or_404(ProposalComment, id=comment_id)
+        user = self.request.user
+        
+        # 提案者のみが返信可能
+        if comment.proposal.proposer != user:
+            raise permissions.PermissionDenied("提案者のみが返信できます。")
+        
+        serializer.save(
+            comment=comment,
+            replier=user
+        )
+
+
+class ProposalReferenceCreateView(generics.CreateAPIView):
+    """
+    提案参考作成API
+    回答編集権限を持つユーザーが参考として保存
+    """
+    serializer_class = ProposalReferenceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def perform_create(self, serializer):
+        """参考作成時の処理"""
+        proposal_id = self.kwargs['proposal_id']
+        proposal = get_object_or_404(Proposal, id=proposal_id)
+        user = self.request.user
+        
+        # 回答編集権限を持つユーザーのみが参考として保存可能
+        if not self.has_edit_permission(user, proposal.challenge):
+            raise permissions.PermissionDenied("回答編集権限を持つユーザーのみが参考として保存できます。")
+        
+        # 既存の参考がある場合は更新
+        reference, created = ProposalReference.objects.get_or_create(
+            proposal=proposal,
+            referencer=user,
+            defaults={'notes': serializer.validated_data.get('notes', '')}
+        )
+        
+        if not created:
+            reference.notes = serializer.validated_data.get('notes', '')
+            reference.save()
+    
+    def has_edit_permission(self, user, challenge):
+        """回答編集権限を持つユーザーかチェック"""
+        # 投稿者が編集権限を持つ
+        return challenge.contributor == user
+
+
+class ProposalDetailWithCommentsView(generics.RetrieveAPIView):
+    """
+    提案詳細取得API（コメント・評価情報を含む）
+    """
+    serializer_class = ProposalDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_queryset(self):
+        """ユーザータイプに応じてクエリセットを返す"""
+        user = self.request.user
+        
+        if user.user_type == 'proposer':
+            # 提案者: 自分の提案済み課題の提案のみ閲覧可能
+            return Proposal.objects.filter(
+                challenge__selections__proposer=user
+            )
+        elif user.user_type == 'contributor':
+            # 投稿者: 自分の課題に対する提案のみ閲覧可能
+            return Proposal.objects.filter(
+                challenge__contributor=user
+            )
+        
+        return Proposal.objects.none()
