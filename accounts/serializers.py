@@ -31,7 +31,7 @@ class ContributorProfileSerializer(serializers.ModelSerializer):
         fields = [
             'company_name', 'representative_name', 'address', 
             'phone_number', 'email', 'industry', 'employee_count', 
-            'established_year', 'company_url', 'company_logo'
+            'established_year', 'company_url', 'company_logo', 'location'
         ]
 
 
@@ -43,8 +43,8 @@ class ProposerProfileSerializer(serializers.ModelSerializer):
         model = ProposerProfile
         fields = [
             'full_name', 'gender', 'birth_date', 'address', 
-            'phone_number', 'email', 'occupation', 'expertise', 
-            'bio', 'profile_image'
+            'phone_number', 'email', 'occupation', 'nationality', 
+            'profile_image'
         ]
 
 

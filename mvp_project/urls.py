@@ -27,8 +27,7 @@ urlpatterns = [
     path('api/challenges/', include('challenges.urls')),
     path('api/proposals/', include('proposals.urls')),
     path('api/selections/', include('selections.urls')),
-    # 他のアプリのURLも今後追加予定
-    # path('api/payments/', include('payments.urls')),
+    path('api/wallet/', include('wallet.urls')),
 ]
 
 # メディアファイルの配信設定（開発環境のみ）

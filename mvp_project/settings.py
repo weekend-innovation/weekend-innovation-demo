@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'challenges',               # 課題管理
     'proposals',                # 提案管理
     'selections',               # ユーザー選出機能
-    'payments',                 # 報酬管理
+    'wallet',                   # 報酬管理
     'moderation',               # モデレーション管理
     'notifications',            # 通知管理
     'analytics',                # 分析・まとめ機能
@@ -170,6 +170,17 @@ AUTH_USER_MODEL = 'accounts.User'
 # メディアファイル設定
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Stripe設定（テストモード）
+# 実際のStripeテストキーを使用してください
+# https://dashboard.stripe.com/test/apikeys で取得可能
+STRIPE_PUBLISHABLE_KEY = ''  # 実際のテスト用公開キーに置き換えてください
+STRIPE_SECRET_KEY = ''      # 実際のテスト用秘密キーに置き換えてください
+
+# Stripe設定の説明
+# 1. https://dashboard.stripe.com/test/apikeys で実際のテストキーを取得
+# 2. 上記のダミーキーを実際のキーに置き換えてください
+# 3. テスト用カード: 4242424242424242 (有効期限: 任意の未来の日付, CVC: 任意の3桁)
 
 # ログ設定
 LOGGING = {

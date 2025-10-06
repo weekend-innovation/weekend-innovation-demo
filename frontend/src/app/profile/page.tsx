@@ -1,271 +1,368 @@
-/**
- * ユーザープロフィールページ
- * ユーザーの基本情報とプロフィールを表示・編集
- */
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { useAuth } from '../../contexts/AuthContext';
-import { authAPI } from '../../lib/api';
-import type { User, ContributorProfile, ProposerProfile } from '../../types/auth';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { authAPI } from '@/lib/api';
+import { UserDetail } from '@/types/auth';
+import { getNationalityName } from '@/lib/nationalityMapping';
+import ProfileEditForm from '@/components/ProfileEditForm';
+import { createStripeAccount, createStripeCustomer, getStripeAccountStatus } from '@/lib/walletAPI';
 
-const ProfilePage: React.FC = () => {
-  const { user, isAuthenticated, refreshUser } = useAuth();
-  const [profile, setProfile] = useState<ContributorProfile | ProposerProfile | null>(null);
+const ProfilePage = () => {
+  const { user } = useAuth();
+  const [profile, setProfile] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [stripeAccountStatus, setStripeAccountStatus] = useState<{
+    has_account: boolean;
+    account_status: string | null;
+    account_id?: string;
+    account_type?: string;
+  } | null>(null);
+  const [stripeLoading, setStripeLoading] = useState(false);
 
-  // プロフィール情報の取得
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
   const fetchProfile = async () => {
     try {
-      setLoading(true);
-      setError(null);
+      const response = await authAPI.getProfile();
+      setProfile(response);
       
-      const profileData = await authAPI.getProfile();
-      setProfile(profileData);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'プロフィールの取得に失敗しました');
+      // Stripeアカウント状態を取得
+      try {
+        const stripeStatus = await getStripeAccountStatus();
+        setStripeAccountStatus(stripeStatus);
+      } catch (stripeError) {
+        console.error('Stripeアカウント状態取得エラー:', stripeError);
+        // Stripeエラーは無視（プロフィール表示は継続）
+      }
+    } catch (error) {
+      console.error('プロフィールの取得に失敗しました:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isAuthenticated) {
-      fetchProfile();
+  const handleSaveProfile = (updatedProfile: UserDetail) => {
+    setProfile(updatedProfile);
+    setIsEditing(false);
+    alert('プロフィールを更新しました');
+  };
+
+  const handleCancelEdit = () => {
+    setIsEditing(false);
+  };
+
+  const handleCreateStripeAccount = async () => {
+    if (!user) return;
+    
+    setStripeLoading(true);
+    try {
+      let result;
+      
+      if (user.user_type === 'contributor') {
+        // 投稿者：Customer作成
+        result = await createStripeCustomer();
+        alert(result.message);
+      } else {
+        // 提案者：Connectアカウント作成
+        result = await createStripeAccount();
+        
+        // Stripeのオンボーディングページにリダイレクト
+        if (result.onboarding_url) {
+          window.location.href = result.onboarding_url;
+          return;
+        } else {
+          alert(result.message);
+        }
+      }
+      
+      // 状態を更新
+      await fetchProfile();
+    } catch (error: any) {
+      console.error('Stripeアカウント作成エラー:', error);
+      
+      // エラーメッセージに基づいて適切な処理
+      if (error.message.includes('認証') || error.message.includes('ログイン')) {
+        alert('認証エラー: ' + error.message + '\nログインし直してください。');
+        // ログインページにリダイレクト
+        window.location.href = '/auth/login';
+      } else {
+        alert('エラー: ' + error.message);
+      }
+    } finally {
+      setStripeLoading(false);
     }
-  }, [isAuthenticated]);
+  };
 
-  // 認証チェック
-  if (!isAuthenticated) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h2 className="text-lg font-medium text-yellow-800 mb-2">
-              ログインが必要です
-            </h2>
-            <p className="text-yellow-700 mb-4">
-              プロフィールを表示するにはログインしてください。
-            </p>
-            <Link
-              href="/auth/login"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              ログイン
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ローディング表示
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-center items-center h-64">
-            <div className="text-gray-600">読み込み中...</div>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
         </div>
       </div>
     );
   }
 
-  // エラー表示
-  if (error) {
+  if (!user || !profile) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <h2 className="text-lg font-medium text-red-800 mb-2">
-              エラーが発生しました
-            </h2>
-            <p className="text-red-700 mb-4">{error}</p>
-            <button
-              onClick={fetchProfile}
-              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200"
-            >
-              再試行
-            </button>
-          </div>
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-gray-600">プロフィール情報を取得できませんでした</p>
         </div>
       </div>
     );
   }
 
-  if (!user || !profile) return null;
+  if (isEditing) {
+    return (
+      <ProfileEditForm
+        profile={profile}
+        onSave={handleSaveProfile}
+        onCancel={handleCancelEdit}
+      />
+    );
+  }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-4">
-            <Link
-              href="/dashboard"
-              className="text-gray-600 hover:text-gray-800 transition-colors duration-200"
-            >
-              ← ダッシュボードに戻る
-            </Link>
-          </div>
+    <div className="min-h-screen bg-white">
+      <div className="max-w-4xl mx-auto px-4 py-8">
+        <div className="space-y-8">
           <h1 className="text-3xl font-bold text-gray-900">プロフィール</h1>
-          <p className="mt-2 text-gray-600">
-            あなたの基本情報とプロフィールを確認・編集できます
-          </p>
-        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* 基本情報 */}
-          <div className="lg:col-span-1">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">基本情報</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">ユーザー名</label>
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">基本情報</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">ユーザー名</label>
+                <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                   <p className="text-gray-900">{user.username}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">メールアドレス</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">メールアドレス</label>
+                <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                   <p className="text-gray-900">{user.email}</p>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">ユーザータイプ</label>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">ユーザータイプ</label>
+                <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                   <p className="text-gray-900">
                     {user.user_type === 'contributor' ? '投稿者' : '提案者'}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500">登録日</label>
-                  <p className="text-gray-900">
-                    {new Date(user.created_at).toLocaleDateString('ja-JP')}
                   </p>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* プロフィール詳細 */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                {user.user_type === 'contributor' ? '企業情報' : '個人情報'}
-              </h2>
-              
-              {user.user_type === 'contributor' && 'company_name' in profile ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">会社名</label>
-                      <p className="text-gray-900">{profile.company_name}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">代表者名</label>
-                      <p className="text-gray-900">{profile.representative_name}</p>
+          {/* 個人情報 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">個人情報</h2>
+            <div className="space-y-4">
+              {user.user_type === 'contributor' ? (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">会社名</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.company_name || '未設定'}</p>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500">住所</label>
-                    <p className="text-gray-900">{profile.address}</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">電話番号</label>
-                      <p className="text-gray-900">{profile.phone_number}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">メールアドレス</label>
-                      <p className="text-gray-900">{profile.email}</p>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">氏名</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.full_name || '未設定'}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">業種</label>
-                      <p className="text-gray-900">{profile.industry}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">従業員数</label>
-                      <p className="text-gray-900">{profile.employee_count || '未設定'}</p>
-                    </div>
-                  </div>
-                  {profile.company_url && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">会社URL</label>
-                      <a 
-                        href={profile.company_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-600 hover:text-blue-800"
-                      >
-                        {profile.company_url}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : user.user_type === 'proposer' && 'full_name' in profile ? (
-                <div className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">氏名</label>
-                      <p className="text-gray-900">{profile.full_name}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">性別</label>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">性別</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                       <p className="text-gray-900">
-                        {profile.gender === 'male' ? '男性' : 
-                         profile.gender === 'female' ? '女性' : 'その他'}
+                        {profile.contributor_profile?.gender === 'male' ? '男性' :
+                         profile.contributor_profile?.gender === 'female' ? '女性' :
+                         profile.contributor_profile?.gender === 'other' ? 'その他' : '未設定'}
                       </p>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500">住所</label>
-                    <p className="text-gray-900">{profile.address}</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">電話番号</label>
-                      <p className="text-gray-900">{profile.phone_number}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">メールアドレス</label>
-                      <p className="text-gray-900">{profile.email}</p>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">生年月日</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.birth_date || '未設定'}</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">職業</label>
-                      <p className="text-gray-900">{profile.occupation || '未設定'}</p>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">専門分野</label>
-                      <p className="text-gray-900">{profile.expertise || '未設定'}</p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">所在地</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.location || '未設定'}</p>
                     </div>
                   </div>
-                  {profile.bio && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-500">自己紹介</label>
-                      <p className="text-gray-900 whitespace-pre-wrap">{profile.bio}</p>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">住所</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.address || '未設定'}</p>
                     </div>
-                  )}
-                </div>
-              ) : null}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">電話番号</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.phone_number || '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">職業</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.contributor_profile?.occupation || '未設定'}</p>
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">氏名</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.full_name || '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">性別</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">
+                        {profile.proposer_profile?.gender === 'male' ? '男性' :
+                         profile.proposer_profile?.gender === 'female' ? '女性' :
+                         profile.proposer_profile?.gender === 'other' ? 'その他' : '未設定'}
+                      </p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">生年月日</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.birth_date || '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">国籍</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.nationality ? getNationalityName(profile.proposer_profile.nationality) || '未設定' : '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">住所</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.address || '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">電話番号</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.phone_number || '未設定'}</p>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">職業</label>
+                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
+                      <p className="text-gray-900">{profile.proposer_profile?.occupation || '未設定'}</p>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* アクションボタン */}
-        <div className="mt-8 flex justify-end">
-          <button
-            onClick={() => {
-              // TODO: プロフィール編集機能を実装
-              alert('プロフィール編集機能は今後実装予定です');
-            }}
-            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-          >
-            プロフィールを編集
-          </button>
+          {/* 編集ボタン */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 cursor-pointer"
+            >
+              プロフィールを編集
+            </button>
+          </div>
+
+          {/* Stripeアカウント情報 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mt-8">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Stripeアカウント</h2>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-sm text-blue-800">
+                  {user.user_type === 'contributor' 
+                    ? '投稿者：クレジットカード決済用アカウント（決済情報を安全に管理）'
+                    : '提案者：銀行口座連携アカウント（報酬受取・出金用）'
+                  }
+                </p>
+              </div>
+              
+              {/* Stripeアカウント状態表示 */}
+              {stripeAccountStatus && (
+                <div className={`border rounded-lg p-3 ${
+                  stripeAccountStatus.has_account && stripeAccountStatus.account_status === 'completed'
+                    ? 'bg-green-50 border-green-200'
+                    : stripeAccountStatus.has_account
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : 'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`w-3 h-3 rounded-full ${
+                      stripeAccountStatus.has_account && stripeAccountStatus.account_status === 'completed'
+                        ? 'bg-green-500'
+                        : stripeAccountStatus.has_account
+                        ? 'bg-yellow-500'
+                        : 'bg-gray-400'
+                    }`}></div>
+                    <span className="text-sm font-medium">
+                      {stripeAccountStatus.has_account ? (
+                        stripeAccountStatus.account_status === 'completed' 
+                          ? (user.user_type === 'contributor' ? '決済準備完了' : '出金可能')
+                          : '登録中'
+                      ) : '未登録'}
+                    </span>
+                  </div>
+                  <p className={`text-sm ${
+                    stripeAccountStatus.has_account && stripeAccountStatus.account_status === 'completed'
+                      ? 'text-green-700'
+                      : stripeAccountStatus.has_account
+                      ? 'text-yellow-700'
+                      : 'text-gray-600'
+                  }`}>
+                    {stripeAccountStatus.has_account ? (
+                      stripeAccountStatus.account_status === 'completed' 
+                        ? (user.user_type === 'contributor' 
+                          ? 'クレジットカード決済が可能です'
+                          : '銀行口座への出金が可能です'
+                        )
+                        : (user.user_type === 'contributor' 
+                          ? '決済情報の設定を完了してください'
+                          : '銀行口座情報の登録を完了してください'
+                        )
+                    ) : (user.user_type === 'contributor' 
+                      ? '決済機能を利用するにはStripeアカウントの登録が必要です'
+                      : '報酬を受け取るにはStripeアカウントの登録が必要です'
+                    )}
+                  </p>
+                </div>
+              )}
+              
+              <div className="text-center">
+                <button
+                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200 cursor-pointer"
+                  onClick={handleCreateStripeAccount}
+                  disabled={stripeLoading || (stripeAccountStatus?.has_account && stripeAccountStatus.account_status === 'completed')}
+                >
+                  {stripeLoading ? '処理中...' : 
+                   stripeAccountStatus?.has_account && stripeAccountStatus.account_status === 'completed'
+                     ? (user.user_type === 'contributor' ? '決済アカウント登録済み' : '出金アカウント登録済み')
+                     : (user.user_type === 'contributor' ? '決済アカウントを作成' : '出金アカウントを作成')
+                  }
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

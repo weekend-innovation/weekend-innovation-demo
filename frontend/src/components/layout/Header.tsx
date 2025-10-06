@@ -146,6 +146,13 @@ export function Header() {
                         >
                           課題一覧
                         </Link>
+                        <Link
+                          href="/wallet" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          ウォレット
+                        </Link>
                       </>
                     )}
                     {user.user_type === 'proposer' && (
@@ -170,6 +177,13 @@ export function Header() {
                           onClick={() => setIsMenuOpen(false)}
                         >
                           課題一覧
+                        </Link>
+                        <Link
+                          href="/wallet" 
+                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          ウォレット
                         </Link>
                       </>
                     )}

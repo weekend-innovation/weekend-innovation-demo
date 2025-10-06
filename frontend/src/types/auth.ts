@@ -26,11 +26,15 @@ export interface User {
 // 投稿者プロフィール
 export interface ContributorProfile {
   company_name: string;
-  representative_name: string;
+  full_name: string;
+  gender: 'male' | 'female' | 'other';
+  birth_date: string;
+  location: string;
   address: string;
   phone_number: string;
   email: string;
-  industry: string;
+  occupation?: string;
+  industry?: string;
   employee_count?: number;
   established_year?: number;
   company_url?: string;
@@ -42,6 +46,7 @@ export interface ProposerProfile {
   full_name: string;
   gender: 'male' | 'female' | 'other';
   birth_date: string;
+  nationality: string;
   address: string;
   phone_number: string;
   email: string;
