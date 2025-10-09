@@ -87,6 +87,38 @@ const ProposePage: React.FC = () => {
     );
   }
 
+  // 期限切れの場合の表示（status='closed'）
+  if (challenge && challenge.status === 'closed') {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h2 className="text-lg font-medium text-red-900 mb-2">
+              この課題は期限切れです
+            </h2>
+            <p className="text-red-800 mb-4">
+              期限が過ぎているため、解決案を提案することはできません。
+            </p>
+            <div className="flex gap-4">
+              <Link
+                href={`/challenges/${challengeId}`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                課題詳細に戻る
+              </Link>
+              <Link
+                href="/challenges"
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                課題一覧に戻る
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  
   // 既存提案がある場合の表示
   if (existingProposal) {
     return (

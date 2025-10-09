@@ -111,30 +111,68 @@ class ProposalListSerializer(serializers.ModelSerializer):
         ]
 
 
+class ProposalCommentReplySerializer(serializers.ModelSerializer):
+    """コメント返信シリアライザー"""
+    replier_name = serializers.SerializerMethodField()
+    
+    def get_replier_name(self, obj):
+        """返信者の表示名を返す（課題ごとの匿名名）"""
+        from selections.models import ChallengeUserAnonymousName
+        
+        try:
+            # 課題ごとの返信者の匿名名を取得
+            challenge = obj.comment.proposal.challenge
+            challenge_user_name = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
+                challenge=challenge,
+                user=obj.replier
+            )
+            
+            if challenge_user_name.anonymous_name:
+                return challenge_user_name.anonymous_name.name
+            else:
+                return obj.replier.username
+                
+        except ChallengeUserAnonymousName.DoesNotExist:
+            # 匿名名が割り当てられていない場合はusernameを返す
+            return obj.replier.username
+    
+    class Meta:
+        model = ProposalCommentReply
+        fields = ['id', 'content', 'replier_name', 'created_at']
+        read_only_fields = ['id', 'replier_name', 'created_at']
+
+
 class ProposalCommentSerializer(serializers.ModelSerializer):
     """提案コメントシリアライザー"""
     commenter_name = serializers.SerializerMethodField()
+    replies = ProposalCommentReplySerializer(many=True, read_only=True)
     
     def get_commenter_name(self, obj):
-        """コメント投稿者の表示名を返す"""
-        request = self.context.get('request')
-        request_user = request.user if request else None
+        """コメント投稿者の表示名を返す（課題ごとの匿名名）"""
+        from selections.models import ChallengeUserAnonymousName
         
-        # コメント投稿者が提案者本人の場合は実名を返す
-        if request_user and request_user == obj.commenter:
+        try:
+            # 課題ごとのコメント投稿者の匿名名を取得
+            challenge = obj.proposal.challenge
+            challenge_user_name = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
+                challenge=challenge,
+                user=obj.commenter
+            )
+            
+            if challenge_user_name.anonymous_name:
+                return challenge_user_name.anonymous_name.name
+            else:
+                return obj.commenter.username
+                
+        except ChallengeUserAnonymousName.DoesNotExist:
+            # 匿名名が割り当てられていない場合はusernameを返す
             return obj.commenter.username
-        
-        # それ以外の場合は匿名名を返す（提案の匿名設定に従う）
-        proposal = obj.proposal
-        if proposal.is_anonymous and proposal.anonymous_name:
-            return proposal.anonymous_name.name
-        return obj.commenter.username
     
     class Meta:
         model = ProposalComment
         fields = [
             'id', 'target_section', 'conclusion', 'reasoning',
-            'commenter_name', 'created_at'
+            'commenter_name', 'created_at', 'replies'
         ]
         read_only_fields = ['id', 'created_at']
 
@@ -158,24 +196,19 @@ class ProposalCommentCreateSerializer(serializers.ModelSerializer):
         return value.strip()
 
 
-class ProposalCommentReplySerializer(serializers.ModelSerializer):
-    """コメント返信シリアライザー"""
-    replier_name = serializers.CharField(source='replier.username', read_only=True)
-    
-    class Meta:
-        model = ProposalCommentReply
-        fields = ['id', 'content', 'replier_name', 'created_at']
-        read_only_fields = ['id', 'replier_name', 'created_at']
-
-
 class ProposalEvaluationSerializer(serializers.ModelSerializer):
     """提案評価シリアライザー"""
     evaluator_name = serializers.CharField(source='evaluator.username', read_only=True)
     
     class Meta:
         model = ProposalEvaluation
-        fields = ['id', 'evaluation', 'score', 'evaluator_name', 'created_at']
-        read_only_fields = ['id', 'score', 'evaluator_name', 'created_at']
+        fields = ['id', 'proposal', 'evaluator', 'evaluation', 'score', 'evaluator_name', 'created_at']
+        read_only_fields = ['id', 'proposal', 'evaluator', 'score', 'evaluator_name', 'created_at']
+    
+    def create(self, validated_data):
+        """評価作成時の処理（スコアはモデルのsaveメソッドで自動計算）"""
+        # スコアはモデルのsaveメソッドで自動計算されるため、ここでは設定しない
+        return super().create(validated_data)
 
 
 class ProposalReferenceSerializer(serializers.ModelSerializer):

@@ -10,10 +10,10 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 from django.core.exceptions import ValidationError
 
-from .models import Selection, SelectionHistory, SelectionCriteria
+from .models import Selection, SelectionHistory, SelectionCriteria, ChallengeUserAnonymousName
 from .notifications import SelectionNotificationService
 from challenges.models import Challenge
-from proposals.models import Proposal
+from proposals.models import Proposal, AnonymousName
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -150,6 +150,9 @@ class SelectionService:
                 selection.completed_at = timezone.now()
                 selection.save()
                 
+                # 各ユーザーに匿名名を割り当て
+                SelectionService._assign_anonymous_names(challenge, selected_users)
+                
                 # 選出履歴を記録
                 for user in selected_users:
                     SelectionHistory.objects.create(
@@ -224,6 +227,9 @@ class SelectionService:
                 selection.status = 'completed'
                 selection.completed_at = timezone.now()
                 selection.save()
+                
+                # 各ユーザーに匿名名を割り当て
+                SelectionService._assign_anonymous_names(challenge, selected_users)
                 
                 # 選出履歴を記録
                 for user in selected_users:
@@ -338,6 +344,55 @@ class SelectionService:
                     break
         
         return selected_users
+    
+    @staticmethod
+    def _assign_anonymous_names(challenge: Challenge, users: List[User]) -> None:
+        """
+        課題に選出されたユーザーに匿名名を割り当て
+        
+        Args:
+            challenge: 対象の課題
+            users: 選出されたユーザーのリスト
+        """
+        try:
+            # 利用可能な匿名名を取得
+            all_anonymous_names = list(AnonymousName.objects.all())
+            
+            if not all_anonymous_names:
+                logger.warning("匿名名が登録されていません")
+                return
+            
+            # 既にこの課題で使用されている匿名名を除外
+            used_names = ChallengeUserAnonymousName.objects.filter(
+                challenge=challenge
+            ).values_list('anonymous_name_id', flat=True)
+            
+            available_names = [name for name in all_anonymous_names if name.id not in used_names]
+            
+            # 利用可能な名前が不足している場合は全ての名前を使用
+            if len(available_names) < len(users):
+                logger.warning(f"利用可能な匿名名が不足しています。重複を許可します。")
+                available_names = all_anonymous_names
+            
+            # ランダムにシャッフル
+            random.shuffle(available_names)
+            
+            # 各ユーザーに匿名名を割り当て
+            for i, user in enumerate(users):
+                anonymous_name = available_names[i % len(available_names)]
+                
+                # 既存のレコードがあれば更新、なければ作成
+                ChallengeUserAnonymousName.objects.update_or_create(
+                    challenge=challenge,
+                    user=user,
+                    defaults={'anonymous_name': anonymous_name}
+                )
+                
+                logger.info(f"匿名名割り当て: user={user.username}, challenge={challenge.id}, name={anonymous_name.name}")
+                
+        except Exception as e:
+            logger.error(f"匿名名割り当てエラー: {e}")
+            # エラーが発生しても選出処理自体は継続
     
     @staticmethod
     def cancel_selection(selection: Selection, reason: str = "") -> bool:

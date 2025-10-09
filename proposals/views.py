@@ -81,8 +81,8 @@ class ProposalListCreateView(generics.ListCreateAPIView):
                     logger.info(f"Deleting latest proposal {latest_proposal.id} for user {user.id}, challenge {challenge_id}")
                     latest_proposal.delete()
             
-            # 匿名名をランダムに割り当て
-            anonymous_name = self.get_random_anonymous_name()
+            # 課題ごとの匿名名を取得
+            anonymous_name = self.get_challenge_anonymous_name(user, challenge_id)
             logger.debug(f"Selected anonymous name: {anonymous_name}")
             
             serializer.save(
@@ -96,8 +96,24 @@ class ProposalListCreateView(generics.ListCreateAPIView):
             logger.error(f"Error in perform_create: {str(e)}", exc_info=True)
             raise
     
+    def get_challenge_anonymous_name(self, user, challenge_id):
+        """課題ごとのユーザー匿名名を取得"""
+        from selections.models import ChallengeUserAnonymousName
+        
+        try:
+            # 課題ごとの匿名名を取得
+            challenge_user_name = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
+                challenge_id=challenge_id,
+                user=user
+            )
+            return challenge_user_name.anonymous_name
+        except ChallengeUserAnonymousName.DoesNotExist:
+            logger.warning(f"課題ID {challenge_id} のユーザー {user.id} に匿名名が割り当てられていません")
+            # フォールバック: ランダムな匿名名を割り当て
+            return self.get_random_anonymous_name()
+    
     def get_random_anonymous_name(self):
-        """ランダムな匿名名を取得"""
+        """ランダムな匿名名を取得（フォールバック用）"""
         anonymous_names = list(AnonymousName.objects.all())
         if anonymous_names:
             return random.choice(anonymous_names)
@@ -216,11 +232,14 @@ class ProposalCommentListCreateView(generics.ListCreateAPIView):
         return ProposalCommentSerializer
     
     def get_queryset(self):
-        """指定された提案のコメント一覧を返す"""
+        """指定された提案のコメント一覧を返す（返信情報を含む）"""
         proposal_id = self.kwargs['proposal_id']
+        from django.db.models import Prefetch
         return ProposalComment.objects.filter(
             proposal_id=proposal_id,
             is_deleted=False
+        ).prefetch_related(
+            Prefetch('replies', queryset=ProposalCommentReply.objects.filter(is_deleted=False))
         ).order_by('created_at')
     
     def list(self, request, *args, **kwargs):
@@ -299,6 +318,33 @@ class ProposalEvaluationCreateView(generics.CreateAPIView):
         # 自分の提案は評価できない
         if proposal.proposer == user:
             raise permissions.PermissionDenied("自分の解決案は評価できません。")
+        
+        # 評価値を取得
+        evaluation_value = serializer.validated_data['evaluation']
+        
+        # 既存の評価がある場合は更新、ない場合は新規作成
+        evaluation, created = ProposalEvaluation.objects.get_or_create(
+            proposal=proposal,
+            evaluator=user,
+            defaults={
+                'evaluation': evaluation_value
+                # スコアはモデルのsaveメソッドで自動計算される
+            }
+        )
+        
+        if not created:
+            evaluation.evaluation = evaluation_value
+            evaluation.save()  # モデルのsaveメソッドでスコアが自動計算される
+        
+        # シリアライザーのインスタンスを更新
+        serializer.instance = evaluation
+    
+    def is_user_selected_for_challenge(self, user, challenge):
+        """ユーザーが課題に選出されているかチェック"""
+        return Selection.objects.filter(
+            challenge=challenge,
+            selected_users=user
+        ).exists()
 
 
 class ProposalEvaluationRetrieveView(generics.RetrieveAPIView):

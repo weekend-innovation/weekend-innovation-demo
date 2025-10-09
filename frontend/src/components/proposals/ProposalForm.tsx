@@ -54,17 +54,28 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
 
     if (!formData.conclusion.trim()) {
       newErrors.conclusion = '結論は必須です';
+    } else if (formData.conclusion.trim().length < 10) {
+      newErrors.conclusion = '結論は10文字以上で入力してください';
     } else if (formData.conclusion.length > 500) {
       newErrors.conclusion = '結論は500文字以内で入力してください';
     }
 
     if (!formData.reasoning.trim()) {
       newErrors.reasoning = '理由は必須です';
+    } else if (formData.reasoning.trim().length < 20) {
+      newErrors.reasoning = '理由は20文字以上で入力してください';
     } else if (formData.reasoning.length > 1000) {
       newErrors.reasoning = '理由は1000文字以内で入力してください';
     }
 
     setErrors(newErrors);
+    
+    // エラーがある場合はポップアップで表示
+    if (Object.keys(newErrors).length > 0) {
+      const errorMessages = Object.values(newErrors).join('\n');
+      alert(errorMessages);
+    }
+    
     return Object.keys(newErrors).length === 0;
   };
 

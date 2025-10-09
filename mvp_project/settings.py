@@ -44,7 +44,7 @@ INSTALLED_APPS = [
     'challenges',               # 課題管理
     'proposals',                # 提案管理
     'selections',               # ユーザー選出機能
-    'wallet',                   # 報酬管理
+    'payments',                 # 報酬・決済管理（統合）
     'moderation',               # モデレーション管理
     'notifications',            # 通知管理
     'analytics',                # 分析・まとめ機能

@@ -116,15 +116,37 @@ const ProposerDashboard: React.FC = () => {
     ?.sort((a, b) => (b.evaluation_count || 0) - (a.evaluation_count || 0))
     .slice(0, 5) || [];
 
-  // 募集中の課題（選出された課題のみ、期限順でソートして最新1件）
-  const openChallenges = challenges
-    ?.filter(c => c.status === 'open')
-    .sort((a, b) => {
-      const deadlineA = new Date(a.deadline);
-      const deadlineB = new Date(b.deadline);
-      return deadlineA.getTime() - deadlineB.getTime();
-    })
-    .slice(0, 1) || [];
+  // 募集中の課題（課題一覧ページの一番上の課題と同じ）
+  const openChallenges = React.useMemo(() => {
+    if (!challenges || challenges.length === 0) return [];
+    
+    // 期限切れと募集中を分離
+    const expiredChallenges = challenges
+      .filter(c => c.status === 'closed')
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    const activeChallenges = challenges.filter(c => c.status !== 'closed');
+    
+    // 提案済みと未提案を分離
+    const proposedChallenges = activeChallenges
+      .filter(challenge => proposals.some(proposal => proposal.challenge_id === challenge.id))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    const unproposedChallenges = activeChallenges
+      .filter(challenge => !proposals.some(proposal => proposal.challenge_id === challenge.id))
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    
+    // 優先順位: 未提案 → 提案済み → 期限切れ
+    if (unproposedChallenges.length > 0) {
+      return [unproposedChallenges[0]];
+    } else if (proposedChallenges.length > 0) {
+      return [proposedChallenges[0]];
+    } else if (expiredChallenges.length > 0) {
+      return [expiredChallenges[0]];
+    }
+    
+    return [];
+  }, [challenges, proposals]);
 
   // ローディング表示
   if (loading) {
@@ -225,15 +247,21 @@ const ProposerDashboard: React.FC = () => {
             <p className="text-gray-500 text-center py-4">現在、募集中の課題はありません</p>
           ) : (
             <div className="space-y-4">
-              {openChallenges.map((challenge) => (
-                <ChallengeCard
-                  key={challenge.id}
-                  challenge={challenge}
-                  showActions={true}
-                  userType="proposer"
-                  onView={handleChallengeView}
-                />
-              ))}
+              {openChallenges.map((challenge) => {
+                // この課題に対する提案があるかチェック
+                const isProposed = proposals.some(proposal => proposal.challenge_id === challenge.id);
+                
+                return (
+                  <ChallengeCard
+                    key={challenge.id}
+                    challenge={challenge}
+                    showActions={true}
+                    userType="proposer"
+                    isProposed={isProposed}
+                    onView={handleChallengeView}
+                  />
+                );
+              })}
             </div>
           )}
         </div>

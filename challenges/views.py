@@ -22,21 +22,29 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
     
     def get_queryset(self):
         """ユーザータイプに応じてクエリセットを返す"""
+        from django.utils import timezone
+        
+        # 期限切れ課題を自動的にclosedに更新
+        now = timezone.now()
+        Challenge.objects.filter(
+            status='open',
+            deadline__lt=now
+        ).update(status='closed')
+        
         user = self.request.user
         
         if user.user_type == 'contributor':
             # 投稿者: 自分が投稿した課題のみ
             return Challenge.objects.filter(contributor=user)
         elif user.user_type == 'proposer':
-            # 提案者: 選出された課題のみ表示
+            # 提案者: 選出された課題のみ表示（期限切れを含むすべての課題）
             from selections.models import Selection
             selected_challenges = Selection.objects.filter(
                 selected_users=user,
                 status='completed'
             ).values_list('challenge_id', flat=True)
             return Challenge.objects.filter(
-                id__in=selected_challenges,
-                status='open'
+                id__in=selected_challenges
             )
         
         return Challenge.objects.none()
@@ -67,15 +75,28 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def get_queryset(self):
         """ユーザータイプに応じてクエリセットを返す"""
+        from django.utils import timezone
+        
+        # 期限切れ課題を自動的にclosedに更新
+        now = timezone.now()
+        Challenge.objects.filter(
+            status='open',
+            deadline__lt=now
+        ).update(status='closed')
+        
         user = self.request.user
         
         if user.user_type == 'contributor':
             # 投稿者: 自分の課題のみ
             return Challenge.objects.filter(contributor=user)
         elif user.user_type == 'proposer':
-            # 提案者: 選出された課題のみ閲覧可能
-            # TODO: 選出機能実装後に selections__proposer=user を追加
-            return Challenge.objects.filter(status='open')
+            # 提案者: 選出された課題のみ閲覧可能（期限切れを含む）
+            from selections.models import Selection
+            selected_challenges = Selection.objects.filter(
+                selected_users=user,
+                status='completed'
+            ).values_list('challenge_id', flat=True)
+            return Challenge.objects.filter(id__in=selected_challenges)
         
         return Challenge.objects.none()
     

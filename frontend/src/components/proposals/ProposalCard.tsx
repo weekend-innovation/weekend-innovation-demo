@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useAuth } from '../../contexts/AuthContext';
 import ProposalEvaluationComponent from './ProposalEvaluation';
 import ProposalCommentList from './ProposalCommentList';
+import { ReportButton } from '../moderation/ReportButton';
 import { createProposalEvaluation, createProposalComment, createProposalCommentReply, getProposalComments, getProposalEvaluation } from '../../lib/proposalAPI';
 import type { ProposalListItem, ProposalCardProps, ProposalComment, ProposalEvaluation, ReferenceLog } from '@/types/proposal';
 
@@ -28,6 +29,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   const [showCommentsSection, setShowCommentsSection] = useState(false);
   const [comments, setComments] = useState<ProposalComment[]>([]);
   const [userEvaluation, setUserEvaluation] = useState<ProposalEvaluation | null>(null);
+  
+  // デバッグログ: userEvaluationの状態変化を追跡
+  useEffect(() => {
+    console.log('userEvaluation状態変化:', userEvaluation);
+  }, [userEvaluation]);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAddingComment, setIsAddingComment] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
@@ -71,12 +77,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   }, [referenceLogs, proposal.id]);
 
-  // デバッグログ
-  console.log('ProposalCard - referenceLogs:', referenceLogs);
-  console.log('ProposalCard - referenceLogs.length:', referenceLogs.length);
-
   // 評価権限の確認（自分の解決案は評価不可）
   const canEvaluate = user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
+  
+  // デバッグログ
+  console.log('評価権限デバッグ:', {
+    userType: user?.user_type,
+    username: user?.username,
+    proposerName: proposal.proposer_name,
+    canEvaluate,
+    userTypeCheck: user?.user_type === 'proposer',
+    notOwnProposal: user?.username !== proposal.proposer_name
+  });
   
   // 評価データを取得
   useEffect(() => {
@@ -87,6 +99,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
           setUserEvaluation(evaluation);
         } catch (error) {
           console.error('評価データ取得エラー:', error);
+          setUserEvaluation(null);
         }
       };
       fetchEvaluation();
@@ -101,6 +114,9 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   
   // 参考権限の確認（自分の解決案の場合のみ）
   const canReference = user?.username === proposal.proposer_name;
+  
+  // 通報権限の確認（自分の解決案以外）
+  const canReport = user?.username !== proposal.proposer_name;
 
   // 評価ハンドラー
   const handleEvaluate = async (proposalId: number, evaluation: 'yes' | 'maybe' | 'no') => {
@@ -108,11 +124,14 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     
     setIsEvaluating(true);
     try {
+      console.log('評価送信開始:', { proposalId, evaluation });
       const result = await createProposalEvaluation(proposalId, { evaluation });
+      console.log('評価送信成功:', result);
       setUserEvaluation(result);
+      console.log('評価状態更新完了:', result);
     } catch (error) {
-      console.error('評価エラー:', error);
-      alert('評価の投稿に失敗しました。');
+      console.error('評価エラー詳細:', error);
+      alert(`評価の投稿に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
     } finally {
       setIsEvaluating(false);
     }
@@ -125,9 +144,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     setIsAddingComment(true);
     try {
       const result = await createProposalComment(proposal.id, comment);
-      setComments(prev => [...prev, result]);
+      // 返信情報を初期化して追加
+      const commentWithReplies = { ...result, replies: [] };
+      setComments(prev => [...prev, commentWithReplies]);
       
-      // total_comment_countを更新
+      // total_comment_countを更新（コメント数のみ）
       if (proposal.total_comment_count !== undefined) {
         proposal.total_comment_count += 1;
       }
@@ -155,10 +176,10 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
           : comment
       ));
       
-      // total_comment_countを更新（返信もコメントとしてカウント）
-      if (proposal.total_comment_count !== undefined) {
-        proposal.total_comment_count += 1;
-      }
+      // 注意: total_comment_countは返信数を含まない（コメント数のみ）
+      // 返信は別途管理されるため、ここでは更新しない
+      
+      alert('返信を投稿しました。');
     } catch (error) {
       console.error('返信エラー:', error);
       alert('返信の投稿に失敗しました。');
@@ -232,7 +253,12 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     if (willShow) {
       try {
         const response = await getProposalComments(proposal.id);
-        setComments(response.results);
+        // コメントに返信情報を含める
+        const commentsWithReplies = response.results.map(comment => ({
+          ...comment,
+          replies: comment.replies || []
+        }));
+        setComments(commentsWithReplies);
         
         // 未読コメント数をリセット
         setUnreadCount(0);
@@ -409,6 +435,21 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
                 </p>
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 通報ボタン（自分の解決案以外） */}
+      {canReport && (
+        <div className="mt-4 pt-4 border-t border-gray-200">
+          <div className="flex justify-end">
+            <ReportButton
+              contentType={11} // ContentType ID for Proposal
+              objectId={proposal.id}
+              contentTypeName="解決案"
+              size="sm"
+              className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+            />
           </div>
         </div>
       )}

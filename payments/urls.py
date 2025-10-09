@@ -4,7 +4,7 @@
 from django.urls import path
 from . import views
 
-app_name = 'wallet'
+app_name = 'payments'
 
 urlpatterns = [
     # ウォレット関連

@@ -13,7 +13,7 @@ import { getUserProposalForChallenge } from '../../lib/proposalAPI';
 import { useAuth } from '../../contexts/AuthContext';
 
 const ChallengesPage: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -135,7 +135,18 @@ const ChallengesPage: React.FC = () => {
     }
   };
 
-  // 未認証の場合の表示
+  // 認証チェック（すべてのHooksの後に配置）
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
@@ -262,13 +273,24 @@ const ChallengesPage: React.FC = () => {
             <div className="space-y-6">
               {(() => {
                 if (user?.user_type === 'proposer') {
-                  // 提案者ユーザーの場合、提案済みと未提案を分離
-                  const proposedChallenges = challenges.filter(challenge => userProposals[challenge.id]);
-                  const unproposedChallenges = challenges.filter(challenge => !userProposals[challenge.id]);
+                  // 提案者ユーザーの場合、期限切れ、未提案、提案済みを分離
+                  const expiredChallenges = challenges
+                    .filter(challenge => challenge.status === 'closed')
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                  
+                  const activeChallenges = challenges.filter(challenge => challenge.status !== 'closed');
+                  
+                  const proposedChallenges = activeChallenges
+                    .filter(challenge => userProposals[challenge.id])
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                  
+                  const unproposedChallenges = activeChallenges
+                    .filter(challenge => !userProposals[challenge.id])
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                   
                   return (
                     <>
-                      {/* 未提案の課題 */}
+                      {/* 未提案の課題（募集中） */}
                       {unproposedChallenges.map((challenge) => (
                         <ChallengeCard
                           key={challenge.id}
@@ -287,6 +309,17 @@ const ChallengesPage: React.FC = () => {
                           showActions={true}
                           userType="proposer"
                           isProposed={true}
+                          onView={handleChallengeView}
+                        />
+                      ))}
+                      
+                      {/* 期限切れの課題 */}
+                      {expiredChallenges.map((challenge) => (
+                        <ChallengeCard
+                          key={challenge.id}
+                          challenge={challenge}
+                          showActions={true}
+                          userType="proposer"
                           onView={handleChallengeView}
                         />
                       ))}

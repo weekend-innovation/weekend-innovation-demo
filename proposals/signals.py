@@ -4,7 +4,7 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import Proposal
-from wallet.models import Payment, PaymentHistory
+from payments.models import Payment, PaymentHistory
 
 
 @receiver(post_save, sender=Proposal)
@@ -14,13 +14,13 @@ def create_proposal_payment(sender, instance, created, **kwargs):
         challenge = instance.challenge
         
         # 提案報酬が設定されている場合のみ支払い処理
-        if challenge.proposal_reward and challenge.proposal_reward > 0:
+        if challenge.reward_amount and challenge.reward_amount > 0:
             try:
                 # 支払い記録を作成
                 payment = Payment.objects.create(
                     payer=challenge.contributor,
                     recipient=instance.proposer,
-                    amount=challenge.proposal_reward,
+                    amount=challenge.reward_amount,
                     payment_type='proposal_reward',
                     status='pending',
                     challenge=challenge,
@@ -35,7 +35,7 @@ def create_proposal_payment(sender, instance, created, **kwargs):
                 PaymentHistory.objects.create(
                     payment=payment,
                     action='auto_payment_created',
-                    details=f'提案作成による自動報酬支払い: ¥{challenge.proposal_reward}'
+                    details=f'提案作成による自動報酬支払い: ¥{challenge.reward_amount}'
                 )
                 
             except Exception as e:

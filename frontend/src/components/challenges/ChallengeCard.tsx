@@ -20,7 +20,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
       case 'open':
         return { label: '募集中', color: 'text-green-600 bg-green-100' };
       case 'closed':
-        return { label: '締切', color: 'text-red-600 bg-red-100' };
+        return { label: '期限切れ', color: 'text-red-600 bg-red-100' };
       case 'completed':
         return { label: '完了', color: 'text-blue-600 bg-blue-100' };
       default:
@@ -62,21 +62,26 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
   return (
     <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 ${
-      challenge.status === 'closed' || challenge.status === 'completed' 
-        ? 'bg-gray-100 border border-gray-300 opacity-75' 
+      challenge.status === 'closed'
+        ? 'bg-red-50 border border-red-300 opacity-60' 
+        : challenge.status === 'completed'
+        ? 'bg-blue-50 border border-blue-300 opacity-75'
         : isProposed
         ? 'bg-gray-200 border border-gray-500 opacity-50'
         : 'bg-white border border-gray-200'
     }`}>
       {/* タイトル */}
       <div className="mb-4">
-        {isProposed && (
-          <div className="flex justify-end mb-2">
+        <div className="flex justify-end mb-2 gap-2">
+          {isProposed && (
             <span className="px-3 py-1 text-sm rounded-full bg-blue-600 text-white font-medium">
               提案済み
             </span>
-          </div>
-        )}
+          )}
+          <span className={`px-3 py-1 text-sm rounded-full font-medium ${statusDisplay.color}`}>
+            {statusDisplay.label}
+          </span>
+        </div>
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-xl font-bold text-gray-900 flex-1 pr-4">
             {challenge.title}

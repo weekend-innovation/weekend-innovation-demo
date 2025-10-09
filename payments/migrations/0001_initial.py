@@ -46,7 +46,7 @@ class Migration(migrations.Migration):
                 ('action', models.CharField(max_length=50, verbose_name='アクション')),
                 ('details', models.TextField(blank=True, verbose_name='詳細')),
                 ('created_at', models.DateTimeField(auto_now_add=True, verbose_name='作成日時')),
-                ('payment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='history', to='wallet.payment', verbose_name='支払い')),
+                ('payment', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, related_name='history', to='payments.payment', verbose_name='支払い')),
             ],
             options={
                 'verbose_name': '支払い履歴',

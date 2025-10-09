@@ -2,7 +2,7 @@
 選出機能の管理画面設定
 """
 from django.contrib import admin
-from .models import Selection, SelectionHistory, SelectionCriteria
+from .models import Selection, SelectionHistory, SelectionCriteria, ChallengeUserAnonymousName
 
 
 @admin.register(Selection)
@@ -89,3 +89,28 @@ class SelectionCriteriaAdmin(admin.ModelAdmin):
             'classes': ('collapse',)
         }),
     )
+
+
+@admin.register(ChallengeUserAnonymousName)
+class ChallengeUserAnonymousNameAdmin(admin.ModelAdmin):
+    """課題ユーザー匿名名の管理画面設定"""
+    list_display = ('id', 'challenge', 'user', 'anonymous_name', 'created_at')
+    list_filter = ('created_at', 'challenge')
+    search_fields = ('challenge__title', 'user__username', 'anonymous_name__name')
+    raw_id_fields = ('challenge', 'user', 'anonymous_name')
+    date_hierarchy = 'created_at'
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('challenge', 'user', 'anonymous_name')
+        }),
+        ('タイムスタンプ', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('challenge', 'user', 'anonymous_name')

@@ -7,6 +7,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import ProposalCommentReplyForm from './ProposalCommentReplyForm';
 import ProposalCommentForm from './ProposalCommentForm';
 import ProposalEditForm from './ProposalEditForm';
+import { ReportButton } from '../moderation/ReportButton';
 import type { ProposalCommentListProps } from '../../types/proposal';
 
 const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
@@ -47,9 +48,9 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
     setReplyingCommentId(null);
   };
 
-  // 通報ハンドラー（次のフェーズで実装予定）
+  // 通報ハンドラー（Phase 7で実装済み）
   const handleReport = (commentId: number) => {
-    alert('通報機能は次のフェーズで実装予定です。');
+    // ReportButtonコンポーネントで処理されるため、ここでは何もしない
   };
 
   // 参考ハンドラー（解決案編集機能）
@@ -143,22 +144,6 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                 </div>
               </div>
 
-              {/* 返信セクション */}
-              {comment.replies && comment.replies.length > 0 && (
-                <div className="mt-4 space-y-2">
-                  <h6 className="font-medium text-gray-700 text-sm">返信:</h6>
-                  {comment.replies.map((reply) => (
-                    <div key={reply.id} className="bg-gray-50 rounded p-3">
-                      <div className="flex justify-between items-start mb-2">
-                        <span className="font-medium text-gray-800 text-sm">{reply.replier_name}</span>
-                        <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
-                      </div>
-                      <p className="text-gray-600 text-sm leading-relaxed">{reply.content}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
               {/* アクションボタン */}
               {canReply && user && (
                 <div className="mt-3 pt-3 border-t border-gray-200">
@@ -191,14 +176,64 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                       >
                         参考
                       </button>
-                      <button
-                        onClick={() => handleReport(comment.id)}
-                        className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
-                      >
-                        通報
-                      </button>
+                      {/* 自分の解決案に対するコメントの通報ボタン（自分のコメント以外） */}
+                      {comment.commenter_name !== user.username && (
+                        <ReportButton
+                          contentType={10} // ContentType ID for ProposalComment
+                          objectId={comment.id}
+                          contentTypeName="コメント"
+                          size="sm"
+                          className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                        />
+                      )}
                     </div>
                   )}
+                </div>
+              )}
+              
+              {/* 他のユーザーの解決案に対するコメントの通報ボタン（自分のコメント以外） */}
+              {!canReply && canComment && user && comment.commenter_name !== user.username && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex justify-end">
+                    <ReportButton
+                      contentType={10} // ContentType ID for ProposalComment
+                      objectId={comment.id}
+                      contentTypeName="コメント"
+                      size="sm"
+                      className="bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* 返信セクション */}
+              {comment.replies && comment.replies.length > 0 && (
+                <div className="mt-4 space-y-2">
+                  <h6 className="font-medium text-gray-700 text-sm">返信:</h6>
+                  {comment.replies.map((reply) => (
+                    <div key={reply.id} className="bg-blue-50 rounded p-3 border border-blue-100">
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-medium text-gray-800 text-sm">{reply.replier_name}</span>
+                        <span className="text-xs text-gray-500">{formatDate(reply.created_at)}</span>
+                      </div>
+                      <p className="text-gray-600 text-sm leading-relaxed">{reply.content}</p>
+                      
+                      {/* 返信の通報ボタン（自分の返信以外） */}
+                      {user && reply.replier_name !== user.username && (
+                        <div className="mt-2 pt-2 border-t border-gray-200">
+                          <div className="flex justify-end">
+                            <ReportButton
+                              contentType={17} // ContentType ID for ProposalCommentReply
+                              objectId={reply.id}
+                              contentTypeName="返信"
+                              size="sm"
+                              className="bg-red-600 text-white px-3 py-1 rounded-md hover:bg-red-700 transition-colors duration-200 text-xs font-medium shadow-sm hover:shadow-md cursor-pointer"
+                            />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </div>

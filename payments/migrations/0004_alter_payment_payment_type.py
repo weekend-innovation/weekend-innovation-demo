@@ -6,7 +6,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('wallet', '0003_wallet_metadata'),
+        ('payments', '0003_wallet_metadata'),
     ]
 
     operations = [

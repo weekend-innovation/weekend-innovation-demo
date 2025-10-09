@@ -17,7 +17,7 @@ import ProposalCard from '../../../components/proposals/ProposalCard';
 const ChallengeDetailPage: React.FC = () => {
   const params = useParams();
   const router = useRouter();
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [challenge, setChallenge] = useState<Challenge | null>(null);
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [userProposal, setUserProposal] = useState<Proposal | null>(null);
@@ -68,6 +68,41 @@ const ChallengeDetailPage: React.FC = () => {
       setLoading(false);
     }
   }, [challengeId, isAuthenticated, user]);
+
+  // 認証チェック（すべてのHooksの後に配置）
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">読み込み中...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-medium text-yellow-800 mb-2">
+              ログインが必要です
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              このページを閲覧するにはログインが必要です。
+            </p>
+            <Link
+              href="/auth/login"
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+            >
+              ログイン
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // 期限の表示形式
   const formatDeadline = (deadline: string) => {
@@ -176,7 +211,7 @@ const ChallengeDetailPage: React.FC = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="mb-4">
             <div className="flex items-start justify-between mb-2">
-              <h1 className="text-2xl font-bold text-gray-900 flex-1 pr-4">
+              <h1 className="text-[1.3125rem] font-bold text-gray-900 flex-1 pr-4">
                 {challenge.title}
               </h1>
               <div className="flex items-center gap-4 text-sm text-gray-600">
@@ -214,9 +249,9 @@ const ChallengeDetailPage: React.FC = () => {
 
           {/* 課題内容 */}
           <div className="border-t border-gray-200 pt-4">
-            <h2 className="text-lg font-semibold text-gray-900 mb-3">課題内容</h2>
+            <h2 className="text-[1.3125rem] font-semibold text-gray-900 mb-3">課題内容</h2>
             <div className="prose max-w-none">
-              <p className="text-gray-700 whitespace-pre-wrap">
+              <p className="text-gray-700 whitespace-pre-wrap pl-4">
                 {challenge.description}
               </p>
             </div>
@@ -226,7 +261,7 @@ const ChallengeDetailPage: React.FC = () => {
         {/* 解決案表示セクション */}
         {(user?.user_type === 'contributor' || (user?.user_type === 'proposer' && userProposal)) && (
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 mb-4">
+            <h2 className="text-[1.125rem] font-semibold text-gray-900 mb-4">
               解決案 ({proposals.length}件)
             </h2>
             
@@ -346,19 +381,18 @@ const ChallengeDetailPage: React.FC = () => {
 
         {/* 提案者の未投稿時の案内 */}
         {user?.user_type === 'proposer' && !userProposal && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-            <h3 className="text-lg font-medium text-blue-900 mb-2">
-              解決案を提案してください
-            </h3>
-            <p className="text-blue-800 mb-4">
-              解決案を提案すると、他の提案者の解決案も閲覧できるようになります。
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+            <p className="text-blue-800 mb-3 text-center">
+              解決案を提案すると、他の提案者の解決案を閲覧できるようになります。
             </p>
-            <Link
-              href={`/challenges/${challenge.id}/propose`}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              解決案を提案する
-            </Link>
+            <div className="flex justify-center">
+              <Link
+                href={`/challenges/${challenge.id}/propose`}
+                className="bg-blue-600 text-white px-12 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                解決案を提案
+              </Link>
+            </div>
           </div>
         )}
 

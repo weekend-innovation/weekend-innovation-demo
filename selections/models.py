@@ -170,3 +170,44 @@ class SelectionCriteria(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.criteria_type})"
+
+
+class ChallengeUserAnonymousName(models.Model):
+    """
+    課題ごとのユーザー匿名名モデル
+    課題内でのユーザーの匿名化された名前を管理
+    """
+    challenge = models.ForeignKey(
+        'challenges.Challenge',
+        on_delete=models.CASCADE,
+        related_name='user_anonymous_names',
+        verbose_name="課題"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='challenge_anonymous_names',
+        verbose_name="ユーザー"
+    )
+    anonymous_name = models.ForeignKey(
+        'proposals.AnonymousName',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="匿名名"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+    
+    class Meta:
+        unique_together = ['challenge', 'user']
+        ordering = ['-created_at']
+        verbose_name = "課題ユーザー匿名名"
+        verbose_name_plural = "課題ユーザー匿名名"
+        indexes = [
+            models.Index(fields=['challenge', 'user']),
+        ]
+    
+    def __str__(self):
+        anonymous_name_str = self.anonymous_name.name if self.anonymous_name else 'None'
+        return f"{self.challenge.title} - {self.user.username} - {anonymous_name_str}"
