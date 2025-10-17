@@ -23,6 +23,9 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
 
   // バリデーションエラー
   const [errors, setErrors] = useState<Record<string, string>>({});
+  
+  // 提案報酬計算中フラグ
+  const [calculatingReward, setCalculatingReward] = useState(false);
 
   // 初期データの設定
   useEffect(() => {
@@ -31,26 +34,44 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       setFormData({
         title: initialData.title || '',
         description: initialData.description || '',
-        reward_amount: initialData.reward_amount || calculateProposalReward(participants),
+        reward_amount: initialData.reward_amount || 0,
         adoption_reward: initialData.adoption_reward || 50,
         required_participants: participants,
         deadline: initialData.deadline || ''
       });
     } else if (mode === 'create') {
-      // 新規作成時は提案報酬を自動計算
-      setFormData(prev => ({
-        ...prev,
-        reward_amount: calculateProposalReward(prev.required_participants)
-      }));
+      // 新規作成時は初期値で提案報酬を計算
+      calculateRewardAmount(50);
     }
   }, [initialData, mode]);
-
-  // 提案報酬の自動計算（万円単位）
-  const calculateProposalReward = (participants: number): number => {
-    // 選出人数×1万円 + 選出人数×雑費（1人あたり0.5万円と仮定）
-    const baseReward = participants * 1; // 1万円×選出人数
-    const miscellaneousFees = participants * 0.5; // 雑費（0.5万円×選出人数）
-    return baseReward + miscellaneousFees;
+  
+  // 提案報酬を計算する関数
+  const calculateRewardAmount = async (participants: number) => {
+    if (participants < 50 || participants > 770) {
+      setFormData(prev => ({ ...prev, reward_amount: 0 }));
+      return;
+    }
+    
+    try {
+      setCalculatingReward(true);
+      const response = await fetch('http://localhost:8000/api/challenges/calculate-reward/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+        },
+        body: JSON.stringify({ required_participants: participants })
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setFormData(prev => ({ ...prev, reward_amount: data.reward_amount_man }));
+      }
+    } catch (error) {
+      console.error('提案報酬計算エラー:', error);
+    } finally {
+      setCalculatingReward(false);
+    }
   };
 
   // 入力値の変更処理
@@ -79,13 +100,15 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         : processedValue
     };
 
-    // 選出人数が変更された場合、提案報酬を自動計算
-    if (name === 'required_participants') {
-      const participants = processedValue === '' ? 0 : Number(processedValue) || 0;
-      newFormData.reward_amount = calculateProposalReward(participants);
-    }
-
     setFormData(newFormData);
+    
+    // 新規作成モードで選出人数が変更された場合、提案報酬を再計算
+    if (mode === 'create' && name === 'required_participants' && processedValue !== '') {
+      const participants = Number(processedValue) || 0;
+      if (participants >= 50 && participants <= 770) {
+        calculateRewardAmount(participants);
+      }
+    }
     
     // エラーをクリア
     if (errors[name]) {
@@ -107,24 +130,27 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       newErrors.description = '課題内容は必須です';
     }
 
-    // 提案報酬は自動計算のためバリデーション不要
+    // 編集モードでは報酬・選出人数・期限のバリデーションをスキップ
+    if (mode === 'create') {
+      // 提案報酬は自動計算のためバリデーション不要
 
-    if (formData.adoption_reward <= 0) {
-      newErrors.adoption_reward = '採用報酬は0円より大きい必要があります';
-    }
+      if (formData.adoption_reward <= 0) {
+        newErrors.adoption_reward = '採用報酬は0円より大きい必要があります';
+      }
 
-    if (formData.required_participants < 50) {
-      alert('選出人数は50人以上である必要があります。');
-      newErrors.required_participants = '選出人数は50人以上である必要があります';
-    }
+      if (formData.required_participants < 50) {
+        alert('選出人数は50人以上である必要があります。');
+        newErrors.required_participants = '選出人数は50人以上である必要があります';
+      }
 
-    if (!formData.deadline) {
-      newErrors.deadline = '期限は必須です';
-    } else {
-      const deadlineDate = new Date(formData.deadline);
-      const now = new Date();
-      if (deadlineDate <= now) {
-        newErrors.deadline = '期限は現在時刻より後の日時である必要があります';
+      if (!formData.deadline) {
+        newErrors.deadline = '期限は必須です';
+      } else {
+        const deadlineDate = new Date(formData.deadline);
+        const now = new Date();
+        if (deadlineDate <= now) {
+          newErrors.deadline = '期限は現在時刻より後の日時である必要があります';
+        }
       }
     }
 
@@ -195,108 +221,178 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         )}
       </div>
 
-      {/* 報酬設定 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="reward_amount" className="block text-sm font-medium text-gray-700 mb-2">
-            提案報酬（万円） <span className="text-gray-500 text-sm">（自動計算）</span>
-          </label>
-          <input
-            type="number"
-            id="reward_amount"
-            name="reward_amount"
-            value={formData.reward_amount}
-            readOnly
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-50 text-gray-600"
-            placeholder="0"
-          />
-        </div>
+      {/* 編集モードでは報酬・選出人数・期限は編集不可（表示のみ） */}
+      {mode === 'edit' ? (
+        <>
+          {/* 報酬設定（表示のみ） */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                提案報酬（万円）
+              </label>
+              <input
+                type="text"
+                value={formData.reward_amount}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                報酬は編集できません
+              </p>
+            </div>
 
-        <div>
-          <label htmlFor="adoption_reward" className="block text-sm font-medium text-gray-700 mb-2">
-            採用報酬（万円） <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            id="adoption_reward"
-            name="adoption_reward"
-            value={formData.adoption_reward}
-            onChange={handleChange}
-            min="1"
-            step="1"
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
-              errors.adoption_reward ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="50"
-          />
-          {errors.adoption_reward && (
-            <p className="mt-1 text-sm text-red-600">{errors.adoption_reward}</p>
-          )}
-        </div>
-      </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                採用報酬（万円）
+              </label>
+              <input
+                type="text"
+                value={formData.adoption_reward}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                報酬は編集できません
+              </p>
+            </div>
+          </div>
 
-      {/* 選出人数と期限 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div>
-          <label htmlFor="required_participants" className="block text-sm font-medium text-gray-700 mb-2">
-            選出人数 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="number"
-            id="required_participants"
-            name="required_participants"
-            value={formData.required_participants === 0 ? '' : formData.required_participants}
-            onChange={handleChange}
-            min="50"
-            step="1"
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
-              errors.required_participants ? 'border-red-500' : 'border-gray-300'
-            }`}
-            placeholder="50"
-          />
-          {errors.required_participants && (
-            <p className="mt-1 text-sm text-red-600">{errors.required_participants}</p>
-          )}
-          <p className="mt-1 text-sm text-gray-500">
-            最低50人から設定可能です
-          </p>
-        </div>
+          {/* 選出人数と期限（表示のみ） */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                選出人数
+              </label>
+              <input
+                type="text"
+                value={formData.required_participants}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                選出人数は編集できません
+              </p>
+            </div>
 
-        <div>
-          <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-2">
-            期限 <span className="text-red-500">*</span>
-          </label>
-          <input
-            type="date"
-            id="deadline"
-            name="deadline"
-            value={formData.deadline ? formData.deadline.split('T')[0] : ''}
-            onChange={(e) => {
-              // 日付を選択した際に、時間を23:59に自動設定
-              const selectedDate = e.target.value;
-              if (selectedDate) {
-                const deadlineWithTime = `${selectedDate}T23:59`;
-                setFormData(prev => ({
-                  ...prev,
-                  deadline: deadlineWithTime
-                }));
-              } else {
-                setFormData(prev => ({
-                  ...prev,
-                  deadline: ''
-                }));
-              }
-            }}
-            min={new Date().toISOString().split('T')[0]}
-            className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.deadline ? 'border-red-500' : 'border-gray-300'
-            }`}
-          />
-          {errors.deadline && (
-            <p className="mt-1 text-sm text-red-600">{errors.deadline}</p>
-          )}
-        </div>
-      </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                期限
+              </label>
+              <input
+                type="text"
+                value={formData.deadline ? new Date(formData.deadline).toLocaleDateString('ja-JP') : ''}
+                readOnly
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-600 cursor-not-allowed"
+              />
+              <p className="mt-1 text-sm text-gray-500">
+                期限は編集できません
+              </p>
+            </div>
+          </div>
+        </>
+      ) : (
+        <>
+          {/* 報酬設定 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                提案報酬総額（万円） <span className="text-gray-500 text-sm">（自動計算）</span>
+              </label>
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-blue-50 text-blue-900 font-medium text-lg">
+                {calculatingReward ? '計算中...' : formData.reward_amount > 0 ? `${formData.reward_amount.toFixed(1)}万円` : '選出人数を入力してください'}
+              </div>
+              <p className="mt-1 text-sm text-gray-500">
+                選出人数に応じて自動計算されます
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="adoption_reward" className="block text-sm font-medium text-gray-700 mb-2">
+                採用報酬（万円） <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="adoption_reward"
+                name="adoption_reward"
+                value={formData.adoption_reward}
+                onChange={handleChange}
+                min="1"
+                step="1"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
+                  errors.adoption_reward ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="50"
+              />
+              {errors.adoption_reward && (
+                <p className="mt-1 text-sm text-red-600">{errors.adoption_reward}</p>
+              )}
+            </div>
+          </div>
+
+          {/* 選出人数と期限 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label htmlFor="required_participants" className="block text-sm font-medium text-gray-700 mb-2">
+                選出人数 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                id="required_participants"
+                name="required_participants"
+                value={formData.required_participants === 0 ? '' : formData.required_participants}
+                onChange={handleChange}
+                min="50"
+                step="1"
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
+                  errors.required_participants ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="50"
+              />
+              {errors.required_participants && (
+                <p className="mt-1 text-sm text-red-600">{errors.required_participants}</p>
+              )}
+              <p className="mt-1 text-sm text-gray-500">
+                50人〜770人まで設定可能です
+              </p>
+            </div>
+
+            <div>
+              <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-2">
+                期限 <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="date"
+                id="deadline"
+                name="deadline"
+                value={formData.deadline ? formData.deadline.split('T')[0] : ''}
+                onChange={(e) => {
+                  // 日付を選択した際に、時間を23:59に自動設定
+                  const selectedDate = e.target.value;
+                  if (selectedDate) {
+                    const deadlineWithTime = `${selectedDate}T23:59`;
+                    setFormData(prev => ({
+                      ...prev,
+                      deadline: deadlineWithTime
+                    }));
+                  } else {
+                    setFormData(prev => ({
+                      ...prev,
+                      deadline: ''
+                    }));
+                  }
+                }}
+                min={new Date().toISOString().split('T')[0]}
+                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors.deadline ? 'border-red-500' : 'border-gray-300'
+                }`}
+              />
+              {errors.deadline && (
+                <p className="mt-1 text-sm text-red-600">{errors.deadline}</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {/* 送信ボタン */}
       <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">

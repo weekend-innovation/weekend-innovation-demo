@@ -54,12 +54,18 @@ const ProposerDashboard: React.FC = () => {
       const challengesResponse = await getChallenges();
       const challengesData = Array.isArray(challengesResponse) ? challengesResponse : (challengesResponse.results || []);
       
-      // 選出された課題に対して提案していない課題があるかチェック
+      // 選出された課題（期限切れ以外）に対して提案していない課題があるかチェック
       const hasUnproposedChallenges = challengesData.some(challenge => {
-        // この課題に対する提案があるかチェック
-        return !proposalsData.some(proposal => proposal.challenge === challenge.id);
+        // 期限切れ課題は除外
+        if (challenge.status === 'closed') {
+          return false;
+        }
+        // この課題に対する提案があるかチェック（challengeとchallenge_idの両方をチェック）
+        const hasProposal = proposalsData.some(proposal => 
+          proposal.challenge === challenge.id || proposal.challenge_id === challenge.id
+        );
+        return !hasProposal;
       });
-      
       setHasNewChallenges(hasUnproposedChallenges);
       
       setChallenges(challengesData);
@@ -123,18 +129,18 @@ const ProposerDashboard: React.FC = () => {
     // 期限切れと募集中を分離
     const expiredChallenges = challenges
       .filter(c => c.status === 'closed')
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
     
     const activeChallenges = challenges.filter(c => c.status !== 'closed');
     
-    // 提案済みと未提案を分離
+    // 提案済みと未提案を分離（募集中は期限が近い順）
     const proposedChallenges = activeChallenges
       .filter(challenge => proposals.some(proposal => proposal.challenge_id === challenge.id))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
     
     const unproposedChallenges = activeChallenges
       .filter(challenge => !proposals.some(proposal => proposal.challenge_id === challenge.id))
-      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
     
     // 優先順位: 未提案 → 提案済み → 期限切れ
     if (unproposedChallenges.length > 0) {

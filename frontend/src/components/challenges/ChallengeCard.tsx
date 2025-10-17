@@ -107,7 +107,10 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         <div className="bg-blue-50 rounded-lg p-4 text-center">
           <p className="text-sm text-blue-600 font-medium mb-2">提案報酬</p>
           <p className="text-2xl font-bold text-blue-900">
-            {formatReward(challenge.reward_amount)}
+            {userType === 'proposer' 
+              ? '6,000円'
+              : formatReward(challenge.reward_amount)
+            }
           </p>
         </div>
         <div className="bg-green-50 rounded-lg p-4 text-center">

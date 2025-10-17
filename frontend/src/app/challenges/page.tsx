@@ -232,20 +232,12 @@ const ChallengesPage: React.FC = () => {
             
             {/* 投稿者のみ課題作成ボタンを表示 */}
             {user?.user_type === 'contributor' && (
-              <div className="flex gap-3">
-                <button
-                  onClick={fetchChallenges}
-                  className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
-                >
-                  更新
-                </button>
-                <Link
-                  href="/challenges/create"
-                  className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-                >
-                  新しい課題を投稿
-                </Link>
-              </div>
+              <Link
+                href="/challenges/create"
+                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                新しい課題を投稿
+              </Link>
             )}
           </div>
         </div>
@@ -273,20 +265,20 @@ const ChallengesPage: React.FC = () => {
             <div className="space-y-6">
               {(() => {
                 if (user?.user_type === 'proposer') {
-                  // 提案者ユーザーの場合、期限切れ、未提案、提案済みを分離
+                  // 提案者ユーザーの場合、募集中（未提案→提案済み）を期限が近い順、期限切れは後回し
                   const expiredChallenges = challenges
                     .filter(challenge => challenge.status === 'closed')
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
                   
                   const activeChallenges = challenges.filter(challenge => challenge.status !== 'closed');
                   
                   const proposedChallenges = activeChallenges
                     .filter(challenge => userProposals[challenge.id])
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
                   
                   const unproposedChallenges = activeChallenges
                     .filter(challenge => !userProposals[challenge.id])
-                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
                   
                   return (
                     <>
@@ -326,16 +318,24 @@ const ChallengesPage: React.FC = () => {
                     </>
                   );
                 } else {
-                  // 投稿者ユーザーの場合、通常通り表示
-                  return challenges.map((challenge) => (
+                  // 投稿者ユーザーの場合、募集中を期限が近い順、期限切れは後回し
+                  const activeChallenges = challenges
+                    .filter(challenge => challenge.status !== 'closed')
+                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+                  
+                  const expiredChallenges = challenges
+                    .filter(challenge => challenge.status === 'closed')
+                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+                  
+                  const sortedChallenges = [...activeChallenges, ...expiredChallenges];
+                  
+                  return sortedChallenges.map((challenge) => (
                     <ChallengeCard
                       key={challenge.id}
                       challenge={challenge}
                       showActions={true}
                       userType="contributor"
                       onView={handleChallengeView}
-                      onEdit={handleChallengeEdit}
-                      onDelete={handleChallengeDelete}
                     />
                   ));
                 }

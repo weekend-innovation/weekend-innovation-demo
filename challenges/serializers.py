@@ -30,8 +30,10 @@ class ChallengeSerializer(serializers.ModelSerializer):
     
     def validate_required_participants(self, value):
         """選出人数のバリデーション"""
-        if value <= 0:
-            raise serializers.ValidationError("選出人数は1人以上である必要があります。")
+        if value < 50:
+            raise serializers.ValidationError("選出人数は50人以上である必要があります。")
+        if value > 770:
+            raise serializers.ValidationError("選出人数は770人以下である必要があります。大規模な案件については別途お問い合わせください。")
         return value
     
     def validate_reward_amount(self, value):
@@ -77,12 +79,14 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at'
         ]
-        read_only_fields = ['id', 'contributor', 'status', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'contributor', 'status', 'created_at', 'updated_at', 'reward_amount']
     
     def validate_required_participants(self, value):
         """選出人数のバリデーション"""
-        if value <= 0:
-            raise serializers.ValidationError("選出人数は1人以上である必要があります。")
+        if value < 50:
+            raise serializers.ValidationError("選出人数は50人以上である必要があります。")
+        if value > 770:
+            raise serializers.ValidationError("選出人数は770人以下である必要があります。大規模な案件については別途お問い合わせください。")
         return value
     
     def validate_reward_amount(self, value):

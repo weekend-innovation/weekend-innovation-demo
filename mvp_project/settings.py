@@ -47,7 +47,7 @@ INSTALLED_APPS = [
     'payments',                 # 報酬・決済管理（統合）
     'moderation',               # モデレーション管理
     'notifications',            # 通知管理
-    'analytics',                # 分析・まとめ機能
+    'challenge_analytics',      # 課題分析・まとめ機能
 ]
 
 MIDDLEWARE = [

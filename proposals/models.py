@@ -121,11 +121,27 @@ class ProposalEvaluation(models.Model):
         ('no', 'No'),
     ]
     
+    INSIGHT_CHOICES = [
+        ('5', '5'),
+        ('4', '4'),
+        ('3', '3'),
+        ('2', '2'),
+        ('1', '1'),
+    ]
+    
     proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='evaluations')
     evaluator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_evaluations')
-    evaluation = models.CharField(max_length=10, choices=EVALUATION_CHOICES, verbose_name="評価")
-    score = models.IntegerField(verbose_name="点数", default=0)  # No=2, Maybe=1, Yes=0
+    
+    # 独創性評価（既存）
+    evaluation = models.CharField(max_length=10, choices=EVALUATION_CHOICES, verbose_name="独創性評価")
+    score = models.IntegerField(verbose_name="独創性点数", default=0)  # No=2, Maybe=1, Yes=0
+    
+    # 示唆性評価（新規）
+    insight_level = models.CharField(max_length=1, choices=INSIGHT_CHOICES, verbose_name="示唆性評価", null=True, blank=True)
+    insight_score = models.IntegerField(verbose_name="示唆性点数", default=3, null=True, blank=True)  # 1-5
+    
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
     
     class Meta:
         unique_together = ['proposal', 'evaluator']
@@ -133,13 +149,18 @@ class ProposalEvaluation(models.Model):
         verbose_name_plural = 'Proposal Evaluations'
     
     def save(self, *args, **kwargs):
-        # 評価に応じて点数を自動設定
+        # 独創性評価に応じて点数を自動設定
         if self.evaluation == 'no':
             self.score = 2
         elif self.evaluation == 'maybe':
             self.score = 1
         elif self.evaluation == 'yes':
             self.score = 0
+        
+        # 示唆性評価に応じて点数を自動設定
+        if self.insight_level:
+            self.insight_score = int(self.insight_level)
+        
         super().save(*args, **kwargs)
     
     def __str__(self):

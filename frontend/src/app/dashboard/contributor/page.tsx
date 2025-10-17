@@ -78,14 +78,28 @@ const ContributorDashboard: React.FC = () => {
   const totalProposals = proposals?.length || 0;
   const adoptedProposals = proposals?.filter(p => p.is_adopted).length || 0;
 
-  // 最近の課題（投稿者自身の課題、期限順でソートして最新1件）
-  const recentChallenges = challenges
-    ?.sort((a, b) => {
-      const deadlineA = new Date(a.deadline);
-      const deadlineB = new Date(b.deadline);
-      return deadlineA.getTime() - deadlineB.getTime();
-    })
-    .slice(0, 1) || [];
+  // 最近の課題（投稿者自身の課題、募集中は期限が近い順、期限切れは後回し）
+  const recentChallenges = React.useMemo(() => {
+    if (!challenges || challenges.length === 0) return [];
+    
+    // 期限切れと募集中を分離
+    const activeChallenges = challenges
+      .filter(c => c.status !== 'closed')
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    
+    const expiredChallenges = challenges
+      .filter(c => c.status === 'closed')
+      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    
+    // 募集中を優先、なければ期限切れ
+    if (activeChallenges.length > 0) {
+      return [activeChallenges[0]];
+    } else if (expiredChallenges.length > 0) {
+      return [expiredChallenges[0]];
+    }
+    
+    return [];
+  }, [challenges]);
   
   // 最近の提案（投稿者が投稿した課題に対する提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
@@ -198,13 +212,6 @@ const ContributorDashboard: React.FC = () => {
                     userType="contributor"
                     onView={(challenge) => {
                       window.location.href = `/challenges/${challenge.id}`;
-                    }}
-                    onEdit={(challenge) => {
-                      window.location.href = `/challenges/${challenge.id}/edit`;
-                    }}
-                    onDelete={(challenge) => {
-                      // TODO: 削除機能を実装
-                      console.log('Delete challenge:', challenge.id);
                     }}
                   />
                 ))}

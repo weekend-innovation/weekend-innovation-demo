@@ -1,9 +1,10 @@
 """
 提案関連のシグナル処理
 """
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from .models import Proposal
+from django.db.models import Avg, Count
+from .models import Proposal, ProposalEvaluation
 from payments.models import Payment, PaymentHistory
 
 
@@ -102,3 +103,29 @@ def create_adoption_payment(sender, instance, created, **kwargs):
                         action='auto_adoption_payment_failed',
                         details=f'自動採用報酬支払い失敗: {str(e)}'
                     )
+
+
+@receiver(post_save, sender=ProposalEvaluation)
+@receiver(post_delete, sender=ProposalEvaluation)
+def update_proposal_rating(sender, instance, **kwargs):
+    """評価が作成・削除されたときに提案のratingとrating_countを更新"""
+    try:
+        proposal = instance.proposal
+        
+        # 評価の集計
+        evaluations = ProposalEvaluation.objects.filter(proposal=proposal)
+        rating_count = evaluations.count()
+        
+        if rating_count > 0:
+            # 平均スコアを計算
+            avg_score = evaluations.aggregate(Avg('score'))['score__avg']
+            proposal.rating = avg_score
+            proposal.rating_count = rating_count
+        else:
+            proposal.rating = None
+            proposal.rating_count = 0
+        
+        proposal.save(update_fields=['rating', 'rating_count'])
+        
+    except Exception as e:
+        print(f"評価集計エラー (提案ID: {instance.proposal_id}): {e}")

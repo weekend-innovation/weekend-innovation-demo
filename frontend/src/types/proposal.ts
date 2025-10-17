@@ -42,6 +42,8 @@ export interface Proposal {
   rating_count: number;
   created_at: string;
   updated_at: string;
+  unread_comment_count?: number;
+  total_comment_count?: number;
 }
 
 // 提案一覧表示用（必要最小限の情報）
@@ -62,6 +64,10 @@ export interface ProposalListItem {
   updated_at: string;
   unread_comment_count?: number;
   total_comment_count?: number;
+  // ユーザー属性（期限切れ課題の解決案一覧用）
+  nationality?: string | null;
+  gender?: string | null;
+  age?: number | null;
 }
 
 // 提案作成リクエスト
@@ -122,12 +128,16 @@ export interface ProposalEvaluation {
   evaluator_name: string;
   evaluation: 'yes' | 'maybe' | 'no';
   score: number; // No=2, Maybe=1, Yes=0
+  insight_level?: '1' | '2' | '3' | '4' | '5';
+  insight_score?: number; // 1-5
   created_at: string;
+  updated_at?: string;
 }
 
 // 提案評価作成リクエスト
 export interface CreateProposalEvaluationRequest {
   evaluation: 'yes' | 'maybe' | 'no';
+  insight_level?: '1' | '2' | '3' | '4' | '5';
 }
 
 // 提案参考
@@ -205,7 +215,9 @@ export interface ProposalCardProps {
   showEditDelete?: boolean;
   showStatus?: boolean;
   showComments?: boolean;
+  readOnlyComments?: boolean; // 期限切れ課題用：コメント閲覧のみ（投稿・返信・通報不可）
   showChallengeInfo?: boolean;
+  showUserAttributes?: boolean; // 期限切れ課題用：ユーザー属性（国旗、性別、年齢）を表示
   challengeId?: number;
   onView?: (proposal: ProposalListItem) => void;
   onEdit?: (proposal: ProposalListItem) => void;
@@ -246,7 +258,7 @@ export interface DashboardStats {
 export interface ProposalEvaluationProps {
   proposalId: number;
   userEvaluation?: ProposalEvaluation;
-  onEvaluate: (proposalId: number, evaluation: 'yes' | 'maybe' | 'no') => void;
+  onEvaluate: (proposalId: number, evaluation: 'yes' | 'maybe' | 'no', insightLevel?: '1' | '2' | '3' | '4' | '5') => void;
   isEvaluating?: boolean;
 }
 

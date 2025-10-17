@@ -10,6 +10,8 @@ import ProposalCommentList from './ProposalCommentList';
 import { ReportButton } from '../moderation/ReportButton';
 import { createProposalEvaluation, createProposalComment, createProposalCommentReply, getProposalComments, getProposalEvaluation } from '../../lib/proposalAPI';
 import type { ProposalListItem, ProposalCardProps, ProposalComment, ProposalEvaluation, ReferenceLog } from '@/types/proposal';
+import CountryFlag from '../common/CountryFlag';
+import { getGenderDisplay } from '../../lib/countryFlags';
 
 const ProposalCard: React.FC<ProposalCardProps> = ({
   proposal,
@@ -17,7 +19,9 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   showEditDelete = true,
   showStatus = true,
   showComments = false,
+  readOnlyComments = false,
   showChallengeInfo = true,
+  showUserAttributes = false,
   challengeId,
   onView,
   onEdit,
@@ -77,14 +81,15 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   }, [referenceLogs, proposal.id]);
 
-  // 評価権限の確認（自分の解決案は評価不可）
-  const canEvaluate = user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
+  // 評価権限の確認（自分の解決案は評価不可、かつ読み取り専用モードでは不可）
+  const canEvaluate = !readOnlyComments && user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
   
   // デバッグログ
   console.log('評価権限デバッグ:', {
     userType: user?.user_type,
     username: user?.username,
     proposerName: proposal.proposer_name,
+    readOnlyComments,
     canEvaluate,
     userTypeCheck: user?.user_type === 'proposer',
     notOwnProposal: user?.username !== proposal.proposer_name
@@ -106,26 +111,26 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   }, [proposal.id, canEvaluate]);
   
-  // コメント権限の確認
-  const canComment = user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
+  // コメント権限の確認（読み取り専用モードでは不可）
+  const canComment = !readOnlyComments && user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
   
-  // 返信権限の確認（提案者のみ）
-  const canReply = user?.username === proposal.proposer_name;
+  // 返信権限の確認（提案者のみ、読み取り専用モードでは不可）
+  const canReply = !readOnlyComments && user?.username === proposal.proposer_name;
   
   // 参考権限の確認（自分の解決案の場合のみ）
   const canReference = user?.username === proposal.proposer_name;
   
-  // 通報権限の確認（自分の解決案以外）
-  const canReport = user?.username !== proposal.proposer_name;
+  // 通報権限の確認（提案者ユーザーかつ自分の解決案以外）
+  const canReport = user?.user_type === 'proposer' && user?.username !== proposal.proposer_name;
 
   // 評価ハンドラー
-  const handleEvaluate = async (proposalId: number, evaluation: 'yes' | 'maybe' | 'no') => {
+  const handleEvaluate = async (proposalId: number, evaluation: 'yes' | 'maybe' | 'no', insightLevel?: '1' | '2' | '3' | '4' | '5') => {
     if (!canEvaluate) return;
     
     setIsEvaluating(true);
     try {
-      console.log('評価送信開始:', { proposalId, evaluation });
-      const result = await createProposalEvaluation(proposalId, { evaluation });
+      console.log('評価送信開始:', { proposalId, evaluation, insightLevel });
+      const result = await createProposalEvaluation(proposalId, { evaluation, insight_level: insightLevel });
       console.log('評価送信成功:', result);
       setUserEvaluation(result);
       console.log('評価状態更新完了:', result);
@@ -325,7 +330,27 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
             )}
           </div>
           <div className="flex items-center gap-4 text-sm text-gray-600">
-            <span>提案者: {proposal.proposer_name}</span>
+            <div className="flex items-center gap-2">
+              <span>提案者: {proposal.proposer_name}</span>
+              {/* ユーザー属性表示（期限切れ課題の解決案一覧用） */}
+              {showUserAttributes && (proposal.nationality || proposal.gender || proposal.age) && (
+                <div className="flex items-center gap-2">
+                  {proposal.nationality && (
+                    <CountryFlag countryCode={proposal.nationality} size="small" />
+                  )}
+                  {proposal.gender && (
+                    <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-700">
+                      {getGenderDisplay(proposal.gender)}
+                    </span>
+                  )}
+                  {proposal.age && (
+                    <span className="bg-gray-100 px-2 py-1 rounded text-xs font-medium text-gray-700">
+                      {proposal.age}歳
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
             <span>投稿日: {formatDate(proposal.created_at)}</span>
           </div>
         </div>
@@ -342,7 +367,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       </div>
 
       {/* 理由 */}
-      <div className="mb-4">
+      <div className="mb-2">
         <h4 className="text-base font-medium text-gray-700 mb-2">【理由】</h4>
         <div className="bg-green-50 rounded-lg p-3">
           <p className="text-gray-700 leading-relaxed line-clamp-3">
@@ -353,7 +378,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* 課題情報 */}
       {showChallengeInfo && (
-        <div className="mb-4">
+        <div className="mb-4 pb-4 border-b border-gray-200">
           <div className="bg-gray-50 rounded-lg p-3">
             <p className="text-sm text-gray-600 mb-1">対象課題</p>
             {(() => {
@@ -362,27 +387,14 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
               return targetChallengeId && !isNaN(targetChallengeId) ? (
                 <Link 
                   href={`/challenges/${targetChallengeId}`}
-                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+                  className="font-medium text-blue-600 hover:text-blue-800 hover:underline cursor-pointer ml-4"
                 >
                   {proposal.challenge_title}
                 </Link>
               ) : (
-                <p className="font-medium text-gray-900">{proposal.challenge_title}</p>
+                <p className="font-medium text-gray-900 ml-4">{proposal.challenge_title}</p>
               );
             })()}
-          </div>
-        </div>
-      )}
-
-      {/* 評価情報 */}
-      {proposal.rating_count > 0 && (
-        <div className="mb-4">
-          <div className="flex items-center gap-4 text-sm">
-            <div className="flex items-center gap-1">
-              <span className="text-yellow-500">★</span>
-              <span className="font-medium">{proposal.rating?.toFixed(1) || 'N/A'}</span>
-              <span className="text-gray-500">({proposal.rating_count}件)</span>
-            </div>
           </div>
         </div>
       )}
@@ -419,18 +431,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* 参考にしたコメントセクション */}
       {referenceLogs.length > 0 && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-6">
           <h4 className="text-sm font-medium text-gray-700 mb-3">参考にしたコメント</h4>
           <div className="space-y-3">
             {referenceLogs.map((log) => (
-              <div key={log.id} className="space-y-2">
+              <div key={log.id} className="space-y-2 pb-4">
                 <h5 className="text-sm font-medium text-gray-700">【結論】</h5>
                 <div className="bg-pink-50 rounded-lg p-3">
                   <p className="text-gray-700 leading-relaxed">
                     {log.commentConclusion}
                   </p>
                 </div>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 mb-4 pb-4 border-b border-gray-200">
                   編集日時: {new Date(log.editedAt).toLocaleString('ja-JP')}
                 </p>
               </div>
@@ -439,9 +451,9 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
         </div>
       )}
 
-      {/* 通報ボタン（自分の解決案以外） */}
-      {canReport && (
-        <div className="mt-4 pt-4 border-t border-gray-200">
+      {/* 通報ボタン（自分の解決案以外、かつアクション有効時のみ） */}
+      {showActions && canReport && (
+        <div className="mb-4">
           <div className="flex justify-end">
             <ReportButton
               contentType={11} // ContentType ID for Proposal
@@ -456,7 +468,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* 評価・コメントセクション */}
       {showComments && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className={readOnlyComments ? "pt-4 border-t border-gray-200" : ""}>
           <div className="space-y-4">
             {canEvaluate && (
               <ProposalEvaluationComponent
@@ -483,7 +495,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* コメントセクション */}
       {showCommentsSection && (
-        <div className="mt-6 pt-6 border-t border-gray-200">
+        <div className="mt-3">
           <ProposalCommentList
             proposalId={proposal.id}
             proposal={proposal}

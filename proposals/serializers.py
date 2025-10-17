@@ -78,17 +78,101 @@ class ProposalListSerializer(serializers.ModelSerializer):
     anonymous_name_info = AnonymousNameSerializer(source='anonymous_name', read_only=True)
     unread_comment_count = serializers.SerializerMethodField()
     total_comment_count = serializers.SerializerMethodField()
+    # ユーザー属性（期限切れ課題の解決案一覧用）
+    nationality = serializers.SerializerMethodField()
+    gender = serializers.SerializerMethodField()
+    age = serializers.SerializerMethodField()
     
     def get_proposer_name(self, obj):
         """リクエストユーザーを考慮した表示名を返す"""
         request = self.context.get('request')
-        request_user = request.user if request else None
+        request_user = None
+        if request and hasattr(request, 'user'):
+            request_user = request.user
         return obj.get_display_name(request_user)
+    
+    def get_nationality(self, obj):
+        """提案者の国籍を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        challenge = obj.challenge
+        
+        # 期限切れかどうかを確認
+        from django.utils import timezone
+        if challenge.deadline >= timezone.now():
+            return None
+        
+        # 提案者が選出されているかを確認
+        from selections.models import Selection
+        is_selected = Selection.objects.filter(
+            challenge=challenge,
+            selected_users=obj.proposer
+        ).exists()
+        
+        if is_selected:
+            # ProposerProfileから国籍を取得
+            try:
+                return obj.proposer.proposer_profile.nationality
+            except:
+                return None
+        return None
+    
+    def get_gender(self, obj):
+        """提案者の性別を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        challenge = obj.challenge
+        
+        # 期限切れかどうかを確認
+        from django.utils import timezone
+        if challenge.deadline >= timezone.now():
+            return None
+        
+        # 提案者が選出されているかを確認
+        from selections.models import Selection
+        is_selected = Selection.objects.filter(
+            challenge=challenge,
+            selected_users=obj.proposer
+        ).exists()
+        
+        if is_selected:
+            # ProposerProfileから性別を取得
+            try:
+                return obj.proposer.proposer_profile.gender
+            except:
+                return None
+        return None
+    
+    def get_age(self, obj):
+        """提案者の年齢を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        challenge = obj.challenge
+        
+        # 期限切れかどうかを確認
+        from django.utils import timezone
+        if challenge.deadline >= timezone.now():
+            return None
+        
+        # 提案者が選出されているかを確認
+        from selections.models import Selection
+        is_selected = Selection.objects.filter(
+            challenge=challenge,
+            selected_users=obj.proposer
+        ).exists()
+        
+        if is_selected:
+            # ProposerProfileから年齢を計算
+            try:
+                from datetime import date
+                birth_date = obj.proposer.proposer_profile.birth_date
+                today = date.today()
+                age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+                return age
+            except:
+                return None
+        return None
     
     def get_unread_comment_count(self, obj):
         """未読コメント数を返す"""
         request = self.context.get('request')
-        request_user = request.user if request else None
+        request_user = None
+        if request and hasattr(request, 'user'):
+            request_user = request.user
         
         # 自分の提案の未読コメント数を返す
         if request_user and obj.proposer == request_user:
@@ -107,7 +191,8 @@ class ProposalListSerializer(serializers.ModelSerializer):
             'id', 'conclusion', 'reasoning',
             'challenge_id', 'challenge_title', 'proposer_name',
             'anonymous_name_info', 'is_anonymous', 'status', 'is_adopted',
-            'rating', 'rating_count', 'created_at', 'updated_at', 'unread_comment_count', 'total_comment_count'
+            'rating', 'rating_count', 'created_at', 'updated_at', 'unread_comment_count', 'total_comment_count',
+            'nationality', 'gender', 'age'
         ]
 
 
@@ -202,8 +287,8 @@ class ProposalEvaluationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = ProposalEvaluation
-        fields = ['id', 'proposal', 'evaluator', 'evaluation', 'score', 'evaluator_name', 'created_at']
-        read_only_fields = ['id', 'proposal', 'evaluator', 'score', 'evaluator_name', 'created_at']
+        fields = ['id', 'proposal', 'evaluator', 'evaluation', 'score', 'insight_level', 'insight_score', 'evaluator_name', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'proposal', 'evaluator', 'score', 'insight_score', 'evaluator_name', 'created_at', 'updated_at']
     
     def create(self, validated_data):
         """評価作成時の処理（スコアはモデルのsaveメソッドで自動計算）"""

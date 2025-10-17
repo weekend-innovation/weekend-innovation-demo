@@ -208,7 +208,7 @@ export function Header() {
                 <div className="border-t border-gray-200 p-4">
                   <button
                     onClick={handleLogout}
-                    className="w-full block px-4 py-3 text-red-600 hover:bg-red-50 transition-colors rounded-lg"
+                    className="w-full block px-4 py-3 text-red-600 hover:bg-red-50 hover:text-red-700 hover:font-semibold transition-all duration-200 rounded-lg cursor-pointer"
                   >
                     ログアウト
                   </button>

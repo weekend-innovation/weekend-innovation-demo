@@ -100,3 +100,5 @@ python manage.py runserver
 2. **本番環境ではConnect実装に移行**
 3. **環境変数でAPIキー管理**
 4. **利用者はAPIキー入力不要**
+
+

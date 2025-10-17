@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/selections/', include('selections.urls')),
     path('api/wallet/', include('payments.urls')),
     path('api/moderation/', include('moderation.urls')),
+    path('api/analytics/', include('challenge_analytics.urls')),
 ]
 
 # メディアファイルの配信設定（開発環境のみ）
