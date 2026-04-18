@@ -9,6 +9,10 @@ class ChallengeSerializer(serializers.ModelSerializer):
     """
     # 関連する投稿者の情報を表示用に含める
     contributor_info = UserSerializer(source='contributor', read_only=True)
+    # 現在のフェーズ情報
+    current_phase = serializers.CharField(source='get_current_phase', read_only=True)
+    phase_display = serializers.CharField(read_only=True)
+    has_completed_all_evaluations = serializers.SerializerMethodField()
     
     class Meta:
         model = Challenge
@@ -22,18 +26,42 @@ class ChallengeSerializer(serializers.ModelSerializer):
             'adoption_reward',
             'required_participants',
             'deadline',
+            'proposal_deadline',
+            'edit_deadline',
+            'evaluation_deadline',
+            'current_phase',
+            'phase_display',
             'status',
             'created_at',
-            'updated_at'
+            'updated_at',
+            'has_completed_all_evaluations'
         ]
-        read_only_fields = ['id', 'contributor', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'contributor', 'created_at', 'updated_at', 'proposal_deadline', 'edit_deadline', 'evaluation_deadline']
+    
+    def get_has_completed_all_evaluations(self, obj):
+        """
+        現在のユーザーがこの課題の全ての解決案を評価したかどうか
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        from selections.models import UserEvaluationCompletion
+        try:
+            completion = UserEvaluationCompletion.objects.get(
+                challenge=obj,
+                user=request.user
+            )
+            return completion.has_completed_all_evaluations
+        except UserEvaluationCompletion.DoesNotExist:
+            return False
     
     def validate_required_participants(self, value):
         """選出人数のバリデーション"""
         if value < 50:
-            raise serializers.ValidationError("選出人数は50人以上である必要があります。")
-        if value > 770:
-            raise serializers.ValidationError("選出人数は770人以下である必要があります。大規模な案件については別途お問い合わせください。")
+            raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
+        if value > 790:
+            raise serializers.ValidationError("選出人数は790人以下にする必要があります。")
         return value
     
     def validate_reward_amount(self, value):
@@ -49,10 +77,19 @@ class ChallengeSerializer(serializers.ModelSerializer):
         return value
     
     def validate_deadline(self, value):
-        """期限のバリデーション"""
+        """期限のバリデーション（最低6日必要: 提案3日、編集1日、評価2日）"""
+        from datetime import timedelta
         from django.utils import timezone
-        if value <= timezone.now():
+        from challenges.models import MIN_TOTAL_DAYS
+        now = timezone.now()
+        if value <= now:
             raise serializers.ValidationError("期限は現在時刻より後の日時である必要があります。")
+        # 更新時はcreated_at、新規時はnowを基準
+        start = self.instance.created_at if self.instance else now
+        if (value - start) < timedelta(days=MIN_TOTAL_DAYS):
+            raise serializers.ValidationError(
+                f"期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。"
+            )
         return value
 
 class ChallengeCreateSerializer(serializers.ModelSerializer):
@@ -83,10 +120,34 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
     
     def validate_required_participants(self, value):
         """選出人数のバリデーション"""
+        from selections.services import SelectionService
+        from challenges.models import Challenge
+        
         if value < 50:
-            raise serializers.ValidationError("選出人数は50人以上である必要があります。")
-        if value > 770:
-            raise serializers.ValidationError("選出人数は770人以下である必要があります。大規模な案件については別途お問い合わせください。")
+            raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
+        if value > 790:
+            raise serializers.ValidationError("選出人数は790人以下にする必要があります。")
+        
+        # 選出可能な提案者数をチェック
+        request = self.context.get('request')
+        if request and request.user and request.user.user_type == 'contributor':
+            try:
+                # 一時的なChallengeオブジェクトを作成（保存はしない）
+                temp_challenge = Challenge(contributor=request.user)
+                eligible_users = SelectionService.get_eligible_users(temp_challenge, None)
+                eligible_count = len(eligible_users)
+                
+                if value > eligible_count:
+                    raise serializers.ValidationError(
+                        "申し訳ございませんが、現在登録されている提案者数が不足しています。より多くの提案者にご参加いただけるよう、引き続き努力してまいります。"
+                    )
+            except serializers.ValidationError:
+                # バリデーションエラーはそのまま再発生
+                raise
+            except Exception:
+                # その他のエラーは無視（課題作成時に再度チェックされる）
+                pass
+        
         return value
     
     def validate_reward_amount(self, value):
@@ -102,10 +163,17 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_deadline(self, value):
-        """期限のバリデーション"""
+        """期限のバリデーション（最低6日必要: 提案3日、編集1日、評価2日）"""
+        from datetime import timedelta
         from django.utils import timezone
-        if value <= timezone.now():
+        from challenges.models import MIN_TOTAL_DAYS
+        now = timezone.now()
+        if value <= now:
             raise serializers.ValidationError("期限は現在時刻より後の日時である必要があります。")
+        if (value - now) < timedelta(days=MIN_TOTAL_DAYS):
+            raise serializers.ValidationError(
+                f"期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。"
+            )
         return value
 
 class ChallengeListSerializer(serializers.ModelSerializer):
@@ -114,6 +182,11 @@ class ChallengeListSerializer(serializers.ModelSerializer):
     必要最小限の情報のみを含む
     """
     contributor_name = serializers.CharField(source='contributor.username', read_only=True)
+    current_phase = serializers.CharField(source='get_current_phase', read_only=True)
+    phase_display = serializers.CharField(read_only=True)
+    has_completed_all_evaluations = serializers.SerializerMethodField()
+    has_proposed = serializers.SerializerMethodField()
+    priority = serializers.SerializerMethodField()
     
     class Meta:
         model = Challenge
@@ -125,6 +198,62 @@ class ChallengeListSerializer(serializers.ModelSerializer):
             'adoption_reward',
             'required_participants',
             'deadline',
+            'proposal_deadline',
+            'edit_deadline',
+            'evaluation_deadline',
+            'current_phase',
+            'phase_display',
             'status',
-            'created_at'
+            'created_at',
+            'has_completed_all_evaluations',
+            'has_proposed',
+            'priority'
         ]
+    
+    def get_has_completed_all_evaluations(self, obj):
+        """
+        現在のユーザーがこの課題の全ての解決案を評価したかどうか
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        from selections.models import UserEvaluationCompletion
+        try:
+            completion = UserEvaluationCompletion.objects.get(
+                challenge=obj,
+                user=request.user
+            )
+            return completion.has_completed_all_evaluations
+        except UserEvaluationCompletion.DoesNotExist:
+            return False
+    
+    def get_has_proposed(self, obj):
+        """
+        現在のユーザーがこの課題に提案しているかどうか
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        
+        return obj.has_user_proposed(request.user)
+    
+    def get_priority(self, obj):
+        """
+        現在のユーザーにとっての優先度
+        """
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return 999
+        
+        user = request.user
+        
+        if user.user_type == 'proposer':
+            return obj.get_priority_for_proposer(user)
+        else:
+            # 投稿者の場合は現在のフェーズで優先度を決定
+            phase = obj.get_current_phase()
+            if phase == 'closed':
+                return 5  # 期限切れは低優先度
+            else:
+                return 1  # アクティブな課題は高優先度

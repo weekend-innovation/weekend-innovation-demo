@@ -147,9 +147,6 @@ class LogoutView(generics.GenericAPIView):
         ログアウト処理（トークンをブラックリストに追加）
         """
         try:
-            print(f"Logout request data: {request.data}")
-            print(f"Logout request user: {request.user}")
-            
             refresh_token = request.data.get("refresh")
             if not refresh_token:
                 return Response({
@@ -157,14 +154,12 @@ class LogoutView(generics.GenericAPIView):
                 }, status=status.HTTP_400_BAD_REQUEST)
             
             # トークンの無効化はスキップ（フロントエンドでローカルログアウトを実行）
-            print(f"Logout request received for token: {refresh_token[:10]}...")
             # サーバー側でのトークン無効化は実装しない（フロントエンドでローカルログアウト）
             
             return Response({
                 'message': 'ログアウトしました'
             }, status=status.HTTP_205_RESET_CONTENT)
         except Exception as e:
-            print(f"Logout error: {e}")
             return Response({
                 'error': f'ログアウトに失敗しました: {str(e)}'
             }, status=status.HTTP_400_BAD_REQUEST)

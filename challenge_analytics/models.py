@@ -76,6 +76,13 @@ class ChallengeAnalysis(models.Model):
         verbose_name='推奨事項'
     )
     
+    # 総括の生成元: 'llm'=Gemini生成, 'fallback'=テンプレート
+    recommendations_source = models.CharField(
+        max_length=20,
+        blank=True,
+        verbose_name='総括生成元'
+    )
+    
     # メタデータ
     created_at = models.DateTimeField(
         auto_now_add=True,
@@ -146,6 +153,11 @@ class ProposalInsight(models.Model):
     impact_score = models.FloatField(
         default=0.0,
         verbose_name='影響度スコア'
+    )
+    
+    proposal_char_count = models.PositiveIntegerField(
+        default=0,
+        verbose_name='解決案文字数（タイブレーク用）'
     )
     
     key_themes = models.JSONField(

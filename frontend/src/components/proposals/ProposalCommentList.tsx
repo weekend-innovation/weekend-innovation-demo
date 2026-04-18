@@ -8,7 +8,11 @@ import ProposalCommentReplyForm from './ProposalCommentReplyForm';
 import ProposalCommentForm from './ProposalCommentForm';
 import ProposalEditForm from './ProposalEditForm';
 import { ReportButton } from '../moderation/ReportButton';
-import type { ProposalCommentListProps } from '../../types/proposal';
+import type {
+  ProposalCommentListProps,
+  CreateProposalCommentRequest,
+  CreateProposalCommentReplyRequest,
+} from '../../types/proposal';
 
 const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
   proposalId,
@@ -28,14 +32,17 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
   canReply = false,
   canReference = false
 }) => {
+  void proposalId;
+  void onReference;
+  void canReference;
   const { user } = useAuth();
   const [replyingCommentId, setReplyingCommentId] = useState<number | null>(null);
 
-  const handleAddComment = (comment: any) => {
+  const handleAddComment = (comment: CreateProposalCommentRequest) => {
     onAddComment(comment);
   };
 
-  const handleReply = (commentId: number, reply: any) => {
+  const handleReply = (commentId: number, reply: CreateProposalCommentReplyRequest) => {
     onReply(commentId, reply);
     setReplyingCommentId(null);
   };
@@ -48,19 +55,8 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
     setReplyingCommentId(null);
   };
 
-  // 通報ハンドラー（Phase 7で実装済み）
-  const handleReport = (commentId: number) => {
-    // ReportButtonコンポーネントで処理されるため、ここでは何もしない
-  };
-
   // 参考ハンドラー（解決案編集機能）
   const handleReference = (commentId: number) => {
-    if (setEditingCommentId) {
-      setEditingCommentId(commentId);
-    }
-  };
-
-  const handleStartEdit = (commentId: number) => {
     if (setEditingCommentId) {
       setEditingCommentId(commentId);
     }

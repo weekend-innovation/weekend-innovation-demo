@@ -4,11 +4,11 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ProposalForm from '@/components/proposals/ProposalForm';
-import type { CreateProposalRequest } from '@/types/proposal';
+import type { CreateProposalRequest, UpdateProposalRequest } from '@/types/proposal';
 import { createProposal, getUserProposalForChallenge } from '@/lib/proposalAPI';
 import { getChallenge } from '@/lib/challengeAPI';
 import type { Challenge } from '@/types/challenge';
@@ -28,10 +28,9 @@ const ProposePage: React.FC = () => {
   const challengeId = parseInt(params.id as string);
 
   // 課題情報と既存提案の取得
-  const fetchChallengeData = async () => {
+  const fetchChallengeData = useCallback(async () => {
     // 認証されていない場合はAPI呼び出しを避ける
     if (!isAuthenticated || !user) {
-      console.log('Not authenticated, skipping API calls');
       setIsLoading(false);
       return;
     }
@@ -53,21 +52,21 @@ const ProposePage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [challengeId, isAuthenticated, user]);
 
   useEffect(() => {
     if (challengeId && isAuthenticated && user) {
-      fetchChallengeData();
+      void fetchChallengeData();
     } else if (!isAuthenticated) {
       setIsLoading(false);
     }
-  }, [challengeId, isAuthenticated, user]);
+  }, [challengeId, isAuthenticated, user, fetchChallengeData]);
 
   // 認証チェック
   if (!isAuthenticated || user?.user_type !== 'proposer') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               アクセス権限がありません
@@ -91,7 +90,7 @@ const ProposePage: React.FC = () => {
   if (challenge && challenge.status === 'closed') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-red-900 mb-2">
               この課題は期限切れです
@@ -123,7 +122,7 @@ const ProposePage: React.FC = () => {
   if (existingProposal) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               既に提案済みです
@@ -146,12 +145,17 @@ const ProposePage: React.FC = () => {
   }
 
   // 提案投稿処理
-  const handleSubmit = async (data: CreateProposalRequest) => {
+  const handleSubmit = async (data: CreateProposalRequest | UpdateProposalRequest) => {
     try {
       setIsSubmitting(true);
       setError(null);
 
-      const newProposal = await createProposal(data);
+      const createData: CreateProposalRequest = {
+        challenge: challengeId,
+        conclusion: data.conclusion ?? '',
+        reasoning: data.reasoning ?? '',
+      };
+      await createProposal(createData);
       
       // 投稿成功時は課題詳細ページに遷移
       router.push(`/challenges/${challengeId}`);
@@ -166,7 +170,7 @@ const ProposePage: React.FC = () => {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -179,7 +183,7 @@ const ProposePage: React.FC = () => {
   if (error || !challenge) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-red-800 mb-2">
               エラーが発生しました
@@ -203,7 +207,7 @@ const ProposePage: React.FC = () => {
   if (challenge.status !== 'open') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               この課題は募集中ではありません
@@ -225,13 +229,13 @@ const ProposePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
           {/* パンくずリスト */}
           <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
             <Link href="/dashboard" className="hover:text-gray-700">
-              ダッシュボード
+              ホーム
             </Link>
             <span>/</span>
             <Link href="/challenges" className="hover:text-gray-700">

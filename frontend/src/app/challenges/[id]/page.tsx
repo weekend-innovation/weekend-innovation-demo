@@ -8,15 +8,20 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Challenge } from '../../../types/challenge';
-import type { Proposal, ProposalListItem } from '../../../types/proposal';
+import type { ProposalListItem } from '../../../types/proposal';
 import { getChallenge, deleteChallenge } from '../../../lib/challengeAPI';
-import { getProposalsByChallenge, getUserProposalForChallenge } from '../../../lib/proposalAPI';
-import { getChallengeAnalysis, getAnalysisStatus, triggerAnalysis, getMyProposalInsight, type ChallengeAnalysisData, type ProposalInsight } from '../../../lib/analyticsAPI';
+import { getProposalsByChallenge, getUserProposalForChallenge, setProposalAdopted } from '../../../lib/proposalAPI';
+import { getChallengeAnalysis, getMyProposalInsight, type ChallengeAnalysisData, type ProposalInsight } from '../../../lib/analyticsAPI';
 import { useAuth } from '../../../contexts/AuthContext';
+import { isProposerExpiredOrFailed, isAllPhasesCompleted } from '../../../lib/challengeSortUtils';
 import ProposalCard from '../../../components/proposals/ProposalCard';
 import ChallengeAnalysisSummary from '../../../components/analytics/ChallengeAnalysisSummary';
+import type { ClusteringResult } from '../../../components/analytics/ProposalClusterMap';
 import AnalysisToggleSwitch from '../../../components/analytics/AnalysisToggleSwitch';
 import ProposerAnalysisSummary from '../../../components/analytics/ProposerAnalysisSummary';
+import { DemoRewardAmountPlaceholder } from '../../../components/common/DemoRewardDisclaimer';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 const ChallengeDetailPage: React.FC = () => {
   const params = useParams();
@@ -32,13 +37,80 @@ const ChallengeDetailPage: React.FC = () => {
   const [analysis, setAnalysis] = useState<ChallengeAnalysisData | null>(null);
   const [showAnalysis, setShowAnalysis] = useState(true); // デフォルトで分析結果を表示
   const [analysisLoading, setAnalysisLoading] = useState(false);
-  const [analysisError, setAnalysisError] = useState<string | null>(null);
   
   // 提案者向け分析用のstate
   const [myInsight, setMyInsight] = useState<ProposalInsight | null>(null);
   
   // クラスタリングデータ用のstate
-  const [clusteringData, setClusteringData] = useState<any>(null);
+  const [clusteringData, setClusteringData] = useState<ClusteringResult | null>(null);
+
+  // 解決案一覧のページネーション（25件/ページ）
+  const [solutionListPage, setSolutionListPage] = useState(1);
+  const SOLUTION_LIST_PAGE_SIZE = 25;
+
+  // 採用リスト・メモ（分析と一覧で共有、localStorage に保存）
+  const challengeIdStr = params.id as string;
+  const STORAGE_PREFIX = `challenge_${challengeIdStr}_`;
+  const [adoptionList, setAdoptionList] = useState<Set<number>>(() => {
+    if (typeof window === 'undefined') return new Set();
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'consideration');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch { return new Set(); }
+  });
+  const [adoptionListMemos, setAdoptionListMemos] = useState<Record<number, string>>(() => {
+    if (typeof window === 'undefined') return {};
+    try {
+      const raw = localStorage.getItem(STORAGE_PREFIX + 'memos');
+      return raw ? JSON.parse(raw) : {};
+    } catch { return {}; }
+  });
+  const [addToAdoptionListModalId, setAddToAdoptionListModalId] = useState<number | null>(null);
+  const [addToAdoptionListMemoInput, setAddToAdoptionListMemoInput] = useState('');
+  const [memoOpenIdList, setMemoOpenIdList] = useState<number | null>(null);
+  const [confirmingAdoption, setConfirmingAdoption] = useState(false);
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'consideration', JSON.stringify([...adoptionList]));
+    } catch {}
+  }, [adoptionList, STORAGE_PREFIX]);
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_PREFIX + 'memos', JSON.stringify(adoptionListMemos));
+    } catch {}
+  }, [adoptionListMemos, STORAGE_PREFIX]);
+
+  const confirmAddToAdoptionList = () => {
+    if (addToAdoptionListModalId == null) return;
+    setAdoptionList(prev => new Set([...prev, addToAdoptionListModalId]));
+    if (addToAdoptionListMemoInput.trim()) setAdoptionListMemos(prev => ({ ...prev, [addToAdoptionListModalId]: addToAdoptionListMemoInput.trim() }));
+    setAddToAdoptionListModalId(null);
+    setAddToAdoptionListMemoInput('');
+  };
+  const confirmAdoptionFromList = () => {
+    if (adoptionList.size === 0) return;
+    setConfirmingAdoption(true);
+    Promise.all([...adoptionList].map(pid => Promise.resolve(handleAdoptToggle(pid, true))))
+      .then(() => {
+        setAdoptionList(new Set());
+        alert('採用を確定しました。');
+      })
+      .catch(() => alert('採用の確定に失敗しました。'))
+      .finally(() => setConfirmingAdoption(false));
+  };
+
+  // 採用トグル（投稿者向け・分析・一覧の両方で使用）
+  const handleAdoptToggle = async (proposalId: number, isAdopted: boolean) => {
+    try {
+      await setProposalAdopted(proposalId, isAdopted);
+      setProposals(prev => prev.map(p =>
+        p.id === proposalId ? { ...p, is_adopted: isAdopted } : p
+      ));
+    } catch (e) {
+      console.error('採用設定エラー:', e);
+      alert('採用の設定に失敗しました。');
+    }
+  };
 
   const challengeId = params.id as string;
 
@@ -48,54 +120,35 @@ const ChallengeDetailPage: React.FC = () => {
     
     try {
       setAnalysisLoading(true);
-      setAnalysisError(null);
       
       const analysisData = await getChallengeAnalysis(parseInt(challengeId));
       setAnalysis(analysisData);
     } catch (error) {
       console.error('分析データ取得エラー:', error);
-      setAnalysisError('分析データの取得に失敗しました');
     } finally {
       setAnalysisLoading(false);
     }
   };
 
-  // 提案者向け分析データの取得
+  // 提案者向け分析データの取得（提案＋評価完了した場合のみ）
   const fetchMyInsightData = async () => {
-    console.log('fetchMyInsightData開始', {
-      challenge: challenge?.id,
-      status: challenge?.status,
-      userProposal: userProposal?.id
-    });
-    
-    if (!challenge || challenge.status !== 'closed' || !userProposal) {
-      console.log('分析データ取得スキップ:', {
-        hasChallenge: !!challenge,
-        status: challenge?.status,
-        hasUserProposal: !!userProposal
-      });
+    if (!challenge || challenge.status !== 'closed' || !userProposal || !challenge.has_completed_all_evaluations) {
       return;
     }
     
     try {
       setAnalysisLoading(true);
-      setAnalysisError(null);
       
-      console.log('分析データ取得開始:', challengeId);
       const analysisData = await getChallengeAnalysis(parseInt(challengeId));
-      console.log('分析データ取得成功:', analysisData);
       setAnalysis(analysisData);
       
-      console.log('提案洞察データ取得開始:', userProposal.id);
       const insightData = await getMyProposalInsight(parseInt(challengeId), userProposal.id);
-      console.log('提案洞察データ取得成功:', insightData);
       setMyInsight(insightData);
       
       // クラスタリングデータの取得（提案者用）
-      console.log('クラスタリングデータ取得開始');
       try {
         const clusteringResponse = await fetch(
-          `http://localhost:8000/api/analytics/challenges/${challengeId}/clustering/`,
+          `${API_BASE_URL}/analytics/challenges/${challengeId}/clustering/`,
           {
             headers: {
               'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
@@ -104,16 +157,12 @@ const ChallengeDetailPage: React.FC = () => {
         );
         if (clusteringResponse.ok) {
           const clusteringResult = await clusteringResponse.json();
-          console.log('クラスタリングデータ取得成功:', clusteringResult);
           setClusteringData(clusteringResult);
         }
-      } catch (clusteringError) {
-        console.error('クラスタリングデータ取得エラー:', clusteringError);
+      } catch {
         // クラスタリングデータの取得失敗は致命的ではないため、エラーを表示しない
       }
-    } catch (error) {
-      console.error('提案洞察データ取得エラー:', error);
-      setAnalysisError('分析データの取得に失敗しました');
+    } catch {
     } finally {
       setAnalysisLoading(false);
     }
@@ -218,33 +267,20 @@ const ChallengeDetailPage: React.FC = () => {
     } else if (!isAuthenticated) {
       setLoading(false);
     }
-  }, [challengeId, isAuthenticated, user]);
+  }, [challengeId, isAuthenticated, user]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 分析データの取得（課題データ取得後）
   useEffect(() => {
-    console.log('分析データ取得useEffect実行', {
-      hasChallenge: !!challenge,
-      challengeId: challenge?.id,
-      status: challenge?.status,
-      userType: user?.user_type,
-      hasUserProposal: !!userProposal,
-      userProposalId: userProposal?.id
-    });
-    
     if (challenge && challenge.status === 'closed') {
       if (user?.user_type === 'contributor') {
-        console.log('投稿者向け分析データ取得開始');
         // 投稿者向け分析
         fetchAnalysisData();
-      } else if (user?.user_type === 'proposer' && userProposal) {
-        console.log('提案者向け分析データ取得開始');
-        // 提案者向け分析
+      } else if (user?.user_type === 'proposer' && userProposal && challenge.has_completed_all_evaluations) {
+        // 提案者向け分析（評価完了済みのみ）
         fetchMyInsightData();
       }
-    } else {
-      console.log('分析データ取得条件不一致');
     }
-  }, [challenge, userProposal]);
+  }, [challenge, userProposal]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 認証チェック（すべてのHooksの後に配置）
   if (authLoading) {
@@ -261,7 +297,7 @@ const ChallengeDetailPage: React.FC = () => {
   if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               ログインが必要です
@@ -284,46 +320,13 @@ const ChallengeDetailPage: React.FC = () => {
   // 期限の表示形式
   const formatDeadline = (deadline: string) => {
     const date = new Date(deadline);
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    const hours = String(date.getHours()).padStart(2, '0');
-    const minutes = String(date.getMinutes()).padStart(2, '0');
+    // UTCの値をそのまま使用（日本時間への変換を避ける）
+    const year = date.getUTCFullYear();
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const day = String(date.getUTCDate()).padStart(2, '0');
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
     return `${year}年${month}月${day}日 ${hours}:${minutes}`;
-  };
-
-  // 報酬の表示形式
-  const formatReward = (amount: number) => {
-    // 0の場合は空文字を返す
-    if (amount === 0) {
-      return '';
-    }
-    // 1万円未満の場合は円単位で表示
-    if (amount < 10000) {
-      return `${amount}円`;
-    }
-    // 1万円以上の場合は万円単位で表示
-    const amountInMan = amount / 10000;
-    // 整数の場合は小数点を表示しない
-    if (amountInMan % 1 === 0) {
-      return `${Math.floor(amountInMan)}万円`;
-    }
-    // 小数点がある場合は1桁まで表示
-    return `${amountInMan.toFixed(1)}万円`;
-  };
-
-  // ステータスに応じた表示色とラベル
-  const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'open':
-        return { label: '募集中', color: 'text-green-600 bg-green-100' };
-      case 'closed':
-        return { label: '締切', color: 'text-red-600 bg-red-100' };
-      case 'completed':
-        return { label: '完了', color: 'text-blue-600 bg-blue-100' };
-      default:
-        return { label: status, color: 'text-gray-600 bg-gray-100' };
-    }
   };
 
   // 課題が期限切れかどうかを判定
@@ -335,7 +338,7 @@ const ChallengeDetailPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -348,7 +351,7 @@ const ChallengeDetailPage: React.FC = () => {
   if (error || !challenge) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-red-800 mb-2">
               エラーが発生しました
@@ -368,27 +371,32 @@ const ChallengeDetailPage: React.FC = () => {
     );
   }
 
-  const statusDisplay = getStatusDisplay(challenge.status);
+  const challengeForProposer = { ...challenge, has_proposed: !!userProposal };
+  const expiredOrFailed = user?.user_type === 'proposer' && isProposerExpiredOrFailed(challengeForProposer);
+  const allPhasesDone = user?.user_type === 'proposer' && isAllPhasesCompleted(challengeForProposer);
+  const contributorClosed = user?.user_type === 'contributor' && (challenge.current_phase === 'closed' || isExpired(challenge.deadline));
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ナビゲーション */}
-        {/* パンくずリスト */}
-        <div className="mb-6">
-          <nav className="flex items-center space-x-2 text-sm text-gray-500">
+    <div className="min-h-screen bg-gray-50 py-8 w-full">
+      {/* パンくずリスト */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-6">
+        <nav className="flex items-center space-x-2 text-sm text-gray-500">
             <Link href="/dashboard" className="hover:text-gray-700">
-              ダッシュボード
+              ホーム
             </Link>
-            <span>/</span>
-            <Link href="/challenges" className="hover:text-gray-700">
-              課題一覧
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">課題詳細</span>
-          </nav>
-        </div>
+          <span>/</span>
+          <Link href="/challenges" className="hover:text-gray-700">
+            課題一覧
+          </Link>
+          <span>/</span>
+          <span className="text-gray-900 font-medium">課題詳細</span>
+        </nav>
+      </div>
 
+      {/* メインコンテンツ（中央寄せ・固定幅） */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* 課題カード・解決案エリアに青い線のような余白 */}
+        <div className="max-w-4xl mx-auto px-8 sm:px-10">
         {/* 課題概要と内容（コンパクト） */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-6">
           <div className="mb-4">
@@ -406,34 +414,186 @@ const ChallengeDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 報酬と期限（コンパクト） */}
+          {/* 報酬と期限（コンパクト・デモは金額非表示） */}
           <div className="space-y-4 mb-4">
             {/* 報酬情報（2列） */}
             <div className="grid grid-cols-2 gap-4">
               <div className="bg-blue-50 rounded-lg p-3 text-center">
                 <p className="text-sm text-blue-600 font-medium mb-1">提案報酬</p>
                 <p className="text-lg font-bold text-blue-900">
-                  {user?.user_type === 'proposer'
-                    ? '6,000円'
-                    : formatReward(challenge.reward_amount)
-                  }
+                  <DemoRewardAmountPlaceholder className="text-lg font-bold text-blue-900" />
                 </p>
               </div>
               <div className="bg-green-50 rounded-lg p-3 text-center">
                 <p className="text-sm text-green-600 font-medium mb-1">採用報酬</p>
                 <p className="text-lg font-bold text-green-900">
-                  {formatReward(challenge.adoption_reward)}
+                  <DemoRewardAmountPlaceholder className="text-lg font-bold text-green-900" />
                 </p>
               </div>
             </div>
-            {/* 期限（1列） */}
-            <div className="bg-red-50 rounded-lg p-3 text-center">
-              <p className="text-sm text-red-600 font-medium mb-1">期限</p>
-              <p className="text-lg font-bold text-red-900">
-                {isExpired(challenge.deadline) ? '期限切れ' : formatDeadline(challenge.deadline)}
-              </p>
+            {/* 期限とフェーズ表示 */}
+            <div>
+              <div className={`rounded-lg p-3 text-center ${
+                contributorClosed ? 'bg-teal-50' :
+                expiredOrFailed ? 'bg-red-50' :
+                allPhasesDone ? 'bg-teal-50' :
+                challenge.current_phase === 'proposal' ? 'bg-green-50' :
+                challenge.current_phase === 'edit' ? 'bg-yellow-50' :
+                challenge.current_phase === 'evaluation' ? 'bg-orange-50' :
+                'bg-red-50'
+              }`}>
+                <p className={`text-sm font-medium mb-1 ${
+                  contributorClosed ? 'text-teal-600' :
+                  expiredOrFailed ? 'text-red-600' :
+                  allPhasesDone ? 'text-teal-600' :
+                  challenge.current_phase === 'proposal' ? 'text-green-600' :
+                  challenge.current_phase === 'edit' ? 'text-yellow-600' :
+                  challenge.current_phase === 'evaluation' ? 'text-orange-600' :
+                  'text-red-600'
+                }`}>期限・状況</p>
+                <p className={`text-lg font-bold mb-1 ${
+                  contributorClosed ? 'text-teal-900' :
+                  expiredOrFailed ? 'text-red-900' :
+                  allPhasesDone ? 'text-teal-900' :
+                  challenge.current_phase === 'proposal' ? 'text-green-900' :
+                  challenge.current_phase === 'edit' ? 'text-yellow-900' :
+                  challenge.current_phase === 'evaluation' ? 'text-orange-900' :
+                  'text-red-900'
+                }`}>
+                  {contributorClosed ? '完了' :
+                   expiredOrFailed ? '期限切れ' :
+                   allPhasesDone ? '全フェーズ達成' :
+                   challenge.phase_display || (isExpired(challenge.deadline) ? '期限切れ' : '募集中')}
+                </p>
+                {/* 評価完了バッジ（全フェーズ達成時は表示しない） */}
+                {challenge.has_completed_all_evaluations && !allPhasesDone && !expiredOrFailed && (
+                  <div className="mt-2 pt-2 border-t border-purple-200">
+                    <p className="text-sm font-bold text-purple-600">
+                      ✓ 全評価完了
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* 現在フェーズの期限（枠の下・右寄せ） */}
+              {challenge.current_phase && challenge.current_phase !== 'closed' && (
+                <div className="flex justify-end mt-2">
+                  <div className="text-right text-sm text-gray-700">
+                    {challenge.current_phase === 'proposal' && challenge.proposal_deadline && (
+                      <>
+                        <span className="font-medium">提案期限</span>
+                        <span className="ml-1">{formatDeadline(challenge.proposal_deadline)}</span>
+                      </>
+                    )}
+                    {challenge.current_phase === 'edit' && challenge.edit_deadline && (
+                      <>
+                        <span className="font-medium">編集期限</span>
+                        <span className="ml-1">{formatDeadline(challenge.edit_deadline)}</span>
+                      </>
+                    )}
+                    {challenge.current_phase === 'evaluation' && challenge.evaluation_deadline && (
+                      <>
+                        <span className="font-medium">評価期限</span>
+                        <span className="ml-1">{formatDeadline(challenge.evaluation_deadline)}</span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
+
+          {/* 進捗バー */}
+          {challenge.current_phase && challenge.current_phase !== 'closed' && challenge.proposal_deadline && challenge.edit_deadline && challenge.evaluation_deadline && (
+            <div className="border-t border-gray-200 pt-4 pb-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">進捗状況</h3>
+              <div className="relative mt-8">
+                {/* 進捗バー本体 */}
+                <div className="h-6 bg-gray-200 rounded overflow-hidden flex">
+                  {(() => {
+                    const start = new Date(challenge.created_at);
+                    const proposalEnd = new Date(challenge.proposal_deadline);
+                    const editEnd = new Date(challenge.edit_deadline);
+                    const evaluationEnd = new Date(challenge.evaluation_deadline);
+                    
+                    const totalDuration = evaluationEnd.getTime() - start.getTime();
+                    const proposalDuration = proposalEnd.getTime() - start.getTime();
+                    const editDuration = editEnd.getTime() - proposalEnd.getTime();
+                    const evaluationDuration = evaluationEnd.getTime() - editEnd.getTime();
+                    
+                    const proposalWidth = (proposalDuration / totalDuration) * 100;
+                    const editWidth = (editDuration / totalDuration) * 100;
+                    const evaluationWidth = (evaluationDuration / totalDuration) * 100;
+                    
+                    return (
+                      <>
+                        {/* 各フェーズの区間 */}
+                        <div 
+                          className={`flex items-center justify-center text-xs font-semibold border-r border-white ${
+                            challenge.current_phase === 'proposal' ? 'bg-green-400 text-white' : 'bg-green-200 text-green-800'
+                          }`}
+                          style={{ width: `${proposalWidth}%` }}
+                        >
+                          提案
+                        </div>
+                        <div 
+                          className={`flex items-center justify-center text-xs font-semibold border-r border-white ${
+                            challenge.current_phase === 'edit' ? 'bg-yellow-400 text-white' : 'bg-yellow-200 text-yellow-800'
+                          }`}
+                          style={{ width: `${editWidth}%` }}
+                        >
+                          編集
+                        </div>
+                        <div 
+                          className={`flex items-center justify-center text-xs font-semibold ${
+                            challenge.current_phase === 'evaluation' ? 'bg-orange-400 text-white' : 'bg-orange-200 text-orange-800'
+                          }`}
+                          style={{ width: `${evaluationWidth}%` }}
+                        >
+                          評価
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+                
+                {/* 進捗インジケーター（現在位置） */}
+                {(() => {
+                  const now = new Date();
+                  const start = new Date(challenge.created_at);
+                  const end = new Date(challenge.evaluation_deadline);
+                  const totalDuration = end.getTime() - start.getTime();
+                  const elapsed = now.getTime() - start.getTime();
+                  const progress = Math.min(Math.max((elapsed / totalDuration) * 100, 0), 100);
+                  
+                  return (
+                    <div 
+                      className="absolute top-0 h-6 w-0.5 bg-gray-800"
+                      style={{ left: `${progress}%`, transform: 'translateX(-50%)' }}
+                    >
+                      <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-800 rounded-full -mt-1"></div>
+                      <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-800 rounded-full -mb-1"></div>
+                    </div>
+                  );
+                })()}
+              </div>
+              
+              {/* 各期限の詳細表示 */}
+              <div className="grid grid-cols-3 gap-2 mt-3 text-xs text-gray-600">
+                <div className="text-center">
+                  <p className="font-semibold text-gray-700">提案期限</p>
+                  <p>～{challenge.proposal_deadline && formatDeadline(challenge.proposal_deadline)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-700">編集期限</p>
+                  <p>～{challenge.edit_deadline && formatDeadline(challenge.edit_deadline)}</p>
+                </div>
+                <div className="text-center">
+                  <p className="font-semibold text-gray-700">評価期限</p>
+                  <p>～{challenge.evaluation_deadline && formatDeadline(challenge.evaluation_deadline)}</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* 課題内容 */}
           <div className="border-t border-gray-200 pt-4">
@@ -486,8 +646,8 @@ const ChallengeDetailPage: React.FC = () => {
                 解決案 ({proposals.length}件)
               </h2>
               
-              {/* 期限切れ課題の場合のみトグルスイッチを表示 */}
-              {challenge?.status === 'closed' && ((user?.user_type === 'proposer' && analysis && myInsight) || (user?.user_type === 'contributor' && analysis)) && (
+              {/* 期限切れ課題の場合のみトグルスイッチを表示（提案者は評価完了済みのみ） */}
+              {challenge?.status === 'closed' && ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) || (user?.user_type === 'contributor' && analysis)) && (
                 <AnalysisToggleSwitch
                   showAnalysis={showAnalysis}
                   onToggle={setShowAnalysis}
@@ -500,10 +660,22 @@ const ChallengeDetailPage: React.FC = () => {
               <p className="text-gray-600 text-center py-8">
                 まだ解決案が投稿されていません。
               </p>
+            ) : user?.user_type === 'proposer' && !userProposal && challenge?.current_phase !== 'proposal' ? (
+              // 提案者が未提案で提案期間が過ぎた場合は何も表示しない
+              <div className="text-center py-8">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 max-w-md mx-auto">
+                  <p className="text-yellow-800 font-medium mb-2">
+                    ⚠️ 提案期間が終了しました
+                  </p>
+                  <p className="text-yellow-700 text-sm">
+                    解決案を提案しなかったため、この課題の編集期間・評価期間には参加できません。
+                  </p>
+                </div>
+              </div>
             ) : (
               <div className="space-y-4">
-                {/* 提案者向け：期限切れ課題で自分の提案分析を表示 */}
-                {user?.user_type === 'proposer' && challenge?.status === 'closed' && analysis && myInsight ? (
+                {/* 提案者向け：期限切れ課題で自分の提案分析を表示（提案＋評価完了した場合のみ） */}
+                {user?.user_type === 'proposer' && challenge?.status === 'closed' && challenge?.has_completed_all_evaluations && analysis && myInsight ? (
                     <>
                     {/* 分析結果または解決案の表示 */}
                     {showAnalysis ? (
@@ -570,27 +742,25 @@ const ChallengeDetailPage: React.FC = () => {
                   </>
                 ) : user?.user_type === 'proposer' ? (
                   (() => {
-                    // デバッグ: 提案データとユーザー情報を確認
-                    console.log('Proposals data:', proposals);
-                    console.log('User ID:', user?.id);
-                    console.log('First proposal structure:', proposals[0]);
-                    console.log('All proposal proposer fields:', proposals.map(p => ({ id: p.id, proposer_name: p.proposer_name })));
-                    console.log('Full proposal structure:', JSON.stringify(proposals[0], null, 2));
-                    
                     // 自分の解決案と他の解決案を分離
                     // proposer_nameフィールドで判定
                     const myProposal = proposals.find(p => {
-                      console.log(`Checking proposal ${p.id}: proposer_name=${p.proposer_name}, user.username=${user?.username}`);
                       return p.proposer_name === user?.username;
                     });
                     const otherProposals = proposals.filter(p => p.proposer_name !== user?.username)
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                    
-                    console.log('My proposal:', myProposal);
-                    console.log('Other proposals count:', otherProposals.length);
+                    const proposerClosedWithoutEval = user?.user_type === 'proposer' && challenge?.status === 'closed' && userProposal && !challenge?.has_completed_all_evaluations;
                     
                     return (
                       <>
+                        {/* 期限切れで評価未完了の提案者向けメッセージ */}
+                        {proposerClosedWithoutEval && (
+                          <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
+                            <p className="text-amber-800 font-medium">
+                              評価が完了していないため、分析結果を閲覧できません。
+                            </p>
+                          </div>
+                        )}
                         {/* 自分の解決案（最上位） */}
                         {myProposal && (
                           <div className="border-2 border-blue-600 rounded-lg p-1">
@@ -600,11 +770,13 @@ const ChallengeDetailPage: React.FC = () => {
                             <ProposalCard
                               key={myProposal.id}
                               proposal={myProposal}
-                              showActions={true}
+                              showActions={challenge?.status !== 'closed'}
                               showStatus={false}
-                              showComments={true} // 自分の解決案のコメントも表示可能
+                              showComments={true}
+                              readOnlyComments={challenge?.status === 'closed'}
                               showChallengeInfo={false}
                               showUserAttributes={challenge?.status === 'closed'}
+                              currentPhase={challenge?.current_phase}
                               onComments={(proposal) => {
                                 // 提案リスト内の該当提案の未読コメント数を更新
                                 if (proposals) {
@@ -630,11 +802,13 @@ const ChallengeDetailPage: React.FC = () => {
                               <ProposalCard
                                 key={proposal.id}
                                 proposal={proposal}
-                                showActions={true}
+                                showActions={challenge?.status !== 'closed'}
                                 showStatus={false}
                                 showComments={true}
+                                readOnlyComments={challenge?.status === 'closed'}
                                 showChallengeInfo={false}
                                 showUserAttributes={challenge?.status === 'closed'}
+                                currentPhase={challenge?.current_phase}
                                 onComments={(proposal) => {
                                   // 提案リスト内の該当提案の未読コメント数を更新
                                   if (proposals) {
@@ -663,20 +837,167 @@ const ChallengeDetailPage: React.FC = () => {
                           challengeId={challenge.id}
                           isLoading={analysisLoading}
                           onClusteringDataLoaded={(data) => setClusteringData(data)}
+                          onAdoptChange={handleAdoptToggle}
+                          sharedAdoptionList={adoptionList}
+                          sharedSetAdoptionList={setAdoptionList}
+                          sharedMemos={adoptionListMemos}
+                          sharedSetMemos={setAdoptionListMemos}
+                          onOpenAddToAdoptionListModal={(id) => { setAddToAdoptionListModalId(id); setAddToAdoptionListMemoInput(adoptionListMemos[id] ?? ''); }}
+                          onConfirmAdoptionFromList={confirmAdoptionFromList}
+                          confirmingAdoption={confirmingAdoption}
                         />
                       ) : (
-                        proposals.map((proposal) => (
-                          <ProposalCard
-                            key={proposal.id}
-                            proposal={proposal}
-                            showActions={false}
-                            showStatus={false}
-                            showComments={true}
-                            readOnlyComments={true}
-                            showChallengeInfo={false}
-                            showUserAttributes={true}
-                          />
-                        ))
+                        (() => {
+                          // 採用された解決案を先頭に並べ、その他は作成日降順
+                          const sorted = [...proposals].sort((a, b) => {
+                            if (a.is_adopted && !b.is_adopted) return -1;
+                            if (!a.is_adopted && b.is_adopted) return 1;
+                            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                          });
+                          const totalPages = Math.max(1, Math.ceil(sorted.length / SOLUTION_LIST_PAGE_SIZE));
+                          const currentPage = Math.min(solutionListPage, totalPages);
+                          const paginatedProposals = sorted.slice(
+                            (currentPage - 1) * SOLUTION_LIST_PAGE_SIZE,
+                            currentPage * SOLUTION_LIST_PAGE_SIZE
+                          );
+                          return (
+                            <div className="space-y-4">
+                              <p className="text-sm text-gray-600 mb-2">
+                                気になる解決案を「採用リスト」でかごに入れ、メモを付けてから「採用を確定する」で採用できます。
+                              </p>
+                              {paginatedProposals.map((proposal) => {
+                                const inList = adoptionList.has(proposal.id);
+                                const memoText = adoptionListMemos[proposal.id] ?? '';
+                                const memoOpen = memoOpenIdList === proposal.id;
+                                return (
+                                  <div key={proposal.id} className="flex gap-3 items-start">
+                                    <div className="flex flex-col gap-1.5 flex-shrink-0 pt-2 w-[6rem]">
+                                      <button
+                                        type="button"
+                                        onClick={() => inList ? setAdoptionList(prev => { const n = new Set(prev); n.delete(proposal.id); return n; }) : (() => { setAddToAdoptionListModalId(proposal.id); setAddToAdoptionListMemoInput(memoText); })()}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center ${inList ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                      >
+                                        {inList ? '外す' : '採用リスト'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => setMemoOpenIdList(prev => prev === proposal.id ? null : proposal.id)}
+                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center border ${memoText ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                      >
+                                        メモ{memoText ? ' ✓' : ''}
+                                      </button>
+                                      {memoOpen && (
+                                        <div className="flex flex-col gap-1 mt-1 p-2 border border-gray-200 rounded bg-white">
+                                          <textarea
+                                            value={memoText}
+                                            onChange={e => setAdoptionListMemos(prev => ({ ...prev, [proposal.id]: e.target.value }))}
+                                            className="w-64 text-sm border border-gray-300 rounded p-2 min-h-[60px]"
+                                            placeholder="メモを入力"
+                                          />
+                                          <button type="button" onClick={() => setMemoOpenIdList(null)} className="text-xs text-gray-600 hover:text-gray-800">閉じる</button>
+                                        </div>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <ProposalCard
+                                        proposal={proposal}
+                                        showActions={false}
+                                        showStatus={false}
+                                        showComments={true}
+                                        readOnlyComments={true}
+                                        showChallengeInfo={false}
+                                        showUserAttributes={true}
+                                      />
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                              {/* ページネーション */}
+                              {totalPages > 1 && (
+                                <div className="flex items-center justify-center gap-2 pt-4 border-t border-gray-200 mt-4">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSolutionListPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage <= 1}
+                                    className="px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                  >
+                                    前へ
+                                  </button>
+                                  <span className="text-sm text-gray-600">
+                                    {currentPage} / {totalPages} ページ
+                                    <span className="ml-2 text-gray-500">
+                                      （全{sorted.length}件、1ページ{SOLUTION_LIST_PAGE_SIZE}件）
+                                    </span>
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSolutionListPage(p => Math.min(totalPages, p + 1))}
+                                    disabled={currentPage >= totalPages}
+                                    className="px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                  >
+                                    次へ
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      )}
+                      {/* 採用リスト（トグルに依存せず、常に最下部に1つだけ表示） */}
+                      {adoptionList.size > 0 && (
+                        <div className="mt-6 p-5 bg-amber-50/80 border border-amber-200 rounded-xl shadow-sm">
+                          <h3 className="text-base font-semibold text-amber-900 mb-1">🛒 採用リスト（{adoptionList.size}件）</h3>
+                          <p className="text-xs text-amber-800 mb-4">確定すると採用となります。</p>
+                          <ul className="space-y-4 mb-5">
+                            {[...adoptionList].map((pid) => {
+                              const p = proposals.find(pr => pr.id === pid);
+                              const memo = adoptionListMemos[pid] ?? '';
+                              return p ? (
+                                <li key={pid} className="flex items-stretch gap-3 rounded-lg border border-amber-200 bg-white p-3 shadow-sm">
+                                  {/* 結論・メモを縦に並べたブロック（結論=ピンク、メモ=灰） */}
+                                  <div className="flex-1 min-w-0 flex flex-col gap-3">
+                                    <div className="rounded-lg p-3 bg-pink-50 border border-pink-200">
+                                      <p className="text-xs font-medium text-pink-800 mb-1">【結論】</p>
+                                      <p className="text-sm text-gray-800 leading-relaxed">{(p.conclusion || `提案#${pid}`).slice(0, 200)}{(p.conclusion?.length ?? 0) > 200 ? '…' : ''}</p>
+                                    </div>
+                                    <div className="rounded-lg p-3 bg-gray-100 border border-gray-200">
+                                      <p className="text-xs font-medium text-gray-700 mb-1">メモ</p>
+                                      <p className="text-sm text-gray-700">{memo.trim() ? `${memo.slice(0, 120)}${memo.length > 120 ? '…' : ''}` : '—'}</p>
+                                    </div>
+                                  </div>
+                                  {/* 削除ボタンは横に独立 */}
+                                  <div className="flex items-center flex-shrink-0">
+                                    <button type="button" onClick={() => setAdoptionList(prev => { const n = new Set(prev); n.delete(pid); return n; })} className="text-red-600 hover:text-red-800 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded border border-red-200 transition-colors">
+                                      削除
+                                    </button>
+                                  </div>
+                                </li>
+                              ) : null;
+                            })}
+                          </ul>
+                          <button type="button" disabled={confirmingAdoption} onClick={confirmAdoptionFromList} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors">
+                            {confirmingAdoption ? '確定中…' : '採用を確定する'}
+                          </button>
+                        </div>
+                      )}
+                      {/* 採用リストに追加モーダル（分析・一覧のどちらから開いた場合も表示） */}
+                      {addToAdoptionListModalId != null && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }}>
+                          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">採用リストに追加</h3>
+                            <p className="text-sm text-gray-600 mb-3">メモを入力してから追加できます。後で「なぜこの案を選んだか」を説明する際に参照できます。</p>
+                            <textarea
+                              value={addToAdoptionListMemoInput}
+                              onChange={e => setAddToAdoptionListMemoInput(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[80px] mb-4"
+                              placeholder="例：実装しやすく、合意も得られていたため"
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
+                              <button type="button" onClick={confirmAddToAdoptionList} className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
+                            </div>
+                          </div>
+                        </div>
                       )}
                     </>
                   ) : (
@@ -689,6 +1010,7 @@ const ChallengeDetailPage: React.FC = () => {
                         showStatus={false}
                         showComments={true}
                         showChallengeInfo={false}
+                        currentPhase={challenge?.current_phase}
                         onComments={(proposal) => {
                           // 提案リスト内の該当提案の未読コメント数を更新
                           if (proposals) {
@@ -710,15 +1032,11 @@ const ChallengeDetailPage: React.FC = () => {
         {/* 提案者の未投稿時の案内 */}
         {user?.user_type === 'proposer' && !userProposal && (
           <div className={`border rounded-lg p-4 mb-6 ${
-            challenge.status === 'closed' 
-              ? 'bg-red-50 border-red-300' 
-              : 'bg-blue-50 border-blue-200'
+            challenge.current_phase === 'proposal'
+              ? 'bg-blue-50 border-blue-200'
+              : 'bg-red-50 border-red-300'
           }`}>
-            {challenge.status === 'closed' ? (
-              <p className="text-red-700 font-medium text-center">
-                ⛔ この課題は期限切れのため、解決案を提案できません。
-              </p>
-            ) : (
+            {challenge.current_phase === 'proposal' ? (
               <>
                 <p className="text-blue-800 mb-3 text-center">
                   解決案を提案すると、他の提案者の解決案を閲覧できるようになります。
@@ -732,10 +1050,17 @@ const ChallengeDetailPage: React.FC = () => {
                   </Link>
                 </div>
               </>
+            ) : (
+              <p className="text-red-700 font-medium text-center">
+                {challenge.current_phase === 'edit' && '⛔ 編集期間中は新規提案できません。'}
+                {challenge.current_phase === 'evaluation' && '⛔ 評価期間中は新規提案できません。'}
+                {challenge.current_phase === 'closed' && '⛔ この課題は期限切れのため、解決案を提案できません。'}
+              </p>
             )}
           </div>
         )}
 
+        </div>
       </div>
     </div>
   );

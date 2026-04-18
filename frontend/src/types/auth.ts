@@ -92,9 +92,7 @@ export interface RegisterRequest {
 }
 
 // プロフィール更新リクエスト
-export interface ProfileUpdateRequest {
-  [key: string]: any;
-}
+export type ProfileUpdateRequest = Record<string, unknown>;
 
 // API エラーレスポンス
 export interface ApiError {

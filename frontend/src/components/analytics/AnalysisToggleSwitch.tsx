@@ -23,8 +23,8 @@ const AnalysisToggleSwitch: React.FC<AnalysisToggleSwitchProps> = ({
         } ${isLoading ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
         onClick={() => !isLoading && onToggle(!showAnalysis)}
         disabled={isLoading}
-        aria-pressed={showAnalysis}
         role="switch"
+        aria-checked={showAnalysis}
         aria-label={showAnalysis ? '分析結果を表示中' : '解決案一覧を表示中'}
       >
         <span

@@ -8,15 +8,16 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import ChallengeForm from '../../../components/challenges/ChallengeForm';
-import type { CreateChallengeRequest } from '../../../types/challenge';
+import type { CreateChallengeRequest, UpdateChallengeRequest } from '../../../types/challenge';
 import { createChallenge } from '../../../lib/challengeAPI';
 import { useAuth } from '../../../contexts/AuthContext';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 const CreateChallengePage: React.FC = () => {
   const router = useRouter();
   const { user, isAuthenticated, token } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // 認証チェック
@@ -44,20 +45,24 @@ const CreateChallengePage: React.FC = () => {
   }
 
   // 課題作成処理
-  const handleSubmit = async (data: CreateChallengeRequest) => {
+  const handleSubmit = async (data: CreateChallengeRequest | UpdateChallengeRequest) => {
     try {
       setIsLoading(true);
-      setError(null);
       setSuccessMessage(null);
 
-      console.log('課題作成開始:', data);
-      const newChallenge = await createChallenge(data);
-      console.log('課題作成成功:', newChallenge);
+      const createData: CreateChallengeRequest = {
+        title: data.title ?? '',
+        description: data.description ?? '',
+        reward_amount: data.reward_amount ?? 0,
+        adoption_reward: data.adoption_reward ?? 50,
+        required_participants: data.required_participants ?? 50,
+        deadline: data.deadline ?? '',
+      };
+      const newChallenge = await createChallenge(createData);
       
       // 選出機能を実行（失敗しても課題投稿は成功とする）
       try {
-        console.log('選出機能開始');
-        const selectionResponse = await fetch(`http://localhost:8000/api/selections/execute/`, {
+        const selectionResponse = await fetch(`${API_BASE_URL}/selections/execute/`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -72,8 +77,7 @@ const CreateChallengePage: React.FC = () => {
         });
         
         if (selectionResponse.ok) {
-          const selectionResult = await selectionResponse.json();
-          console.log('選出完了:', selectionResult);
+          await selectionResponse.json();
           setSuccessMessage('課題が正常に投稿され、提案者の選出が完了しました！');
         } else {
           const errorText = await selectionResponse.text();
@@ -92,7 +96,14 @@ const CreateChallengePage: React.FC = () => {
       
     } catch (err) {
       console.error('課題作成エラー:', err);
-      setError(err instanceof Error ? err.message : '課題の作成に失敗しました');
+      const errorMessage = err instanceof Error ? err.message : '課題の作成に失敗しました';
+      const showAlert =
+        errorMessage.includes('現在登録されている提案者数が不足しています') ||
+        (errorMessage.includes('選出人数は') && (errorMessage.includes('50人以上') || errorMessage.includes('790人以下'))) ||
+        errorMessage.includes('期限まで最低');
+      if (showAlert) {
+        alert(errorMessage);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -126,12 +137,7 @@ const CreateChallengePage: React.FC = () => {
           </div>
         )}
 
-        {/* エラー表示 */}
-        {error && (
-          <div className="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
-            <div className="text-red-800">{error}</div>
-          </div>
-        )}
+        {/* エラー表示は削除（アラートで表示するため） */}
 
         {/* 課題作成フォーム */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">

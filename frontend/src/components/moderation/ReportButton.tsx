@@ -112,8 +112,8 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
         disabled={isReported}
         className={
           isReported
-            ? className.replace(/bg-red-\d+/, 'bg-white').replace(/hover:bg-red-\d+/, '').replace(/text-white/, 'text-gray-400') + ' !cursor-not-allowed opacity-60 border-2 border-red-600'
-            : className
+            ? `${sizeClasses[size]} ${className.replace(/bg-red-\d+/, 'bg-white').replace(/hover:bg-red-\d+/, '').replace(/text-white/, 'text-gray-400')} !cursor-not-allowed opacity-60 border-2 border-red-600`
+            : `${sizeClasses[size]} ${className}`.trim()
         }
         style={isReported ? { cursor: 'not-allowed' } : undefined}
         title={isReported ? '報告済み' : `${contentTypeName}を通報する`}

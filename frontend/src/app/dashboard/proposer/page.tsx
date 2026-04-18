@@ -4,34 +4,31 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { ProposalListItem } from '../../../types/proposal';
 import type { ChallengeListItem } from '../../../types/challenge';
 import { getProposals } from '../../../lib/proposalAPI';
-import { getChallenges } from '../../../lib/challengeAPI';
+import { getAllChallenges } from '../../../lib/challengeAPI';
+import { sortExpiredChallenges, sortActiveProposerChallenges, isProposerExpiredOrFailed } from '../../../lib/challengeSortUtils';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProposalCard from '../../../components/proposals/ProposalCard';
 import ChallengeCard from '../../../components/challenges/ChallengeCard';
+import { DemoVersionModal, DashboardDemoVersionTrigger } from '../../../components/common/DemoVersionNotice';
 
 const ProposerDashboard: React.FC = () => {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [hasNewChallenges, setHasNewChallenges] = useState<boolean>(false);
+  const [demoVersionOpen, setDemoVersionOpen] = useState(false);
 
   // ダッシュボードデータの取得
-  const fetchDashboardData = async () => {
-    console.log('fetchDashboardData called');
-    console.log('isAuthenticated:', isAuthenticated);
-    console.log('user:', user);
-    console.log('token:', token);
-    
+  const fetchDashboardData = useCallback(async () => {
     // 認証されていない場合はAPI呼び出しを避ける
     if (!isAuthenticated || !user) {
-      console.log('Not authenticated, skipping API calls');
       setLoading(false);
       return;
     }
@@ -42,31 +39,21 @@ const ProposerDashboard: React.FC = () => {
       
       // 提案データの取得
       const proposalsResponse = await getProposals();
-      console.log('Proposals response:', proposalsResponse);
       const proposalsData = proposalsResponse.results || proposalsResponse || [];
       setProposals(proposalsData);
       
-      // 課題データの取得（提案者の場合、選出された課題のみ）
-      console.log('Fetching challenges for proposer...');
-      console.log('User:', user);
-      console.log('Is authenticated:', isAuthenticated);
-      console.log('Token:', token);
-      const challengesResponse = await getChallenges();
-      const challengesData = Array.isArray(challengesResponse) ? challengesResponse : (challengesResponse.results || []);
+      // 課題データの取得（提案者の場合、選出された課題のみ。全件取得でページネーションによる欠落を防ぐ）
+      const challengesData = await getAllChallenges();
       
-      // 選出された課題（期限切れ以外）に対して提案していない課題があるかチェック
-      const hasUnproposedChallenges = challengesData.some(challenge => {
-        // 期限切れ課題は除外
-        if (challenge.status === 'closed') {
-          return false;
-        }
-        // この課題に対する提案があるかチェック（challengeとchallenge_idの両方をチェック）
-        const hasProposal = proposalsData.some(proposal => 
-          proposal.challenge === challenge.id || proposal.challenge_id === challenge.id
-        );
-        return !hasProposal;
+      // 選出された課題のうち、行う作業が残っているものが存在するか
+      // ① 未提案（提案期間）② 評価未完了（評価期間）。編集期間の編集は任意のため対象外
+      const hasWorkRemaining = challengesData.some(c => {
+        if (isProposerExpiredOrFailed(c)) return false;
+        if (!c.has_proposed) return true; // 提案が必要
+        if (c.current_phase === 'evaluation' && !c.has_completed_all_evaluations) return true; // 評価が必要
+        return false;
       });
-      setHasNewChallenges(hasUnproposedChallenges);
+      setHasNewChallenges(hasWorkRemaining);
       
       setChallenges(challengesData);
       
@@ -79,21 +66,19 @@ const ProposerDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      fetchDashboardData();
+      void fetchDashboardData();
     } else {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchDashboardData]);
 
   // 統計情報の計算（安全な処理）
   const totalProposals = proposals?.length || 0;
   const adoptedProposals = proposals?.filter(p => p.is_adopted).length || 0;
-  const totalEvaluations = proposals?.reduce((sum, p) => sum + (p.evaluation_count || 0), 0) || 0;
-  const averageEvaluation = totalProposals > 0 ? Math.round((totalEvaluations / totalProposals) * 10) / 10 : 0;
 
   // 課題詳細表示処理
   const handleChallengeView = (challenge: ChallengeListItem) => {
@@ -107,7 +92,7 @@ const ProposerDashboard: React.FC = () => {
   const totalUnreadComments = proposals?.reduce((sum, p) => sum + (p.unread_comment_count || 0), 0) || 0;
   
   // コメント表示時のコールバック
-  const handleComments = (proposal: any) => {
+  const handleComments = (proposal: ProposalListItem) => {
     // 提案リスト内の該当提案の未読コメント数を更新
     if (proposals) {
       const updatedProposals = proposals.map(p => 
@@ -118,47 +103,24 @@ const ProposerDashboard: React.FC = () => {
   };
   
   // 評価の多い提案（上位5件）
-  const topEvaluatedProposals = proposals
-    ?.sort((a, b) => (b.evaluation_count || 0) - (a.evaluation_count || 0))
-    .slice(0, 5) || [];
 
-  // 募集中の課題（課題一覧ページの一番上の課題と同じ）
+  // 募集中の課題（課題一覧と同じ: 期限切れ扱いでないもの＝次のフェーズまで近い順、期限切れ＝直近終了順）
   const openChallenges = React.useMemo(() => {
     if (!challenges || challenges.length === 0) return [];
     
-    // 期限切れと募集中を分離
-    const expiredChallenges = challenges
-      .filter(c => c.status === 'closed')
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    const expiredChallenges = sortExpiredChallenges(challenges.filter(c => isProposerExpiredOrFailed(c)));
+    const activeChallenges = sortActiveProposerChallenges(challenges.filter(c => !isProposerExpiredOrFailed(c)));
     
-    const activeChallenges = challenges.filter(c => c.status !== 'closed');
-    
-    // 提案済みと未提案を分離（募集中は期限が近い順）
-    const proposedChallenges = activeChallenges
-      .filter(challenge => proposals.some(proposal => proposal.challenge_id === challenge.id))
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-    
-    const unproposedChallenges = activeChallenges
-      .filter(challenge => !proposals.some(proposal => proposal.challenge_id === challenge.id))
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-    
-    // 優先順位: 未提案 → 提案済み → 期限切れ
-    if (unproposedChallenges.length > 0) {
-      return [unproposedChallenges[0]];
-    } else if (proposedChallenges.length > 0) {
-      return [proposedChallenges[0]];
-    } else if (expiredChallenges.length > 0) {
-      return [expiredChallenges[0]];
-    }
-    
+    if (activeChallenges.length > 0) return [activeChallenges[0]];
+    if (expiredChallenges.length > 0) return [expiredChallenges[0]];
     return [];
-  }, [challenges, proposals]);
+  }, [challenges]);
 
   // ローディング表示
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -171,7 +133,7 @@ const ProposerDashboard: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-red-800">{error}</div>
             <button
@@ -187,20 +149,24 @@ const ProposerDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
-            <Link
-              href="/challenges"
-              className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-            >
-              新しい解決案を提案
-            </Link>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8 w-full">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ページヘッダー */}
+        <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
+          <DashboardDemoVersionTrigger onOpen={() => setDemoVersionOpen(true)} />
+          <Link
+            href="/challenges"
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 shrink-0"
+          >
+            新しい解決案を提案
+          </Link>
         </div>
+
+        <DemoVersionModal
+          isOpen={demoVersionOpen}
+          onClose={() => setDemoVersionOpen(false)}
+          role="proposer"
+        />
 
         {/* 統計カード */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -252,22 +218,17 @@ const ProposerDashboard: React.FC = () => {
           {openChallenges.length === 0 ? (
             <p className="text-gray-500 text-center py-4">現在、募集中の課題はありません</p>
           ) : (
-            <div className="space-y-4">
-              {openChallenges.map((challenge) => {
-                // この課題に対する提案があるかチェック
-                const isProposed = proposals.some(proposal => proposal.challenge_id === challenge.id);
-                
-                return (
-                  <ChallengeCard
-                    key={challenge.id}
-                    challenge={challenge}
-                    showActions={true}
-                    userType="proposer"
-                    isProposed={isProposed}
-                    onView={handleChallengeView}
-                  />
-                );
-              })}
+            <div className="space-y-4 max-w-4xl mx-auto px-8 sm:px-10">
+              {openChallenges.map((challenge) => (
+                <ChallengeCard
+                  key={challenge.id}
+                  challenge={challenge}
+                  showActions={true}
+                  userType="proposer"
+                  isProposed={!!challenge.has_proposed}
+                  onView={handleChallengeView}
+                />
+              ))}
             </div>
           )}
         </div>
@@ -292,7 +253,7 @@ const ProposerDashboard: React.FC = () => {
               {recentProposals.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">まだ解決案を提案していません</p>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-4 max-w-4xl mx-auto px-8 sm:px-10">
                   {recentProposals.map((proposal) => (
                     <ProposalCard
                       key={proposal.id}

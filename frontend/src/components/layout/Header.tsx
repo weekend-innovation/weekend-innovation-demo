@@ -16,13 +16,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { authAPI, tokenManager } from '@/lib/api';
+
 import { useAuth } from '../../contexts/AuthContext';
+import ServiceDescriptionModal from '../common/ServiceDescriptionModal';
+import { OPEN_SERVICE_DESCRIPTION_EVENT } from '@/lib/openServiceDescription';
 
 export function Header() {
   const { user, logout } = useAuth();
   // ハンバーガーメニューの開閉状態
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  // サービス説明モーダルの開閉状態
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
 
@@ -30,6 +34,13 @@ export function Header() {
   useEffect(() => {
     setIsMenuOpen(false);
   }, [user]);
+
+  // デモ版モーダルなどから「サービスの説明」を開く
+  useEffect(() => {
+    const openServiceDescription = () => setIsDescriptionOpen(true);
+    window.addEventListener(OPEN_SERVICE_DESCRIPTION_EVENT, openServiceDescription);
+    return () => window.removeEventListener(OPEN_SERVICE_DESCRIPTION_EVENT, openServiceDescription);
+  }, []);
 
   // ログアウト処理
   const handleLogout = async () => {
@@ -62,8 +73,8 @@ export function Header() {
   };
 
   return (
-    <header className="bg-black border-b border-gray-200">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <header className="bg-black border-b border-gray-200 w-full">
+      <div className="w-full px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* ロゴエリア */}
           <div className="flex items-center">
@@ -137,7 +148,7 @@ export function Header() {
                           className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          ダッシュボード
+                          ホーム
                         </Link>
                         <Link
                           href="/challenges" 
@@ -146,13 +157,11 @@ export function Header() {
                         >
                           課題一覧
                         </Link>
-                        <Link
-                          href="/wallet" 
-                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
-                          onClick={() => setIsMenuOpen(false)}
+                        <span
+                          className="block px-4 py-3 text-gray-400 cursor-not-allowed line-through"
                         >
                           ウォレット
-                        </Link>
+                        </span>
                       </>
                     )}
                     {user.user_type === 'proposer' && (
@@ -162,7 +171,7 @@ export function Header() {
                           className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          ダッシュボード
+                          ホーム
                         </Link>
                         <Link
                           href="/proposals" 
@@ -178,13 +187,11 @@ export function Header() {
                         >
                           課題一覧
                         </Link>
-                        <Link
-                          href="/wallet" 
-                          className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
-                          onClick={() => setIsMenuOpen(false)}
+                        <span
+                          className="block px-4 py-3 text-gray-400 cursor-not-allowed line-through"
                         >
                           ウォレット
-                        </Link>
+                        </span>
                       </>
                     )}
                     <Link
@@ -194,13 +201,21 @@ export function Header() {
                     >
                       プロフィール
                     </Link>
-                    <Link
-                      href="/settings"
-                      className="block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors"
-                      onClick={() => setIsMenuOpen(false)}
+                    <span
+                      className="block px-4 py-3 text-gray-400 cursor-not-allowed line-through"
                     >
                       設定
-                    </Link>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDescriptionOpen(true);
+                        setIsMenuOpen(false);
+                      }}
+                      className="w-full text-left block px-4 py-3 text-gray-700 hover:bg-gray-100 transition-colors cursor-pointer"
+                    >
+                      サービスの説明
+                    </button>
                   </div>
                 </div>
                 
@@ -218,6 +233,12 @@ export function Header() {
           </>
         )}
       </div>
+
+      {/* サービス説明モーダル */}
+      <ServiceDescriptionModal 
+        isOpen={isDescriptionOpen} 
+        onClose={() => setIsDescriptionOpen(false)} 
+      />
     </header>
   );
 }

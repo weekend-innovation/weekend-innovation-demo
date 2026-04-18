@@ -132,9 +132,9 @@ class ProposalEvaluation(models.Model):
     proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='evaluations')
     evaluator = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='proposal_evaluations')
     
-    # 独創性評価（既存）
-    evaluation = models.CharField(max_length=10, choices=EVALUATION_CHOICES, verbose_name="独創性評価")
-    score = models.IntegerField(verbose_name="独創性点数", default=0)  # No=2, Maybe=1, Yes=0
+    # 革新性評価
+    evaluation = models.CharField(max_length=10, choices=EVALUATION_CHOICES, verbose_name="革新性評価")
+    score = models.IntegerField(verbose_name="革新性点数", default=0)  # No=2, Maybe=1, Yes=0
     
     # 示唆性評価（新規）
     insight_level = models.CharField(max_length=1, choices=INSIGHT_CHOICES, verbose_name="示唆性評価", null=True, blank=True)
@@ -149,7 +149,7 @@ class ProposalEvaluation(models.Model):
         verbose_name_plural = 'Proposal Evaluations'
     
     def save(self, *args, **kwargs):
-        # 独創性評価に応じて点数を自動設定
+        # 革新性評価に応じて点数を自動設定
         if self.evaluation == 'no':
             self.score = 2
         elif self.evaluation == 'maybe':
@@ -185,6 +185,24 @@ class ProposalCommentReply(models.Model):
     
     def __str__(self):
         return f"Reply to Comment {self.comment.id}"
+
+
+class ProposalEditReference(models.Model):
+    """
+    解決案編集時のコメント参考ログ
+    提案者が「参考」ボタンで特定のコメントを参考に編集した記録（支持率の算出に使用）
+    """
+    proposal = models.ForeignKey(Proposal, on_delete=models.CASCADE, related_name='edit_references')
+    comment = models.ForeignKey('ProposalComment', on_delete=models.CASCADE, related_name='edit_references')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = '解決案編集参考'
+        verbose_name_plural = '解決案編集参考'
+        unique_together = ['proposal', 'comment']
+
+    def __str__(self):
+        return f"Proposal {self.proposal.id} edited referencing Comment {self.comment.id}"
 
 
 class ProposalReference(models.Model):

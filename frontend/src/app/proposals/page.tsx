@@ -4,7 +4,7 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ProposalCard from '@/components/proposals/ProposalCard';
 import type { ProposalListItem, ProposalListResponse } from '@/types/proposal';
@@ -16,6 +16,45 @@ const ProposalsPage: React.FC = () => {
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const fetchProposals = useCallback(async () => {
+    if (!isAuthenticated || !user) {
+      setLoading(false);
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response: ProposalListResponse = await getProposals();
+
+      let proposalsData: ProposalListItem[] = [];
+      if (Array.isArray(response)) {
+        proposalsData = response;
+      } else if (response && response.results) {
+        proposalsData = response.results;
+      } else if (response) {
+        proposalsData = [];
+      }
+
+      setProposals(proposalsData);
+    } catch (err) {
+      console.error('Error fetching proposals:', err);
+      setError(err instanceof Error ? err.message : '提案の取得に失敗しました');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, user]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (isAuthenticated && user) {
+      void fetchProposals();
+    } else {
+      setLoading(false);
+    }
+  }, [authLoading, isAuthenticated, user, fetchProposals]);
 
   // 認証チェック
   if (authLoading) {
@@ -31,8 +70,8 @@ const ProposalsPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full min-w-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               ログインが必要です
@@ -52,66 +91,6 @@ const ProposalsPage: React.FC = () => {
     );
   }
 
-  // 提案一覧の取得
-  const fetchProposals = async () => {
-    console.log('fetchProposals called');
-    console.log('isAuthenticated:', isAuthenticated);
-    console.log('user:', user);
-    
-    // 認証されていない場合はAPI呼び出しを避ける
-    if (!isAuthenticated || !user) {
-      console.log('Not authenticated, skipping API calls');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      setLoading(true);
-      setError(null);
-      
-      console.log('Calling getProposals API...');
-      const response: ProposalListResponse = await getProposals();
-      console.log('Proposals API response:', response);
-      console.log('Response type:', typeof response);
-      console.log('Response is array:', Array.isArray(response));
-      console.log('Response.results:', response.results);
-      if (response.results && response.results.length > 0) {
-        console.log('First proposal structure:', response.results[0]);
-        console.log('First proposal challenge field:', response.results[0].challenge_id);
-      }
-      
-      // レスポンスが配列の場合は直接使用、オブジェクトの場合はresultsプロパティを使用
-      let proposalsData: ProposalListItem[] = [];
-      if (Array.isArray(response)) {
-        proposalsData = response;
-        console.log('Using response as array');
-      } else if (response && response.results) {
-        proposalsData = response.results;
-        console.log('Using response.results');
-      } else if (response) {
-        // 単一のオブジェクトの場合は空配列にする
-        proposalsData = [];
-        console.log('Single response object, setting empty array');
-      }
-      
-      setProposals(proposalsData);
-      console.log('Proposals set:', proposalsData);
-    } catch (err) {
-      console.error('Error fetching proposals:', err);
-      setError(err instanceof Error ? err.message : '提案の取得に失敗しました');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (isAuthenticated && user) {
-      fetchProposals();
-    } else if (!isAuthenticated) {
-      setLoading(false);
-    }
-  }, [isAuthenticated, user]);
-
 
   // 提案編集処理（提案者のみ）
   const handleProposalEdit = (proposal: ProposalListItem) => {
@@ -122,25 +101,25 @@ const ProposalsPage: React.FC = () => {
 
   // 提案削除処理（提案者のみ）
   const handleProposalDelete = async (proposal: ProposalListItem) => {
+    void proposal;
     if (user?.user_type === 'proposer' && confirm('この提案を削除しますか？')) {
       // TODO: 削除API呼び出し
-      console.log('削除処理:', proposal.id);
     }
   };
 
   // 提案採用処理（投稿者のみ）
   const handleProposalAdopt = async (proposal: ProposalListItem) => {
+    void proposal;
     if (user?.user_type === 'contributor' && confirm('この提案を採用しますか？')) {
       // TODO: 採用API呼び出し
-      console.log('採用処理:', proposal.id);
     }
   };
 
   // ローディング表示
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full min-w-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -152,8 +131,8 @@ const ProposalsPage: React.FC = () => {
   // エラー表示
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-red-800">{error}</div>
             <button
@@ -169,18 +148,22 @@ const ProposalsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
+    <div className="min-h-screen bg-gray-50 py-8 w-full">
+      {/* パンくずリスト */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-4">
+        <nav className="flex items-center space-x-2 text-sm text-gray-500">
+          <Link href="/dashboard" className="hover:text-gray-700">
+            ホーム
+          </Link>
+          <span>/</span>
+          <span className="text-gray-900 font-medium">解決案一覧</span>
+        </nav>
+      </div>
+
+      {/* 提案一覧（中央寄せ・固定幅） */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ページヘッダー */}
         <div className="mb-8">
-          {/* パンくずリスト */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-            <Link href="/dashboard" className="hover:text-gray-700">
-              ダッシュボード
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">解決案一覧</span>
-          </nav>
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -205,8 +188,6 @@ const ProposalsPage: React.FC = () => {
             )}
           </div>
         </div>
-
-        {/* 提案一覧 */}
         {!proposals || proposals.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-500 text-lg mb-4">

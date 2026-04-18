@@ -18,12 +18,16 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authAPI } from '@/lib/api';
-import { RegisterRequest, UserType, ContributorProfile, ProposerProfile } from '@/types/auth';
+import { RegisterRequest, UserType } from '@/types/auth';
+
+type RegisterFormData = Omit<RegisterRequest, 'profile'> & {
+  profile: Record<string, string | undefined>;
+};
 
 export function RegisterForm() {
   const [step, setStep] = useState<'user-type' | 'user-info' | 'profile'>('user-type');
   const [userType, setUserType] = useState<UserType | null>(null);
-  const [formData, setFormData] = useState<RegisterRequest>({
+  const [formData, setFormData] = useState<RegisterFormData>({
     username: '',
     email: '',
     password: '',
@@ -86,7 +90,7 @@ export function RegisterForm() {
     setError('');
 
     try {
-      const response = await authAPI.register(formData);
+      const response = await authAPI.register(formData as unknown as RegisterRequest);
       
       // 登録成功後、ユーザータイプに応じてリダイレクト
       if (response.user.user_type === 'contributor') {
@@ -94,8 +98,8 @@ export function RegisterForm() {
       } else {
         router.push('/dashboard/proposer');
       }
-    } catch (err: any) {
-      setError(err.message || '登録に失敗しました');
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : '登録に失敗しました');
     } finally {
       setIsLoading(false);
     }
@@ -269,7 +273,7 @@ export function RegisterForm() {
                 name="company_name"
                 type="text"
                 required
-                value={(formData.profile as ContributorProfile).company_name}
+                value={formData.profile.company_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
                 placeholder="会社名"
@@ -285,7 +289,7 @@ export function RegisterForm() {
                 name="representative_name"
                 type="text"
                 required
-                value={(formData.profile as ContributorProfile).representative_name}
+                value={formData.profile.representative_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
                 placeholder="代表者名"
@@ -301,7 +305,7 @@ export function RegisterForm() {
                 name="industry"
                 type="text"
                 required
-                value={(formData.profile as ContributorProfile).industry}
+                value={formData.profile.industry ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
                 placeholder="業種"
@@ -319,7 +323,7 @@ export function RegisterForm() {
                 name="full_name"
                 type="text"
                 required
-                value={(formData.profile as ProposerProfile).full_name}
+                value={formData.profile.full_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
                 placeholder="氏名"
@@ -334,7 +338,7 @@ export function RegisterForm() {
                 id="gender"
                 name="gender"
                 required
-                value={(formData.profile as ProposerProfile).gender}
+                value={formData.profile.gender ?? 'male'}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
               >
@@ -353,7 +357,7 @@ export function RegisterForm() {
                 name="birth_date"
                 type="date"
                 required
-                value={(formData.profile as ProposerProfile).birth_date}
+                value={formData.profile.birth_date ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
               />

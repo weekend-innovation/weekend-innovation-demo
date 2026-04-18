@@ -11,15 +11,6 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
   onEvaluate,
   isEvaluating = false
 }) => {
-  console.log('ProposalEvaluation レンダリング:', { 
-    proposalId, 
-    userEvaluation: userEvaluation ? {
-      evaluation: userEvaluation.evaluation,
-      score: userEvaluation.score,
-      id: userEvaluation.id
-    } : null, 
-    isEvaluating 
-  });
   const [selectedEvaluation, setSelectedEvaluation] = useState<'yes' | 'maybe' | 'no' | null>(
     userEvaluation?.evaluation || null
   );
@@ -28,24 +19,17 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
   );
 
   const handleEvaluation = (evaluation: 'yes' | 'maybe' | 'no') => {
-    console.log('評価ボタンクリック:', { proposalId, evaluation, userEvaluation });
-    
     // 既に評価済みの場合は変更不可
     if (userEvaluation) {
-      console.log('既に評価済みのため処理をスキップ');
       return;
     }
     
-    console.log('評価処理開始');
     setSelectedEvaluation(evaluation);
   };
   
   const handleInsightLevel = (level: '1' | '2' | '3' | '4' | '5') => {
-    console.log('示唆性評価ボタンクリック:', { proposalId, level, userEvaluation });
-    
     // 既に評価済みの場合は変更不可
     if (userEvaluation) {
-      console.log('既に評価済みのため処理をスキップ');
       return;
     }
     
@@ -54,7 +38,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
   
   const handleSubmit = () => {
     if (!selectedEvaluation) {
-      alert('独創性の評価を選択してください');
+      alert('革新性の評価を選択してください');
       return;
     }
     
@@ -64,19 +48,6 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
     }
     
     onEvaluate(proposalId, selectedEvaluation, selectedInsightLevel);
-  };
-
-  const getEvaluationColor = (evaluation: 'yes' | 'maybe' | 'no') => {
-    switch (evaluation) {
-      case 'no':
-        return 'bg-red-500 hover:bg-red-600 text-white';
-      case 'maybe':
-        return 'bg-yellow-500 hover:bg-yellow-600 text-white';
-      case 'yes':
-        return 'bg-green-500 hover:bg-green-600 text-white';
-      default:
-        return 'bg-gray-200 hover:bg-gray-300 text-gray-700';
-    }
   };
 
   const getEvaluationLabel = (evaluation: 'yes' | 'maybe' | 'no') => {
@@ -91,28 +62,16 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
   };
 
   const buttonDisabled = isEvaluating || !!userEvaluation;
-  console.log('評価ボタン状態:', { 
-    isEvaluating, 
-    userEvaluation: !!userEvaluation, 
-    buttonDisabled,
-    selectedEvaluation 
-  });
 
   // 評価済みの場合の表示
-  console.log('評価表示判定:', { 
-    hasUserEvaluation: !!userEvaluation,
-    userEvaluationData: userEvaluation,
-    willShowEvaluated: !!userEvaluation
-  });
-  
   if (userEvaluation) {
     return (
-      <div className="bg-blue-50 rounded-lg p-4 mb-4 border border-blue-200 space-y-4">
-        <h4 className="text-sm font-medium text-blue-700 mb-3 text-center">【評価済み】</h4>
+      <div className="bg-gray-50 rounded-lg p-4 mb-4 border border-gray-300 space-y-4">
+        <h4 className="text-sm font-medium text-gray-700 mb-3 text-center">【評価済み】</h4>
         
-        {/* 独創性評価 */}
+        {/* 革新性評価 */}
         <div>
-          <p className="text-xs text-gray-600 mb-2 text-center">この結論は思い付いていましたか？</p>
+          <p className="text-xs text-gray-600 mb-2 text-center">この結論を思い付いていましたか？</p>
           <div className="flex gap-2 justify-center">
             {(['no', 'maybe', 'yes'] as const).map((evaluation) => (
               <button
@@ -121,7 +80,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
                 className={`
                   px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-200
                   ${userEvaluation.evaluation === evaluation 
-                    ? getEvaluationColor(evaluation)
+                    ? 'bg-gray-800 text-white'
                     : 'bg-gray-200 text-gray-400'
                   }
                   opacity-50 cursor-not-allowed
@@ -145,7 +104,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
                   className={`
                     px-3 py-2 rounded-lg font-medium text-sm transition-colors duration-200
                     ${userEvaluation.insight_level === level 
-                      ? 'bg-blue-500 text-white'
+                      ? 'bg-gray-800 text-white'
                       : 'bg-gray-200 text-gray-400'
                     }
                     opacity-50 cursor-not-allowed
@@ -164,9 +123,9 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
   // 評価未実施の場合
   return (
     <div className="bg-gray-50 rounded-lg p-4 mb-4 space-y-4">
-      {/* 独創性評価 */}
+      {/* 革新性評価 */}
       <div>
-        <h4 className="text-sm font-medium text-gray-700 mb-2 text-center">この結論は思い付いていましたか？</h4>
+        <h4 className="text-sm font-medium text-gray-700 mb-2 text-center">この結論を思い付いていましたか？</h4>
         <div className="flex gap-2 justify-center">
           {(['no', 'maybe', 'yes'] as const).map((evaluation) => (
             <button
@@ -176,7 +135,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
               className={`
                 px-4 py-2 rounded-lg font-medium text-sm transition-colors duration-200
                 ${selectedEvaluation === evaluation 
-                  ? getEvaluationColor(evaluation)
+                  ? 'bg-gray-800 hover:bg-gray-900 text-white'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                 }
                 ${buttonDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -200,7 +159,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
               className={`
                 px-3 py-2 rounded-lg font-medium text-sm transition-colors duration-200
                 ${selectedInsightLevel === level 
-                  ? 'bg-blue-500 hover:bg-blue-600 text-white'
+                  ? 'bg-gray-800 hover:bg-gray-900 text-white'
                   : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
                 }
                 ${buttonDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
@@ -220,7 +179,7 @@ const ProposalEvaluation: React.FC<ProposalEvaluationProps> = ({
           className={`
             px-6 py-2 rounded-lg font-medium text-sm transition-colors duration-200
             ${selectedEvaluation && selectedInsightLevel
-              ? 'bg-green-500 hover:bg-green-600 text-white cursor-pointer'
+              ? 'bg-gray-800 hover:bg-gray-900 text-white cursor-pointer'
               : 'bg-gray-300 text-gray-500 cursor-not-allowed'
             }
           `}

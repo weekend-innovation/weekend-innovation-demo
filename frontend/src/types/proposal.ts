@@ -60,6 +60,7 @@ export interface ProposalListItem {
   is_adopted: boolean;
   rating?: number;
   rating_count: number;
+  evaluation_count?: number;
   created_at: string;
   updated_at: string;
   unread_comment_count?: number;
@@ -81,6 +82,7 @@ export interface CreateProposalRequest {
 export interface UpdateProposalRequest {
   conclusion?: string;
   reasoning?: string;
+  reference_comment_id?: number | null;  // 参考ボタンで編集したコメントID（支持率に寄与）
 }
 
 // 提案コメント
@@ -218,7 +220,9 @@ export interface ProposalCardProps {
   readOnlyComments?: boolean; // 期限切れ課題用：コメント閲覧のみ（投稿・返信・通報不可）
   showChallengeInfo?: boolean;
   showUserAttributes?: boolean; // 期限切れ課題用：ユーザー属性（国旗、性別、年齢）を表示
+  useServerDataOnly?: boolean; // 分析サマリー用：localStorageの編集データを無視し、サーバーデータのみ表示
   challengeId?: number;
+  currentPhase?: 'proposal' | 'edit' | 'evaluation' | 'closed'; // 課題の現在のフェーズ
   onView?: (proposal: ProposalListItem) => void;
   onEdit?: (proposal: ProposalListItem) => void;
   onDelete?: (proposal: ProposalListItem) => void;

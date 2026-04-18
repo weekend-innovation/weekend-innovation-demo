@@ -1,9 +1,11 @@
-from rest_framework import generics, permissions, status
+import math
+from datetime import timedelta
+from rest_framework import generics, permissions, status, serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from .models import Challenge
+from .models import Challenge, MIN_TOTAL_DAYS
 from .serializers import ChallengeSerializer, ChallengeCreateSerializer, ChallengeListSerializer
 
 class ChallengeListCreateView(generics.ListCreateAPIView):
@@ -23,6 +25,9 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """ユーザータイプに応じてクエリセットを返す"""
         from django.utils import timezone
+        from django.db.models import Case, When, Value, IntegerField, Q, Exists, OuterRef
+        from proposals.models import Proposal
+        from selections.models import UserEvaluationCompletion
         
         # 期限切れ課題を自動的にclosedに更新
         now = timezone.now()
@@ -35,22 +40,102 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         
         if user.user_type == 'contributor':
             # 投稿者: 自分が投稿した課題のみ
-            return Challenge.objects.filter(contributor=user)
+            queryset = Challenge.objects.filter(contributor=user)
+            
+            # 投稿者の並び順: アクティブな課題を優先、その後期限が近い順
+            queryset = queryset.annotate(
+                priority_order=Case(
+                    # アクティブな課題（提案期間、編集期間、評価期間）
+                    When(
+                        Q(proposal_deadline__gte=now) |
+                        Q(edit_deadline__gte=now, proposal_deadline__lt=now) |
+                        Q(evaluation_deadline__gte=now, edit_deadline__lt=now),
+                        then=Value(1)
+                    ),
+                    # 期限切れ
+                    default=Value(2),
+                    output_field=IntegerField(),
+                )
+            ).order_by('priority_order', 'deadline')
+            
+            return queryset
+            
         elif user.user_type == 'proposer':
-            # 提案者: 選出された課題のみ表示（期限切れを含むすべての課題）
+            # 提案者: 選出された課題のみ表示
             from selections.models import Selection
             selected_challenges = Selection.objects.filter(
                 selected_users=user,
                 status='completed'
             ).values_list('challenge_id', flat=True)
-            return Challenge.objects.filter(
-                id__in=selected_challenges
+            
+            queryset = Challenge.objects.filter(id__in=selected_challenges)
+            
+            # 提案済みかどうかのサブクエリ
+            has_proposed = Proposal.objects.filter(
+                challenge=OuterRef('pk'),
+                proposer=user
             )
+            
+            # 評価完了済みかどうかのサブクエリ
+            has_completed_evals = UserEvaluationCompletion.objects.filter(
+                challenge=OuterRef('pk'),
+                user=user,
+                has_completed_all_evaluations=True
+            )
+            
+            # 提案者の並び順:
+            # 1. 提案期間中で未提案
+            # 2. 編集期間中（提案済み）
+            # 3. 評価期間中で評価未完了（提案済み）
+            # 4. 評価期間中で評価完了（提案済み）
+            # 5. 期限切れ（提案済み or 未提案）
+            # 同じ優先度内では期限が近い順
+            queryset = queryset.annotate(
+                user_has_proposed=Exists(has_proposed),
+                user_has_completed_evaluations=Exists(has_completed_evals),
+                priority_order=Case(
+                    # 1. 提案期間中で未提案
+                    When(
+                        proposal_deadline__gte=now,
+                        user_has_proposed=False,
+                        then=Value(1)
+                    ),
+                    # 2. 編集期間中（提案済みのみ）
+                    When(
+                        proposal_deadline__lt=now,
+                        edit_deadline__gte=now,
+                        user_has_proposed=True,
+                        then=Value(2)
+                    ),
+                    # 3. 評価期間中で評価未完了（提案済みのみ）
+                    When(
+                        edit_deadline__lt=now,
+                        evaluation_deadline__gte=now,
+                        user_has_proposed=True,
+                        user_has_completed_evaluations=False,
+                        then=Value(3)
+                    ),
+                    # 4. 評価期間中で評価完了（提案済みのみ）
+                    When(
+                        edit_deadline__lt=now,
+                        evaluation_deadline__gte=now,
+                        user_has_proposed=True,
+                        user_has_completed_evaluations=True,
+                        then=Value(4)
+                    ),
+                    # 5. 期限切れ or 未提案で提案期間過ぎた
+                    default=Value(5),
+                    output_field=IntegerField(),
+                )
+            ).order_by('priority_order', 'deadline')
+            
+            return queryset
         
         return Challenge.objects.none()
     
     def perform_create(self, serializer):
         """課題作成時の処理"""
+        from .models import calculate_phase_deadlines
         user = self.request.user
         
         # 投稿者のみ作成可能
@@ -61,6 +146,17 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         validated_data = serializer.validated_data
         required_participants = validated_data['required_participants']
         
+        # 選出可能な提案者数を再チェック（念のため）
+        from selections.services import SelectionService
+        temp_challenge = Challenge(contributor=user)
+        eligible_users = SelectionService.get_eligible_users(temp_challenge, None)
+        eligible_count = len(eligible_users)
+        
+        if required_participants > eligible_count:
+            raise serializers.ValidationError(
+                "申し訳ございませんが、現在登録されている提案者数が不足しています。より多くの提案者にご参加いただけるよう、引き続き努力してまいります。"
+            )
+        
         # 共通関数を使用して計算
         reward_amount_yen = calculate_reward_amount(required_participants)
         
@@ -68,6 +164,23 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         
         # 採用報酬は万円単位の入力を円単位に変換
         validated_data['adoption_reward'] = validated_data['adoption_reward'] * 10000
+        
+        # 3つの期限を自動計算（最低6日必要）
+        deadline = validated_data['deadline']
+        created_at = timezone.now()
+        total_delta = deadline - created_at
+        
+        if total_delta < timedelta(days=MIN_TOTAL_DAYS):
+            raise serializers.ValidationError({
+                'deadline': f'期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。'
+            })
+        total_days = math.ceil(total_delta.total_seconds() / 86400)
+        proposal_deadline, edit_deadline, evaluation_deadline = calculate_phase_deadlines(created_at, total_days)
+        validated_data['proposal_deadline'] = proposal_deadline
+        validated_data['edit_deadline'] = edit_deadline
+        validated_data['evaluation_deadline'] = evaluation_deadline
+        # 全体期限は評価期限に正規化して、フェーズ表示とのズレを防ぐ
+        validated_data['deadline'] = evaluation_deadline
         
         serializer.save(contributor=user)
 
@@ -120,12 +233,33 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
     
     def perform_update(self, serializer):
         """課題更新時の処理"""
+        from .models import calculate_phase_deadlines
+        
         # 万円単位の入力を円単位に変換
         validated_data = serializer.validated_data
         if 'reward_amount' in validated_data:
             validated_data['reward_amount'] = validated_data['reward_amount'] * 10000
         if 'adoption_reward' in validated_data:
             validated_data['adoption_reward'] = validated_data['adoption_reward'] * 10000
+        
+        # 期限が変更された場合、3つの期限を再計算
+        if 'deadline' in validated_data:
+            challenge = self.get_object()
+            deadline = validated_data['deadline']
+            created_at = challenge.created_at
+            total_delta = deadline - created_at
+            
+            if total_delta < timedelta(days=MIN_TOTAL_DAYS):
+                raise serializers.ValidationError({
+                    'deadline': f'期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。'
+                })
+            total_days = math.ceil(total_delta.total_seconds() / 86400)
+            proposal_deadline, edit_deadline, evaluation_deadline = calculate_phase_deadlines(created_at, total_days)
+            validated_data['proposal_deadline'] = proposal_deadline
+            validated_data['edit_deadline'] = edit_deadline
+            validated_data['evaluation_deadline'] = evaluation_deadline
+            # 全体期限は評価期限に正規化して、フェーズ表示とのズレを防ぐ
+            validated_data['deadline'] = evaluation_deadline
         
         serializer.save()
     
@@ -250,9 +384,9 @@ def calculate_proposal_reward(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if participants > 770:
+    if participants > 790:
         return Response(
-            {'error': '選出人数は770人以下である必要があります'},
+            {'error': '選出人数は790人以下である必要があります。匿名化用の名前数の上限に達しています。'},
             status=status.HTTP_400_BAD_REQUEST
         )
     

@@ -1,16 +1,17 @@
 from rest_framework import generics, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.db.models import Q
 from django.utils import timezone
 import random
 import logging
-from .models import Proposal, AnonymousName, ProposalComment, ProposalEvaluation, ProposalCommentReply, ProposalReference
+from .models import Proposal, AnonymousName, ProposalComment, ProposalEvaluation, ProposalCommentReply, ProposalReference, ProposalEditReference
 from challenges.models import Challenge
 from selections.models import Selection
 from .serializers import (
-    ProposalSerializer, ProposalCreateSerializer, ProposalListSerializer,
+    ProposalSerializer, ProposalCreateSerializer, ProposalUpdateSerializer, ProposalListSerializer,
     ProposalCommentSerializer, ProposalCommentCreateSerializer, ProposalCommentReplySerializer,
     ProposalEvaluationSerializer, ProposalReferenceSerializer, ProposalDetailSerializer
 )
@@ -49,7 +50,6 @@ class ProposalListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         """提案作成時の処理"""
         try:
-            logger.debug(f"Proposal creation started for user: {self.request.user.id}")
             user = self.request.user
             
             # 提案者のみ作成可能
@@ -59,7 +59,19 @@ class ProposalListCreateView(generics.ListCreateAPIView):
             
             # 1課題1提案制限の確認と既存提案の削除
             challenge_id = serializer.validated_data.get('challenge').id
-            logger.debug(f"Challenge ID: {challenge_id}")
+            challenge = get_object_or_404(Challenge, id=challenge_id)
+            
+            # 提案期間のみ新規提案可能
+            current_phase = challenge.get_current_phase()
+            if current_phase != 'proposal':
+                phase_messages = {
+                    'edit': '編集期間中は新規提案できません。',
+                    'evaluation': '評価期間中は新規提案できません。',
+                    'closed': '期限切れのため提案できません。'
+                }
+                raise permissions.PermissionDenied(
+                    phase_messages.get(current_phase, '現在は提案できません。')
+                )
             
             existing_proposals = Proposal.objects.filter(
                 proposer=user,
@@ -83,7 +95,6 @@ class ProposalListCreateView(generics.ListCreateAPIView):
             
             # 課題ごとの匿名名を取得
             anonymous_name = self.get_challenge_anonymous_name(user, challenge_id)
-            logger.debug(f"Selected anonymous name: {anonymous_name}")
             
             serializer.save(
                 proposer=user,
@@ -109,15 +120,30 @@ class ProposalListCreateView(generics.ListCreateAPIView):
             return challenge_user_name.anonymous_name
         except ChallengeUserAnonymousName.DoesNotExist:
             logger.warning(f"課題ID {challenge_id} のユーザー {user.id} に匿名名が割り当てられていません")
-            # フォールバック: ランダムな匿名名を割り当て
-            return self.get_random_anonymous_name()
+            # フォールバック: 同一課題で未使用の匿名名からランダムに割り当て（重複防止）
+            return self.get_random_anonymous_name(challenge_id=challenge_id)
     
-    def get_random_anonymous_name(self):
-        """ランダムな匿名名を取得（フォールバック用）"""
+    def get_random_anonymous_name(self, challenge_id=None):
+        """ランダムな匿名名を取得（フォールバック用）。同一課題内での重複を防ぐ"""
         anonymous_names = list(AnonymousName.objects.all())
-        if anonymous_names:
-            return random.choice(anonymous_names)
-        return None
+        if not anonymous_names:
+            return None
+        if challenge_id:
+            from selections.models import ChallengeUserAnonymousName
+            used_ids = set(
+                ChallengeUserAnonymousName.objects.filter(challenge_id=challenge_id)
+                .values_list('anonymous_name_id', flat=True)
+            )
+            used_ids.update(
+                Proposal.objects.filter(challenge_id=challenge_id, anonymous_name__isnull=False)
+                .values_list('anonymous_name_id', flat=True)
+            )
+            available = [n for n in anonymous_names if n.id not in used_ids]
+            if not available:
+                logger.warning(f"課題ID {challenge_id} で利用可能な匿名名がありません。重複の可能性あり")
+                available = anonymous_names
+            return random.choice(available)
+        return random.choice(anonymous_names)
 
 class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
     """
@@ -125,8 +151,12 @@ class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
     提案者: 自分の提案のみ操作可能
     投稿者: 自分の課題に対する提案のみ閲覧可能
     """
-    serializer_class = ProposalSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method in ['PUT', 'PATCH']:
+            return ProposalUpdateSerializer
+        return ProposalSerializer
     
     def get_queryset(self):
         """ユーザータイプに応じてクエリセットを返す"""
@@ -151,6 +181,22 @@ class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             if self.request.user.user_type != 'proposer':
                 raise permissions.PermissionDenied("提案者のみ提案を編集・削除できます。")
+            
+            # 編集の場合、編集期間中かチェック
+            if self.request.method in ['PUT', 'PATCH']:
+                challenge = obj.challenge
+                current_phase = challenge.get_current_phase()
+                
+                # 編集期間のみ編集可能
+                if current_phase != 'edit':
+                    phase_messages = {
+                        'proposal': '提案期間中は編集できません。',
+                        'evaluation': '評価期間中は編集できません。',
+                        'closed': '期限切れのため編集できません。'
+                    }
+                    raise permissions.PermissionDenied(
+                        phase_messages.get(current_phase, '現在は編集できません。')
+                    )
         
         return obj
 
@@ -263,6 +309,18 @@ class ProposalCommentListCreateView(generics.ListCreateAPIView):
         proposal_id = self.kwargs['proposal_id']
         proposal = get_object_or_404(Proposal, id=proposal_id)
         user = self.request.user
+        challenge = proposal.challenge
+        
+        # 提案期間・編集期間でコメント可能（評価期間・期限切れは不可）
+        current_phase = challenge.get_current_phase()
+        if current_phase not in ('proposal', 'edit'):
+            phase_messages = {
+                'evaluation': '評価期間中はコメントできません。',
+                'closed': '期限切れのためコメントできません。'
+            }
+            raise permissions.PermissionDenied(
+                phase_messages.get(current_phase, '現在はコメントできません。')
+            )
         
         # 同じく選出された提案者のみがコメント可能
         if not self.is_user_selected_for_challenge(user, proposal.challenge):
@@ -310,6 +368,19 @@ class ProposalEvaluationCreateView(generics.CreateAPIView):
         proposal_id = self.kwargs['proposal_id']
         proposal = get_object_or_404(Proposal, id=proposal_id)
         user = self.request.user
+        challenge = proposal.challenge
+        
+        # 評価期間のみ評価可能
+        current_phase = challenge.get_current_phase()
+        if current_phase != 'evaluation':
+            phase_messages = {
+                'proposal': '提案期間中は評価できません。評価期間をお待ちください。',
+                'edit': '編集期間中は評価できません。評価期間をお待ちください。',
+                'closed': '期限切れのため評価できません。'
+            }
+            raise permissions.PermissionDenied(
+                phase_messages.get(current_phase, '現在は評価できません。')
+            )
         
         # 同じく選出された提案者のみが評価可能
         if not self.is_user_selected_for_challenge(user, proposal.challenge):
@@ -336,6 +407,10 @@ class ProposalEvaluationCreateView(generics.CreateAPIView):
             evaluation.evaluation = evaluation_value
             evaluation.save()  # モデルのsaveメソッドでスコアが自動計算される
         
+        # 評価作成/更新後、ユーザーの評価完了状態をチェック・更新
+        from selections.models import UserEvaluationCompletion
+        UserEvaluationCompletion.check_and_update_completion(challenge, user)
+        
         # シリアライザーのインスタンスを更新
         serializer.instance = evaluation
     
@@ -354,6 +429,16 @@ class ProposalEvaluationRetrieveView(generics.RetrieveAPIView):
     """
     serializer_class = ProposalEvaluationSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def retrieve(self, request, *args, **kwargs):
+        """評価未作成時は204を返してフロント側で null 扱いしやすくする"""
+        try:
+            instance = self.get_object()
+        except Http404:
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
     
     def get_object(self):
         """現在のユーザーの評価データを取得"""
@@ -368,8 +453,6 @@ class ProposalEvaluationRetrieveView(generics.RetrieveAPIView):
             )
             return evaluation
         except ProposalEvaluation.DoesNotExist:
-            # 評価データが存在しない場合は404を返す
-            from django.http import Http404
             raise Http404("評価データが見つかりません。")
         
         # 既存の評価がある場合は更新
@@ -448,6 +531,40 @@ class ProposalReferenceCreateView(generics.CreateAPIView):
         """回答編集権限を持つユーザーかチェック"""
         # 投稿者が編集権限を持つ
         return challenge.contributor == user
+
+
+class ProposalAdoptView(generics.UpdateAPIView):
+    """
+    解決案採用API（投稿者のみ、期限切れ課題）
+    PATCH /proposals/<pk>/adopt/ { "is_adopted": true/false }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = ProposalListSerializer
+    http_method_names = ['patch']
+
+    def get_object(self):
+        proposal = get_object_or_404(Proposal, pk=self.kwargs['pk'])
+        user = self.request.user
+        if user.user_type != 'contributor':
+            raise permissions.PermissionDenied("投稿者のみ採用を設定できます。")
+        if proposal.challenge.contributor != user:
+            raise permissions.PermissionDenied("自分の課題の解決案のみ採用できます。")
+        if proposal.challenge.get_current_phase() != 'closed':
+            raise permissions.PermissionDenied("期限切れの課題のみ採用を設定できます。")
+        return proposal
+
+    def patch(self, request, *args, **kwargs):
+        proposal = self.get_object()
+        is_adopted = request.data.get('is_adopted')
+        if not isinstance(is_adopted, bool):
+            return Response(
+                {'detail': 'is_adopted には true または false を指定してください。'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        proposal.is_adopted = is_adopted
+        proposal.save()
+        serializer = ProposalListSerializer(proposal, context={'request': request})
+        return Response(serializer.data)
 
 
 class ProposalDetailWithCommentsView(generics.RetrieveAPIView):

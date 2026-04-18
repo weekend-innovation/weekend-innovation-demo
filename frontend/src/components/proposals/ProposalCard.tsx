@@ -8,8 +8,15 @@ import { useAuth } from '../../contexts/AuthContext';
 import ProposalEvaluationComponent from './ProposalEvaluation';
 import ProposalCommentList from './ProposalCommentList';
 import { ReportButton } from '../moderation/ReportButton';
-import { createProposalEvaluation, createProposalComment, createProposalCommentReply, getProposalComments, getProposalEvaluation } from '../../lib/proposalAPI';
-import type { ProposalListItem, ProposalCardProps, ProposalComment, ProposalEvaluation, ReferenceLog } from '@/types/proposal';
+import { createProposalEvaluation, createProposalComment, createProposalCommentReply, getProposalComments, getProposalEvaluation, patchProposal } from '../../lib/proposalAPI';
+import type {
+  ProposalCardProps,
+  ProposalComment,
+  ProposalEvaluation,
+  ReferenceLog,
+  CreateProposalCommentRequest,
+  CreateProposalCommentReplyRequest,
+} from '@/types/proposal';
 import CountryFlag from '../common/CountryFlag';
 import { getGenderDisplay } from '../../lib/countryFlags';
 
@@ -22,22 +29,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   readOnlyComments = false,
   showChallengeInfo = true,
   showUserAttributes = false,
+  useServerDataOnly = false,
   challengeId,
+  currentPhase,
   onView,
   onEdit,
   onDelete,
-  onAdopt,
   onComments
 }) => {
   const { user } = useAuth();
   const [showCommentsSection, setShowCommentsSection] = useState(false);
   const [comments, setComments] = useState<ProposalComment[]>([]);
   const [userEvaluation, setUserEvaluation] = useState<ProposalEvaluation | null>(null);
-  
-  // デバッグログ: userEvaluationの状態変化を追跡
-  useEffect(() => {
-    console.log('userEvaluation状態変化:', userEvaluation);
-  }, [userEvaluation]);
   const [isEvaluating, setIsEvaluating] = useState(false);
   const [isAddingComment, setIsAddingComment] = useState(false);
   const [isReplying, setIsReplying] = useState(false);
@@ -59,20 +62,27 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       }
     }
 
-    const savedProposal = localStorage.getItem(`editedProposal_${proposal.id}`);
-    if (savedProposal) {
-      try {
-        const editedData = JSON.parse(savedProposal);
-        setProposalState(prev => ({
-          ...prev,
-          conclusion: editedData.conclusion,
-          reasoning: editedData.reasoning
-        }));
-      } catch (error) {
-        console.error('Failed to parse edited proposal:', error);
+    if (useServerDataOnly) {
+      setProposalState(proposal);
+    } else {
+      const savedProposal = localStorage.getItem(`editedProposal_${proposal.id}`);
+      if (savedProposal) {
+        try {
+          const editedData = JSON.parse(savedProposal);
+          setProposalState(prev => ({
+            ...prev,
+            conclusion: editedData.conclusion,
+            reasoning: editedData.reasoning
+          }));
+        } catch (error) {
+          console.error('Failed to parse edited proposal:', error);
+          setProposalState(proposal);
+        }
+      } else {
+        setProposalState(proposal);
       }
     }
-  }, [proposal.id]);
+  }, [proposal, proposal.id, useServerDataOnly]);
 
   // 参考ログが変更されたらlocalStorageに保存
   useEffect(() => {
@@ -81,19 +91,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   }, [referenceLogs, proposal.id]);
 
-  // 評価権限の確認（自分の解決案は評価不可、かつ読み取り専用モードでは不可）
-  const canEvaluate = !readOnlyComments && user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
-  
-  // デバッグログ
-  console.log('評価権限デバッグ:', {
-    userType: user?.user_type,
-    username: user?.username,
-    proposerName: proposal.proposer_name,
-    readOnlyComments,
-    canEvaluate,
-    userTypeCheck: user?.user_type === 'proposer',
-    notOwnProposal: user?.username !== proposal.proposer_name
-  });
+  // 評価権限の確認（自分の解決案は評価不可、かつ読み取り専用モードでは不可、かつ評価期間のみ）
+  const canEvaluate = !readOnlyComments && 
+                      user?.user_type === 'proposer' && 
+                      user.username !== proposal.proposer_name &&
+                      currentPhase === 'evaluation';
   
   // 評価データを取得
   useEffect(() => {
@@ -111,14 +113,19 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   }, [proposal.id, canEvaluate]);
   
-  // コメント権限の確認（読み取り専用モードでは不可）
-  const canComment = !readOnlyComments && user?.user_type === 'proposer' && user.username !== proposal.proposer_name;
+  // コメント権限の確認（読み取り専用モードでは不可、かつ提案期間・編集期間）
+  const canComment = !readOnlyComments && 
+                     user?.user_type === 'proposer' && 
+                     user.username !== proposal.proposer_name &&
+                     (currentPhase === 'proposal' || currentPhase === 'edit');
   
-  // 返信権限の確認（提案者のみ、読み取り専用モードでは不可）
-  const canReply = !readOnlyComments && user?.username === proposal.proposer_name;
+  // 返信権限の確認（提案者のみ、読み取り専用モードでは不可、かつ提案期間・編集期間）
+  const canReply = !readOnlyComments && 
+                   user?.username === proposal.proposer_name &&
+                   (currentPhase === 'proposal' || currentPhase === 'edit');
   
-  // 参考権限の確認（自分の解決案の場合のみ）
-  const canReference = user?.username === proposal.proposer_name;
+  // 参考権限の確認（自分の解決案の場合のみ、かつ編集期間のみ）
+  const canReference = user?.username === proposal.proposer_name && currentPhase === 'edit';
   
   // 通報権限の確認（提案者ユーザーかつ自分の解決案以外）
   const canReport = user?.user_type === 'proposer' && user?.username !== proposal.proposer_name;
@@ -129,11 +136,8 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     
     setIsEvaluating(true);
     try {
-      console.log('評価送信開始:', { proposalId, evaluation, insightLevel });
       const result = await createProposalEvaluation(proposalId, { evaluation, insight_level: insightLevel });
-      console.log('評価送信成功:', result);
       setUserEvaluation(result);
-      console.log('評価状態更新完了:', result);
     } catch (error) {
       console.error('評価エラー詳細:', error);
       alert(`評価の投稿に失敗しました: ${error instanceof Error ? error.message : '不明なエラー'}`);
@@ -143,7 +147,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   };
 
   // コメント追加ハンドラー
-  const handleAddComment = async (comment: any) => {
+  const handleAddComment = async (comment: CreateProposalCommentRequest) => {
     if (!canComment) return;
     
     setIsAddingComment(true);
@@ -159,7 +163,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       }
       
       alert('コメントを投稿しました。');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('コメントエラー:', error);
       alert('コメントの投稿に失敗しました。');
     } finally {
@@ -168,7 +172,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   };
 
   // 返信ハンドラー
-  const handleReply = async (commentId: number, reply: any) => {
+  const handleReply = async (commentId: number, reply: CreateProposalCommentReplyRequest) => {
     if (!canReply) return;
     
     setIsReplying(true);
@@ -206,12 +210,19 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
   // 解決案編集ハンドラー
   const handleEdit = async (proposalId: number, data: { conclusion: string; reasoning: string }) => {
-    console.log('handleEdit called:', { proposalId, data, canReference, editingCommentId });
     if (!canReference) return;
     
     setIsEditing(true);
     try {
-      // 解決案を更新
+      const patchData: { conclusion: string; reasoning: string; reference_comment_id?: number } = {
+        conclusion: data.conclusion,
+        reasoning: data.reasoning
+      };
+      if (editingCommentId) {
+        patchData.reference_comment_id = editingCommentId;
+      }
+      await patchProposal(proposalId, patchData);
+      
       const updatedProposal = {
         ...proposalState,
         conclusion: data.conclusion,
@@ -219,25 +230,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       };
       setProposalState(updatedProposal);
       
-      // 編集された解決案をlocalStorageに保存
       localStorage.setItem(`editedProposal_${proposal.id}`, JSON.stringify({
         conclusion: data.conclusion,
         reasoning: data.reasoning
       }));
       
-      // 参考ログを追加
       const referenceLog: ReferenceLog = {
         id: `ref_${Date.now()}`,
         commentId: editingCommentId || 0,
         commentConclusion: comments.find(c => c.id === editingCommentId)?.conclusion || '',
         editedAt: new Date().toISOString()
       };
-      console.log('Adding referenceLog:', referenceLog);
-      setReferenceLogs(prev => {
-        const newLogs = [...prev, referenceLog];
-        console.log('New referenceLogs:', newLogs);
-        return newLogs;
-      });
+      setReferenceLogs(prev => [...prev, referenceLog]);
       
       alert(`解決案を編集しました。`);
     } catch (error) {
@@ -383,7 +387,6 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
             <p className="text-sm text-gray-600 mb-1">対象課題</p>
             {(() => {
               const targetChallengeId = challengeId || proposal.challenge_id;
-              console.log('ProposalCard - proposal.challenge_id:', proposal.challenge_id, 'challengeId:', challengeId, 'targetChallengeId:', targetChallengeId);
               return targetChallengeId && !isNaN(targetChallengeId) ? (
                 <Link 
                   href={`/challenges/${targetChallengeId}`}

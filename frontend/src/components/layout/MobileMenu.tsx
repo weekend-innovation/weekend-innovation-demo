@@ -20,7 +20,7 @@ const MobileMenu: React.FC = () => {
 
   // 投稿者用メニュー
   const contributorMenuItems = [
-    { href: '/dashboard/contributor', label: 'ダッシュボード', icon: '📊' },
+    { href: '/dashboard/contributor', label: 'ホーム', icon: '📊' },
     { href: '/challenges', label: '課題管理', icon: '📝' },
     { href: '/challenges/create', label: '課題投稿', icon: '➕' },
     { href: '/proposals', label: '提案確認', icon: '💡' },
@@ -28,7 +28,7 @@ const MobileMenu: React.FC = () => {
 
   // 提案者用メニュー
   const proposerMenuItems = [
-    { href: '/dashboard/proposer', label: 'ダッシュボード', icon: '📊' },
+    { href: '/dashboard/proposer', label: 'ホーム', icon: '📊' },
     { href: '/challenges', label: '課題一覧', icon: '📝' },
     { href: '/proposals', label: '提案管理', icon: '💡' },
   ];

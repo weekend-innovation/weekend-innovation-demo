@@ -4,7 +4,7 @@
  * 結論と理由を分離して入力
  */
 import React, { useState, useEffect } from 'react';
-import type { ProposalFormProps, CreateProposalRequest, UpdateProposalRequest } from '@/types/proposal';
+import type { ProposalFormProps, CreateProposalRequest } from '@/types/proposal';
 
 const ProposalForm: React.FC<ProposalFormProps> = ({
   challengeId,
@@ -151,7 +151,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
         <h3 className="text-base font-medium text-blue-900 mb-2">
           提案について
         </h3>
-        <p className="text-base text-blue-800">
+        <p className="text-base text-blue-800 pl-6">
           大量の解決案を評価する必要があるため、簡潔に表現することが望ましいです。
         </p>
       </div>

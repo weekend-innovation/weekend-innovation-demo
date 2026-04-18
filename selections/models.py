@@ -38,7 +38,7 @@ class Selection(models.Model):
         verbose_name="選出されたユーザー"
     )
     required_count = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(100)],
+        validators=[MinValueValidator(1), MaxValueValidator(790)],
         verbose_name="選出人数"
     )
     selected_count = models.IntegerField(
@@ -170,6 +170,105 @@ class SelectionCriteria(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.criteria_type})"
+
+
+class UserEvaluationCompletion(models.Model):
+    """
+    ユーザーごとの評価完了状態モデル
+    各ユーザーが課題内の全ての解決案を評価したかを管理
+    """
+    challenge = models.ForeignKey(
+        'challenges.Challenge',
+        on_delete=models.CASCADE,
+        related_name='user_evaluation_completions',
+        verbose_name="課題"
+    )
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='evaluation_completions',
+        verbose_name="ユーザー"
+    )
+    has_completed_all_evaluations = models.BooleanField(
+        default=False,
+        verbose_name="全評価完了"
+    )
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完了日時")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="作成日時")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新日時")
+    
+    class Meta:
+        unique_together = ['challenge', 'user']
+        ordering = ['-created_at']
+        verbose_name = "ユーザー評価完了状態"
+        verbose_name_plural = "ユーザー評価完了状態"
+        indexes = [
+            models.Index(fields=['challenge', 'user']),
+            models.Index(fields=['challenge', 'has_completed_all_evaluations']),
+        ]
+    
+    def __str__(self):
+        status = "完了" if self.has_completed_all_evaluations else "未完了"
+        return f"{self.challenge.title} - {self.user.username} - {status}"
+    
+    @classmethod
+    def check_and_update_completion(cls, challenge, user):
+        """
+        特定のユーザーが課題内の全ての他のユーザーの解決案を評価したかチェックし、
+        完了状態を更新する
+        
+        Args:
+            challenge: 対象の課題
+            user: チェック対象のユーザー
+        
+        Returns:
+            tuple: (completion_object, is_completed)
+        """
+        from proposals.models import Proposal, ProposalEvaluation
+        from django.utils import timezone
+        
+        # この課題の全ての解決案（自分以外）を取得
+        other_proposals = Proposal.objects.filter(
+            challenge=challenge
+        ).exclude(proposer=user)
+        
+        # 他のユーザーの解決案が存在しない場合は完了とみなさない
+        if not other_proposals.exists():
+            completion, _ = cls.objects.get_or_create(
+                challenge=challenge,
+                user=user,
+                defaults={'has_completed_all_evaluations': False}
+            )
+            return completion, False
+        
+        # 自分が評価した解決案のIDリストを取得
+        evaluated_proposal_ids = set(
+            ProposalEvaluation.objects.filter(
+                proposal__challenge=challenge,
+                evaluator=user
+            ).values_list('proposal_id', flat=True)
+        )
+        
+        # 全ての他のユーザーの解決案を評価したかチェック
+        other_proposal_ids = set(other_proposals.values_list('id', flat=True))
+        all_evaluated = other_proposal_ids.issubset(evaluated_proposal_ids)
+        
+        # 完了状態を更新
+        completion, created = cls.objects.get_or_create(
+            challenge=challenge,
+            user=user,
+            defaults={
+                'has_completed_all_evaluations': all_evaluated,
+                'completed_at': timezone.now() if all_evaluated else None
+            }
+        )
+        
+        if not created and completion.has_completed_all_evaluations != all_evaluated:
+            completion.has_completed_all_evaluations = all_evaluated
+            completion.completed_at = timezone.now() if all_evaluated else None
+            completion.save(update_fields=['has_completed_all_evaluations', 'completed_at', 'updated_at'])
+        
+        return completion, all_evaluated
 
 
 class ChallengeUserAnonymousName(models.Model):

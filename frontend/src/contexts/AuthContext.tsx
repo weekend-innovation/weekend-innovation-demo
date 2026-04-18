@@ -36,27 +36,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     const initAuth = async () => {
       try {
-        console.log('AuthContext: Initializing auth...');
         // トークンが存在するかチェック
         const accessToken = localStorage.getItem('access_token');
-        console.log('AuthContext: Access token found:', !!accessToken);
         
         if (!accessToken) {
-          console.log('認証トークンなし');
           setIsAuthenticated(false);
           setIsLoading(false);
           return;
         }
         
         const userData = await authAPI.getProfile();
-        console.log('AuthContext: User data:', userData);
         setUser(userData);
         setIsAuthenticated(true);
         setToken(tokenManager.getAccessToken());
-        console.log('AuthContext: Auth state set to authenticated');
-      } catch (error) {
+      } catch {
         // トークンが無効な場合は認証状態をクリア
-        console.log('認証情報なし、トークンをクリア', error);
         setIsAuthenticated(false);
         setUser(null);
         setToken(null);
@@ -67,7 +61,6 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.removeItem('token'); // 追加のトークンキーもクリア
       } finally {
         setIsLoading(false);
-        console.log('AuthContext: Auth initialization complete');
       }
     };
 
@@ -100,9 +93,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     try {
       // サーバーにログアウトを通知
       await authAPI.logout();
-    } catch (error) {
+    } catch {
       // エラーが発生してもローカルのログアウトは実行
-      console.warn('Logout API error (ignored):', error);
     }
     
     // ローカルのトークンとユーザー情報をクリア（必ず実行）
@@ -121,9 +113,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const userData = await authAPI.getProfile();
       setUser(userData);
       setIsAuthenticated(true);
-    } catch (error) {
+    } catch {
       // エラーの場合はログアウト
-      console.warn('Profile refresh failed:', error);
       logout();
     }
   };

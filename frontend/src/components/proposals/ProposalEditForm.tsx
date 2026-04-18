@@ -2,7 +2,7 @@
  * 解決案編集フォームコンポーネント
  * コメントを参考にして解決案を編集する
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import type { ProposalListItem } from '../../types/proposal';
 
 interface ProposalEditFormProps {
@@ -15,7 +15,6 @@ interface ProposalEditFormProps {
 
 const ProposalEditForm: React.FC<ProposalEditFormProps> = ({
   proposal,
-  referenceCommentId,
   onSubmit,
   onCancel,
   isLoading = false
@@ -25,7 +24,6 @@ const ProposalEditForm: React.FC<ProposalEditFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('ProposalEditForm - handleSubmit called:', { conclusion, reasoning, proposalId: proposal.id });
     if (conclusion.trim() && reasoning.trim()) {
       onSubmit(proposal.id, {
         conclusion: conclusion.trim(),

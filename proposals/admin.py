@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Proposal, AnonymousName
+from .models import Proposal, AnonymousName, ProposalEditReference
 
 # Register your models here.
 
@@ -47,3 +47,12 @@ class ProposalAdmin(admin.ModelAdmin):
         """表示名の表示"""
         return obj.display_name
     display_name.short_description = '表示名'
+
+
+@admin.register(ProposalEditReference)
+class ProposalEditReferenceAdmin(admin.ModelAdmin):
+    """解決案編集参考の管理"""
+    list_display = ('id', 'proposal', 'comment', 'created_at')
+    list_filter = ('created_at',)
+    search_fields = ('proposal__id', 'comment__id')
+    ordering = ('-created_at',)

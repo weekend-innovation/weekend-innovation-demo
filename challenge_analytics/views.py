@@ -236,7 +236,12 @@ def get_proposal_clustering(request, challenge_id):
     
     try:
         # 解決案を取得（提案者のプロフィール情報も含める）
-        proposals = list(Proposal.objects.filter(challenge=challenge).select_related('proposer', 'proposer__proposer_profile'))
+        # 同点時の「最も独創的」選出を分析と揃えるため id 昇順（一番早く提案した順）
+        proposals = list(
+            Proposal.objects.filter(challenge=challenge)
+            .order_by('id')
+            .select_related('proposer', 'proposer__proposer_profile')
+        )
         
         if len(proposals) < 2:
             return Response(

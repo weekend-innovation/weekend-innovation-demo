@@ -4,33 +4,30 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import type { ChallengeListItem } from '../../../types/challenge';
 import type { ProposalListItem } from '../../../types/proposal';
-import { getChallenges } from '../../../lib/challengeAPI';
+import { getAllChallenges } from '../../../lib/challengeAPI';
 import { getProposals } from '../../../lib/proposalAPI';
+import { sortExpiredChallenges, sortActiveContributorChallenges, isContributorExpired } from '../../../lib/challengeSortUtils';
 import { useAuth } from '../../../contexts/AuthContext';
 import ProposalCard from '../../../components/proposals/ProposalCard';
 import ChallengeCard from '../../../components/challenges/ChallengeCard';
+import { DemoVersionModal, DashboardDemoVersionTrigger } from '../../../components/common/DemoVersionNotice';
 
 const ContributorDashboard: React.FC = () => {
-  const { user, token, isAuthenticated } = useAuth();
+  const { user, isAuthenticated } = useAuth();
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [demoVersionOpen, setDemoVersionOpen] = useState(false);
 
   // ダッシュボードデータの取得
-  const fetchDashboardData = async () => {
-    console.log('fetchDashboardData called');
-    console.log('isAuthenticated:', isAuthenticated);
-    console.log('user:', user);
-    console.log('token:', token);
-    
+  const fetchDashboardData = useCallback(async () => {
     // 認証されていない場合はAPI呼び出しを避ける
     if (!isAuthenticated || !user) {
-      console.log('Not authenticated, skipping API calls');
       setLoading(false);
       return;
     }
@@ -39,18 +36,12 @@ const ContributorDashboard: React.FC = () => {
       setLoading(true);
       setError(null);
       
-      // 課題データの取得
-      console.log('Fetching challenges...');
-      console.log('User:', user);
-      console.log('Is authenticated:', isAuthenticated);
-      console.log('Token:', token);
-      const challengesResponse = await getChallenges();
-      const challengesData = Array.isArray(challengesResponse) ? challengesResponse : (challengesResponse.results || []);
+      // 課題データの取得（全件取得でページネーションによる欠落を防ぐ）
+      const challengesData = await getAllChallenges();
       setChallenges(challengesData);
       
       // 提案データの取得
       const proposalsResponse = await getProposals();
-      console.log('Proposals response:', proposalsResponse);
       setProposals(proposalsResponse.results || proposalsResponse || []);
       
     } catch (err) {
@@ -62,57 +53,40 @@ const ContributorDashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      fetchDashboardData();
+      void fetchDashboardData();
     } else {
       setLoading(false);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchDashboardData]);
 
   // 統計情報の計算（安全な処理）
   const totalChallenges = challenges?.length || 0;
-  const openChallenges = challenges?.filter(c => c.status === 'open').length || 0;
-  const totalProposals = proposals?.length || 0;
-  const adoptedProposals = proposals?.filter(p => p.is_adopted).length || 0;
+  const openChallenges = challenges?.filter(c => !isContributorExpired(c)).length || 0;
 
-  // 最近の課題（投稿者自身の課題、募集中は期限が近い順、期限切れは後回し）
+  // 最近の課題（募集中は期限が近い順・同一期限は投稿の新しい順、期限切れは直近終了順・同日内は投稿の新しい順）
   const recentChallenges = React.useMemo(() => {
     if (!challenges || challenges.length === 0) return [];
     
-    // 期限切れと募集中を分離
-    const activeChallenges = challenges
-      .filter(c => c.status !== 'closed')
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+    const activeChallenges = sortActiveContributorChallenges(challenges.filter(c => !isContributorExpired(c)));
+    const expiredChallenges = sortExpiredChallenges(challenges.filter(c => isContributorExpired(c)));
     
-    const expiredChallenges = challenges
-      .filter(c => c.status === 'closed')
-      .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-    
-    // 募集中を優先、なければ期限切れ
-    if (activeChallenges.length > 0) {
-      return [activeChallenges[0]];
-    } else if (expiredChallenges.length > 0) {
-      return [expiredChallenges[0]];
-    }
-    
+    if (activeChallenges.length > 0) return [activeChallenges[0]];
+    if (expiredChallenges.length > 0) return [expiredChallenges[0]];
     return [];
   }, [challenges]);
   
   // 最近の提案（投稿者が投稿した課題に対する提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
   
-  // デバッグログ
-  console.log('Recent proposals:', recentProposals);
-  console.log('Proposals length:', proposals?.length);
-
   // ローディング表示
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -125,7 +99,7 @@ const ContributorDashboard: React.FC = () => {
   if (error) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-red-800">{error}</div>
             <button
@@ -141,20 +115,24 @@ const ContributorDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900">ダッシュボード</h1>
-            <Link
-              href="/challenges/create"
-              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              新しい課題を投稿
-            </Link>
-          </div>
+    <div className="min-h-screen bg-gray-50 py-8 w-full">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ページヘッダー */}
+        <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
+          <DashboardDemoVersionTrigger onOpen={() => setDemoVersionOpen(true)} />
+          <Link
+            href="/challenges/create"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 shrink-0"
+          >
+            新しい課題を投稿
+          </Link>
         </div>
+
+        <DemoVersionModal
+          isOpen={demoVersionOpen}
+          onClose={() => setDemoVersionOpen(false)}
+          role="contributor"
+        />
 
         {/* 統計カード */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
@@ -203,7 +181,7 @@ const ContributorDashboard: React.FC = () => {
             {recentChallenges.length === 0 ? (
               <p className="text-gray-500 text-center py-4">まだ課題を投稿していません</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-4xl mx-auto px-8 sm:px-10">
                 {recentChallenges.map((challenge) => (
                   <ChallengeCard
                     key={challenge.id}
@@ -233,7 +211,7 @@ const ContributorDashboard: React.FC = () => {
             {recentProposals.length === 0 ? (
               <p className="text-gray-500 text-center py-4">あなたの課題に対する解決案はまだありません</p>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-4 max-w-4xl mx-auto px-8 sm:px-10">
                 {recentProposals.map((proposal) => (
                   <ProposalCard
                     key={proposal.id}

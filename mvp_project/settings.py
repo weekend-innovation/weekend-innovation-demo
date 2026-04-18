@@ -10,7 +10,9 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+import os
 from pathlib import Path
+from django.core.management.utils import get_random_secret_key
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,12 +22,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-o50jz9%r@z&*1dwewlp@jrr#t^2fvi($n^zj1ak2pu7p&4*#e@'
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'False').lower() in ('1', 'true', 'yes', 'on')
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.localhost', '[::1]', 'testserver']
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        'DJANGO_ALLOWED_HOSTS',
+        'localhost,127.0.0.1,.localhost,[::1],testserver'
+    ).split(',')
+    if host.strip()
+]
 
 
 # Application definition
@@ -139,7 +148,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 # 開発環境でのCORS設定（本番環境では適切に制限してください）
-CORS_ALLOW_ALL_ORIGINS = True  # 開発環境のみ
+CORS_ALLOW_ALL_ORIGINS = DEBUG  # 開発環境のみ
 
 # REST Framework設定
 REST_FRAMEWORK = {
@@ -174,8 +183,22 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # Stripe設定（テストモード）
 # 実際のStripeテストキーを使用してください
 # https://dashboard.stripe.com/test/apikeys で取得可能
-STRIPE_PUBLISHABLE_KEY = ''  # 実際のテスト用公開キーに置き換えてください
-STRIPE_SECRET_KEY = ''      # 実際のテスト用秘密キーに置き換えてください
+STRIPE_PUBLISHABLE_KEY = os.getenv(
+    'STRIPE_PUBLISHABLE_KEY',
+    ''
+)
+STRIPE_SECRET_KEY = os.getenv(
+    'STRIPE_SECRET_KEY',
+    ''
+)
+
+# 本番環境向けセキュリティ設定
+SECURE_SSL_REDIRECT = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+SECURE_HSTS_PRELOAD = not DEBUG
 
 # Stripe設定の説明
 # 1. https://dashboard.stripe.com/test/apikeys で実際のテストキーを取得
@@ -194,11 +217,13 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'INFO',  # 本番環境ではINFOレベル
         },
         'proposals': {
             'handlers': ['console'],
-            'level': 'DEBUG',
+            'level': 'INFO',  # 本番環境ではINFOレベル
         },
     },
 }
+
+# 課題分析の総括生成（LLM利用時・Gemini API 無料枠）

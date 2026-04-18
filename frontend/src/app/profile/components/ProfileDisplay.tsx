@@ -23,7 +23,7 @@ export const ContributorProfileDisplay: React.FC<ContributorDisplayProps> = ({ p
   return (
     <ProfileSection title="企業情報">
       <ProfileField label="会社名" value={profile.company_name} />
-      <ProfileField label="代表者名" value={profile.representative_name} />
+      <ProfileField label="代表者名" value={profile.full_name} />
       <ProfileField 
         label="所在地" 
         value={countryCodeToJapanese(profile.location || '')} 

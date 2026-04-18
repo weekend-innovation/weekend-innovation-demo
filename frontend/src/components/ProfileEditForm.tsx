@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { authAPI } from '@/lib/api';
-import { UserDetail, ContributorProfile, ProposerProfile } from '@/types/auth';
-import { getNationalityName } from '@/lib/nationalityMapping';
+import { UserDetail } from '@/types/auth';
 
 interface ProfileEditFormProps {
   profile: UserDetail;
@@ -11,22 +10,24 @@ interface ProfileEditFormProps {
   onCancel: () => void;
 }
 
+type ProfileFormState = Record<string, string | number | undefined>;
+
 const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCancel }) => {
-  const [formData, setFormData] = useState<any>({});
+  const [formData, setFormData] = useState<ProfileFormState>({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (profile.user_type === 'contributor' && profile.contributor_profile) {
-      setFormData(profile.contributor_profile);
+      setFormData(profile.contributor_profile as unknown as ProfileFormState);
     } else if (profile.user_type === 'proposer' && profile.proposer_profile) {
-      setFormData(profile.proposer_profile);
+      setFormData(profile.proposer_profile as unknown as ProfileFormState);
     }
   }, [profile]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
-    setFormData((prev: any) => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
@@ -38,19 +39,19 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
     setError(null);
 
     try {
-      let response;
       if (profile.user_type === 'contributor') {
-        response = await authAPI.updateContributorProfile(formData);
+        await authAPI.updateContributorProfile(formData);
       } else {
-        response = await authAPI.updateProposerProfile(formData);
+        await authAPI.updateProposerProfile(formData);
       }
-      
+
       // プロフィールを再取得
       const updatedProfile = await authAPI.getProfile();
       onSave(updatedProfile);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('プロフィール更新エラー:', error);
-      setError(error.response?.data?.error || 'プロフィールの更新に失敗しました');
+      const errObj = error as { response?: { data?: { error?: string } } };
+      setError(errObj.response?.data?.error || 'プロフィールの更新に失敗しました');
     } finally {
       setSaving(false);
     }
@@ -119,7 +120,7 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
 
   return (
     <div className="min-h-screen bg-white">
-      <div className="max-w-4xl mx-auto px-4 py-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="space-y-8">
           <div className="flex items-center justify-between">
             <h1 className="text-3xl font-bold text-gray-900">編集</h1>

@@ -4,26 +4,26 @@
  */
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import ChallengeCard from '../../components/challenges/ChallengeCard';
-import type { ChallengeListItem, ChallengeListResponse } from '../../types/challenge';
-import { getChallenges, deleteChallenge } from '../../lib/challengeAPI';
-import { getUserProposalForChallenge } from '../../lib/proposalAPI';
+import type { ChallengeListItem } from '../../types/challenge';
+import { getAllChallenges, deleteChallenge } from '../../lib/challengeAPI';
+import { sortExpiredChallenges, sortActiveContributorChallenges, sortActiveProposerChallenges, isProposerExpiredOrFailed, isContributorExpired } from '../../lib/challengeSortUtils';
 import { useAuth } from '../../contexts/AuthContext';
+
+const PAGE_SIZE = 20;
 
 const ChallengesPage: React.FC = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [userProposals, setUserProposals] = useState<{[key: number]: any}>({});
+  const [currentPage, setCurrentPage] = useState(1);
 
-  // 課題一覧の取得
-  const fetchChallenges = async () => {
-    // 認証されていない場合はAPI呼び出しを避ける
+  // 課題一覧の取得（全件取得してフロントでソート・ページネーション）
+  const fetchChallenges = useCallback(async () => {
     if (!isAuthenticated || !user) {
-      console.log('Not authenticated, skipping API calls');
       setLoading(false);
       return;
     }
@@ -31,51 +31,7 @@ const ChallengesPage: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response: any = await getChallenges();
-      
-      // レスポンスが配列の場合とオブジェクトの場合を両方処理
-      let challengesData = [];
-      if (Array.isArray(response)) {
-        challengesData = response;
-      } else if (response && response.results) {
-        challengesData = response.results;
-      }
-      
-      // 提案者ユーザーの場合、各課題の提案状況をチェック
-      if (user.user_type === 'proposer') {
-        const proposalStatus: {[key: number]: any} = {};
-        for (const challenge of challengesData) {
-          try {
-            const proposal = await getUserProposalForChallenge(challenge.id);
-            if (proposal) {
-              proposalStatus[challenge.id] = proposal;
-            }
-          } catch (err) {
-            // 提案がない場合は無視
-            console.log(`No proposal found for challenge ${challenge.id}`);
-          }
-        }
-        setUserProposals(proposalStatus);
-      }
-      
-      // 期限順（期限が近いものが上に来る順）でソート
-      challengesData.sort((a: ChallengeListItem, b: ChallengeListItem) => {
-        const deadlineA = new Date(a.deadline);
-        const deadlineB = new Date(b.deadline);
-        return deadlineA.getTime() - deadlineB.getTime();
-      });
-      
-      // デバッグ: 報酬データを確認
-      console.log('Challenge reward data:', challengesData.map((c: ChallengeListItem) => ({
-        id: c.id,
-        title: c.title,
-        reward_amount: c.reward_amount,
-        adoption_reward: c.adoption_reward,
-        reward_amount_man: Math.floor(c.reward_amount / 10000),
-        adoption_reward_man: Math.floor(c.adoption_reward / 10000)
-      })));
-      
+      const challengesData = await getAllChallenges();
       setChallenges(challengesData);
     } catch (err) {
       console.error('課題一覧取得エラー:', err);
@@ -83,29 +39,26 @@ const ChallengesPage: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, user]);
 
   useEffect(() => {
-    // 認証されている場合のみ課題一覧を取得
     if (isAuthenticated && user) {
-      fetchChallenges();
+      void fetchChallenges();
     } else if (!isAuthenticated) {
       setLoading(false);
       setError('ログインが必要です');
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchChallenges]);
 
-  // ページフォーカス時に課題一覧を更新
   useEffect(() => {
     const handleFocus = () => {
       if (isAuthenticated && user) {
-        fetchChallenges();
+        void fetchChallenges();
       }
     };
-
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, fetchChallenges]);
 
   // 課題カードのクリック処理
   const handleChallengeView = (challenge: ChallengeListItem) => {
@@ -125,8 +78,9 @@ const ChallengesPage: React.FC = () => {
     if (user?.user_type === 'contributor' && confirm('この課題を削除しますか？')) {
       try {
         await deleteChallenge(challenge.id);
-        console.log('課題削除成功:', challenge.id);
-        // 削除後に課題一覧を再取得
+        if (challenges.length <= 1 && currentPage > 1) {
+          setCurrentPage((p) => Math.max(1, p - 1));
+        }
         fetchChallenges();
       } catch (error) {
         console.error('課題削除エラー:', error);
@@ -149,8 +103,8 @@ const ChallengesPage: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full min-w-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               ログインが必要です
@@ -174,7 +128,7 @@ const ChallengesPage: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -186,12 +140,12 @@ const ChallengesPage: React.FC = () => {
   // エラー表示
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen bg-gray-50 py-8 w-full min-w-0">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <div className="text-red-800">{error}</div>
             <button
-              onClick={fetchChallenges}
+              onClick={() => fetchChallenges()}
               className="mt-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
             >
               再試行
@@ -203,20 +157,24 @@ const ChallengesPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* ヘッダー */}
-        <div className="mb-8">
-          {/* パンくずリスト */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
-            <Link href="/dashboard" className="hover:text-gray-700">
-              ダッシュボード
-            </Link>
-            <span>/</span>
-            <span className="text-gray-900 font-medium">
-              {user?.user_type === 'contributor' ? '投稿した課題' : '課題一覧'}
-            </span>
-          </nav>
+    <div className="min-h-screen bg-gray-50 py-4 w-full">
+      {/* パンくずリスト */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mb-2">
+        <nav className="flex items-center space-x-2 text-sm text-gray-500">
+          <Link href="/dashboard" className="hover:text-gray-700">
+            ホーム
+          </Link>
+          <span>/</span>
+          <span className="text-gray-900 font-medium">
+            {user?.user_type === 'contributor' ? '投稿した課題' : '課題一覧'}
+          </span>
+        </nav>
+      </div>
+
+      {/* 課題一覧（中央寄せ・固定幅） */}
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* ページヘッダー（タイトルとカードの間の余白を詰める） */}
+        <div className="mb-4">
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">
@@ -241,117 +199,100 @@ const ChallengesPage: React.FC = () => {
             )}
           </div>
         </div>
+        {(() => {
+          // ソート済みリストを算出（従来どおり。ソートを変えない）
+          let sortedChallenges: ChallengeListItem[] = [];
+          if (challenges && challenges.length > 0) {
+            if (user?.user_type === 'proposer') {
+              const expiredChallenges = sortExpiredChallenges(
+                challenges.filter(c => isProposerExpiredOrFailed(c))
+              );
+              const activeChallenges = sortActiveProposerChallenges(
+                challenges.filter(c => !isProposerExpiredOrFailed(c))
+              );
+              sortedChallenges = [...activeChallenges, ...expiredChallenges];
+            } else {
+              const activeChallenges = sortActiveContributorChallenges(
+                challenges.filter(c => !isContributorExpired(c))
+              );
+              const expiredChallenges = sortExpiredChallenges(
+                challenges.filter(c => isContributorExpired(c))
+              );
+              sortedChallenges = [...activeChallenges, ...expiredChallenges];
+            }
+          }
 
-        {/* 課題一覧 */}
-        {!challenges || challenges.length === 0 ? (
-          <div className="text-center py-12">
-            <div className="text-gray-500 text-lg mb-4">
-              {user?.user_type === 'contributor' 
-                ? 'まだ課題を投稿していません'
-                : '現在、参加可能な課題はありません'
-              }
-            </div>
-            {user?.user_type === 'contributor' && (
-              <Link
-                href="/challenges/create"
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-              >
-                最初の課題を投稿
-              </Link>
-            )}
-          </div>
-        ) : (
-          <div className="max-w-4xl mx-auto px-4">
-            <div className="space-y-6">
-              {(() => {
-                if (user?.user_type === 'proposer') {
-                  // 提案者ユーザーの場合、募集中（未提案→提案済み）を期限が近い順、期限切れは後回し
-                  const expiredChallenges = challenges
-                    .filter(challenge => challenge.status === 'closed')
-                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-                  
-                  const activeChallenges = challenges.filter(challenge => challenge.status !== 'closed');
-                  
-                  const proposedChallenges = activeChallenges
-                    .filter(challenge => userProposals[challenge.id])
-                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-                  
-                  const unproposedChallenges = activeChallenges
-                    .filter(challenge => !userProposals[challenge.id])
-                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-                  
-                  return (
-                    <>
-                      {/* 未提案の課題（募集中） */}
-                      {unproposedChallenges.map((challenge) => (
-                        <ChallengeCard
-                          key={challenge.id}
-                          challenge={challenge}
-                          showActions={true}
-                          userType="proposer"
-                          onView={handleChallengeView}
-                        />
-                      ))}
-                      
-                      {/* 提案済みの課題 */}
-                      {proposedChallenges.map((challenge) => (
-                        <ChallengeCard
-                          key={challenge.id}
-                          challenge={challenge}
-                          showActions={true}
-                          userType="proposer"
-                          isProposed={true}
-                          onView={handleChallengeView}
-                        />
-                      ))}
-                      
-                      {/* 期限切れの課題 */}
-                      {expiredChallenges.map((challenge) => (
-                        <ChallengeCard
-                          key={challenge.id}
-                          challenge={challenge}
-                          showActions={true}
-                          userType="proposer"
-                          onView={handleChallengeView}
-                        />
-                      ))}
-                    </>
-                  );
-                } else {
-                  // 投稿者ユーザーの場合、募集中を期限が近い順、期限切れは後回し
-                  const activeChallenges = challenges
-                    .filter(challenge => challenge.status !== 'closed')
-                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-                  
-                  const expiredChallenges = challenges
-                    .filter(challenge => challenge.status === 'closed')
-                    .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
-                  
-                  const sortedChallenges = [...activeChallenges, ...expiredChallenges];
-                  
-                  return sortedChallenges.map((challenge) => (
+          const totalCount = sortedChallenges.length;
+          const totalPages = Math.ceil(totalCount / PAGE_SIZE) || 1;
+          const paginatedChallenges = sortedChallenges.slice(
+            (currentPage - 1) * PAGE_SIZE,
+            currentPage * PAGE_SIZE
+          );
+
+          if (totalCount === 0) {
+            return (
+              <div className="text-center py-12">
+                <div className="text-gray-500 text-lg mb-4">
+                  {user?.user_type === 'contributor'
+                    ? 'まだ課題を投稿していません'
+                    : '現在、参加可能な課題はありません'}
+                </div>
+                {user?.user_type === 'contributor' && (
+                  <Link
+                    href="/challenges/create"
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+                  >
+                    最初の課題を投稿
+                  </Link>
+                )}
+              </div>
+            );
+          }
+
+          return (
+            <>
+              <div className="space-y-6 max-w-4xl mx-auto px-8 sm:px-10">
+                {paginatedChallenges.map((challenge) => (
                     <ChallengeCard
                       key={challenge.id}
                       challenge={challenge}
                       showActions={true}
-                      userType="contributor"
+                      userType={user?.user_type === 'contributor' ? 'contributor' : 'proposer'}
+                      isProposed={user?.user_type === 'proposer' ? !!challenge.has_proposed : undefined}
                       onView={handleChallengeView}
+                      onEdit={user?.user_type === 'contributor' ? handleChallengeEdit : undefined}
+                      onDelete={user?.user_type === 'contributor' ? handleChallengeDelete : undefined}
                     />
-                  ));
-                }
-              })()}
-            </div>
-          </div>
-        )}
+                  ))}
+              </div>
 
-        {/* ページネーション（TODO: 実装予定） */}
-        {challenges && challenges.length > 0 && (
-          <div className="mt-8 flex justify-center">
-            <div className="text-gray-600 text-sm">
-              表示中: {challenges.length}件
-            </div>
-          </div>
-        )}
+              {/* ページネーション（投稿者・提案者共通、1ページ20件） */}
+              {totalCount > PAGE_SIZE && (
+                <div className="mt-8 flex flex-col items-center gap-4 max-w-4xl mx-auto px-8 sm:px-10">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage <= 1}
+                      className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      前へ
+                    </button>
+                    <span className="text-sm text-gray-600">
+                      {currentPage} / {totalPages} ページ（全 {totalCount} 件）
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage((p) => p + 1)}
+                      disabled={currentPage >= totalPages}
+                      className="px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      次へ
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </div>
     </div>
   );

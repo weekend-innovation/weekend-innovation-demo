@@ -3,7 +3,10 @@
  * 課題の作成・編集用フォーム
  */
 import React, { useState, useEffect } from 'react';
-import type { ChallengeFormProps, CreateChallengeRequest, UpdateChallengeRequest } from '../../types/challenge';
+import type { ChallengeFormProps, CreateChallengeRequest } from '../../types/challenge';
+import { DemoRewardAmountPlaceholder } from '../common/DemoRewardDisclaimer';
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000/api';
 
 const ChallengeForm: React.FC<ChallengeFormProps> = ({
   initialData,
@@ -24,9 +27,6 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   // バリデーションエラー
   const [errors, setErrors] = useState<Record<string, string>>({});
   
-  // 提案報酬計算中フラグ
-  const [calculatingReward, setCalculatingReward] = useState(false);
-
   // 初期データの設定
   useEffect(() => {
     if (initialData && mode === 'edit') {
@@ -47,14 +47,14 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   
   // 提案報酬を計算する関数
   const calculateRewardAmount = async (participants: number) => {
-    if (participants < 50 || participants > 770) {
-      setFormData(prev => ({ ...prev, reward_amount: 0 }));
+    if (participants < 50 || participants > 790) {
+      // エラー範囲の場合は報酬を無効値に設定
+      setFormData(prev => ({ ...prev, reward_amount: -1 }));
       return;
     }
     
     try {
-      setCalculatingReward(true);
-      const response = await fetch('http://localhost:8000/api/challenges/calculate-reward/', {
+      const response = await fetch(`${API_BASE_URL}/challenges/calculate-reward/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -69,8 +69,6 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       }
     } catch (error) {
       console.error('提案報酬計算エラー:', error);
-    } finally {
-      setCalculatingReward(false);
     }
   };
 
@@ -93,31 +91,69 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       }
     }
 
+    const participants = name === 'required_participants' && processedValue !== '' 
+      ? (Number(processedValue) || 0) 
+      : null;
+    
+    // 選出人数の場合、報酬を先に設定
+    let rewardAmount = formData.reward_amount;
+    if (mode === 'create' && name === 'required_participants' && participants !== null) {
+      if (participants < 50 || participants > 790) {
+        // エラー範囲の場合は報酬を無効値に設定
+        rewardAmount = -1;
+      }
+    }
+    
     const newFormData = {
       ...formData,
       [name]: name.includes('_amount') || name === 'required_participants' 
         ? (processedValue === '' ? 0 : Number(processedValue) || 0)
-        : processedValue
+        : processedValue,
+      reward_amount: rewardAmount
     };
 
     setFormData(newFormData);
     
     // 新規作成モードで選出人数が変更された場合、提案報酬を再計算
-    if (mode === 'create' && name === 'required_participants' && processedValue !== '') {
-      const participants = Number(processedValue) || 0;
-      if (participants >= 50 && participants <= 770) {
-        calculateRewardAmount(participants);
+    if (mode === 'create' && name === 'required_participants') {
+      // リアルタイムバリデーション（必須エラーは表示しない）
+      const newErrors = { ...errors };
+      
+      // 空白の場合はエラー状態をクリア（必須エラーは投稿時にのみ表示）
+      if (processedValue === '' || participants === null || participants === 0) {
+        delete newErrors.required_participants;
+        // 報酬を無効値に設定
+        setFormData(prev => ({ ...prev, reward_amount: -1 }));
+      } else if (participants! < 50) {
+        // エラー状態を設定（メッセージは表示しない）
+        newErrors.required_participants = 'invalid_min';
+        // 報酬を無効値に設定
+        setFormData(prev => ({ ...prev, reward_amount: -1 }));
+      } else if (participants! > 790) {
+        // エラー状態を設定（メッセージは表示しない）
+        newErrors.required_participants = 'invalid_max';
+        // 報酬を無効値に設定
+        setFormData(prev => ({ ...prev, reward_amount: -1 }));
+      } else {
+        delete newErrors.required_participants;
+        // 正常範囲内の場合は報酬を計算
+        // reward_amountが-1の場合はリセットしてから計算
+        if (formData.reward_amount === -1) {
+          setFormData(prev => ({ ...prev, reward_amount: 0 }));
+        }
+        calculateRewardAmount(participants!);
       }
-    }
-    
-    // エラーをクリア
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
+      setErrors(newErrors);
+    } else {
+      // その他のフィールドのエラーをクリア
+      if (errors[name]) {
+        setErrors(prev => ({ ...prev, [name]: '' }));
+      }
     }
   };
 
   // バリデーション
-  const validateForm = (): boolean => {
+  const validateForm = (): { isValid: boolean; errors: Record<string, string> } => {
     const newErrors: Record<string, string> = {};
 
     if (!formData.title.trim()) {
@@ -138,11 +174,32 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         newErrors.adoption_reward = '採用報酬は0円より大きい必要があります';
       }
 
-      if (formData.required_participants < 50) {
-        alert('選出人数は50人以上である必要があります。');
-        newErrors.required_participants = '選出人数は50人以上である必要があります';
+      // 選出人数のバリデーション（選出人数が適正か否かにかかわらずチェック）
+      if (!formData.required_participants || formData.required_participants === 0) {
+        // 空白または0の場合は必須エラー
+        newErrors.required_participants = '選出人数は必須です';
+        // 報酬を無効値に設定
+        if (formData.reward_amount !== -1) {
+          setFormData(prev => ({ ...prev, reward_amount: -1 }));
+        }
+      } else if (formData.required_participants < 50) {
+        // エラー状態を設定（メッセージは表示しない）
+        newErrors.required_participants = 'invalid_min';
+        // 報酬を無効値に設定
+        if (formData.reward_amount !== -1) {
+          setFormData(prev => ({ ...prev, reward_amount: -1 }));
+        }
+      } else if (formData.required_participants > 790) {
+        // エラー状態を設定（メッセージは表示しない）
+        newErrors.required_participants = 'invalid_max';
+        // 報酬を無効値に設定
+        if (formData.reward_amount !== -1) {
+          setFormData(prev => ({ ...prev, reward_amount: -1 }));
+        }
       }
 
+      // 期限のバリデーション（最低6日必要: 提案3日、編集1日、評価2日）
+      const MIN_TOTAL_DAYS = 6;
       if (!formData.deadline) {
         newErrors.deadline = '期限は必須です';
       } else {
@@ -150,34 +207,49 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         const now = new Date();
         if (deadlineDate <= now) {
           newErrors.deadline = '期限は現在時刻より後の日時である必要があります';
+        } else {
+          const diffMs = deadlineDate.getTime() - now.getTime();
+          const totalDays = Math.floor(diffMs / (24 * 60 * 60 * 1000));
+          if (totalDays < MIN_TOTAL_DAYS) {
+            newErrors.deadline = `期限まで最低${MIN_TOTAL_DAYS}日必要です`;
+          }
         }
       }
     }
 
     setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    return { isValid: Object.keys(newErrors).length === 0, errors: newErrors };
   };
 
   // フォーム送信処理
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('フォーム送信開始');
-    console.log('フォームデータ:', formData);
-    console.log('バリデーション結果:', validateForm());
     
-    if (validateForm()) {
-      console.log('フォーム送信データ:', formData);
-      onSubmit(formData);
-    } else {
-      console.log('バリデーションエラー:', errors);
+    // バリデーションを実行
+    const validationResult = validateForm();
+    
+    // バリデーションエラーがある場合は送信しない
+    if (!validationResult.isValid) {
+      // validateForm()で設定されたエラーを直接確認
+      const validationErrors = validationResult.errors;
+      
+      // 選出人数のエラーがある場合は適切なメッセージを表示
+      // 必須エラーの場合は枠下に表示されているので、ポップアップは表示しない（期限欄と同じ）
+      if (validationErrors.required_participants === 'invalid_min') {
+        alert('選出人数は50人以上にする必要があります。');
+      } else if (validationErrors.required_participants === 'invalid_max') {
+        alert('選出人数は790人以下にする必要があります。');
+      }
+      // 必須エラー（'選出人数は必須です'）の場合はポップアップを表示しない
+      
+      return;
     }
+    
+    onSubmit(formData);
   };
 
-  // 期限の最小値を現在時刻に設定
-  const minDateTime = new Date().toISOString().slice(0, 16);
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {/* 課題タイトル */}
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -299,33 +371,26 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
                 提案報酬総額（万円） <span className="text-gray-500 text-sm">（自動計算）</span>
               </label>
               <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-blue-50 text-blue-900 font-medium text-lg">
-                {calculatingReward ? '計算中...' : formData.reward_amount > 0 ? `${formData.reward_amount.toFixed(1)}万円` : '選出人数を入力してください'}
+                <DemoRewardAmountPlaceholder className="text-blue-900 font-medium text-lg" />
               </div>
               <p className="mt-1 text-sm text-gray-500">
-                選出人数に応じて自動計算されます
+                デモ版では報酬金額は表示されません
               </p>
             </div>
 
             <div>
-              <label htmlFor="adoption_reward" className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 採用報酬（万円） <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
-                id="adoption_reward"
-                name="adoption_reward"
-                value={formData.adoption_reward}
-                onChange={handleChange}
-                min="1"
-                step="1"
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
-                  errors.adoption_reward ? 'border-red-500' : 'border-gray-300'
-                }`}
-                placeholder="50"
-              />
+              <div className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-green-50 text-green-900 font-medium text-lg">
+                <DemoRewardAmountPlaceholder className="text-green-900 font-medium text-lg" />
+              </div>
               {errors.adoption_reward && (
                 <p className="mt-1 text-sm text-red-600">{errors.adoption_reward}</p>
               )}
+              <p className="mt-1 text-sm text-gray-500">
+                デモ版では報酬金額は表示されません
+              </p>
             </div>
           </div>
 
@@ -342,17 +407,19 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
                 value={formData.required_participants === 0 ? '' : formData.required_participants}
                 onChange={handleChange}
                 min="50"
+                max="790"
                 step="1"
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
                   errors.required_participants ? 'border-red-500' : 'border-gray-300'
                 }`}
                 placeholder="50"
               />
-              {errors.required_participants && (
+              {/* エラーメッセージを表示（期限欄と同じように、投稿時にのみ表示） */}
+              {errors.required_participants && errors.required_participants !== 'invalid_min' && errors.required_participants !== 'invalid_max' && (
                 <p className="mt-1 text-sm text-red-600">{errors.required_participants}</p>
               )}
               <p className="mt-1 text-sm text-gray-500">
-                50人〜770人まで設定可能です
+                50人〜790人まで設定可能です
               </p>
             </div>
 
@@ -360,35 +427,51 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
               <label htmlFor="deadline" className="block text-sm font-medium text-gray-700 mb-2">
                 期限 <span className="text-red-500">*</span>
               </label>
-              <input
-                type="date"
-                id="deadline"
-                name="deadline"
-                value={formData.deadline ? formData.deadline.split('T')[0] : ''}
-                onChange={(e) => {
-                  // 日付を選択した際に、時間を23:59に自動設定
-                  const selectedDate = e.target.value;
-                  if (selectedDate) {
-                    const deadlineWithTime = `${selectedDate}T23:59`;
-                    setFormData(prev => ({
-                      ...prev,
-                      deadline: deadlineWithTime
-                    }));
-                  } else {
-                    setFormData(prev => ({
-                      ...prev,
-                      deadline: ''
-                    }));
-                  }
-                }}
-                min={new Date().toISOString().split('T')[0]}
-                className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  errors.deadline ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
+              <div className="relative">
+                <input
+                  type="date"
+                  id="deadline"
+                  name="deadline"
+                  value={formData.deadline ? formData.deadline.split('T')[0] : ''}
+                  onChange={(e) => {
+                    const selectedDate = e.target.value;
+                    if (selectedDate) {
+                      const deadlineWithTime = `${selectedDate}T23:59`;
+                      setFormData(prev => ({
+                        ...prev,
+                        deadline: deadlineWithTime
+                      }));
+                    } else {
+                      setFormData(prev => ({
+                        ...prev,
+                        deadline: ''
+                      }));
+                    }
+                  }}
+                  min={(() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 6);
+                    return d.toISOString().split('T')[0];
+                  })()}
+                  className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    errors.deadline ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  style={{ colorScheme: 'light' }}
+                />
+                {formData.deadline && (
+                  <div className="absolute left-3 top-1/2 transform -translate-y-1/2 pointer-events-none bg-white px-1">
+                    <span className="text-gray-700">
+                      {formData.deadline.split('T')[0].replace(/-/g, '/')} 23:59
+                    </span>
+                  </div>
+                )}
+              </div>
               {errors.deadline && (
                 <p className="mt-1 text-sm text-red-600">{errors.deadline}</p>
               )}
+              <p className="mt-1 text-sm text-gray-500">
+                期限まで最低6日必要です
+              </p>
             </div>
           </div>
         </>

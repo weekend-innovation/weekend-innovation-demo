@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Proposal, AnonymousName, ProposalComment, ProposalEvaluation, ProposalCommentReply, ProposalReference
+from .models import Proposal, AnonymousName, ProposalComment, ProposalEvaluation, ProposalCommentReply, ProposalReference, ProposalEditReference
 from accounts.serializers import UserSerializer
 from challenges.serializers import ChallengeSerializer
 
@@ -43,6 +43,40 @@ class ProposalSerializer(serializers.ModelSerializer):
             'id', 'proposer', 'anonymous_name', 'is_anonymous',
             'rating', 'rating_count', 'created_at', 'updated_at'
         ]
+
+class ProposalUpdateSerializer(serializers.ModelSerializer):
+    """
+    提案更新用シリアライザー（参考コメントID受け取り対応）
+    """
+    reference_comment_id = serializers.IntegerField(required=False, allow_null=True, write_only=True)
+
+    class Meta:
+        model = Proposal
+        fields = ['conclusion', 'reasoning', 'reference_comment_id']
+
+    def update(self, instance, validated_data):
+        reference_comment_id = validated_data.pop('reference_comment_id', None)
+        if 'conclusion' in validated_data:
+            instance.conclusion = validated_data['conclusion']
+        if 'reasoning' in validated_data:
+            instance.reasoning = validated_data['reasoning']
+        instance.save()
+
+        if reference_comment_id:
+            try:
+                comment = ProposalComment.objects.get(
+                    id=reference_comment_id,
+                    proposal=instance,
+                    is_deleted=False
+                )
+                ProposalEditReference.objects.get_or_create(
+                    proposal=instance,
+                    comment=comment
+                )
+            except ProposalComment.DoesNotExist:
+                pass
+        return instance
+
 
 class ProposalCreateSerializer(serializers.ModelSerializer):
     """
@@ -182,7 +216,6 @@ class ProposalListSerializer(serializers.ModelSerializer):
     def get_total_comment_count(self, obj):
         """総コメント数を返す"""
         count = obj.comments.filter(is_deleted=False).count()
-        print(f"DEBUG: Proposal {obj.id} total_comment_count: {count}")
         return count
     
     class Meta:

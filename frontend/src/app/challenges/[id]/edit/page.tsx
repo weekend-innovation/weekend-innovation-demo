@@ -48,7 +48,7 @@ const EditChallengePage: React.FC = () => {
   if (!isAuthenticated || user?.user_type !== 'contributor') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-yellow-800 mb-2">
               アクセス権限がありません
@@ -72,7 +72,7 @@ const EditChallengePage: React.FC = () => {
   if (isFetching) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-center items-center h-64">
             <div className="text-gray-600">読み込み中...</div>
           </div>
@@ -85,7 +85,7 @@ const EditChallengePage: React.FC = () => {
   if (error || !challenge) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-red-800 mb-2">
               エラーが発生しました
@@ -118,9 +118,7 @@ const EditChallengePage: React.FC = () => {
         description: data.description
       };
 
-      console.log('課題更新開始:', updateData);
-      const updatedChallenge = await updateChallenge(parseInt(challengeId), updateData);
-      console.log('課題更新成功:', updatedChallenge);
+      await updateChallenge(parseInt(challengeId), updateData);
       
       setSuccessMessage('課題が正常に更新されました！');
       
@@ -139,13 +137,13 @@ const EditChallengePage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* ヘッダー */}
         <div className="mb-8">
           {/* パンくずリスト */}
           <nav className="flex items-center space-x-2 text-sm text-gray-500 mb-4">
             <Link href="/dashboard" className="hover:text-gray-700">
-              ダッシュボード
+              ホーム
             </Link>
             <span>/</span>
             <Link href="/challenges" className="hover:text-gray-700">

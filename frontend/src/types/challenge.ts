@@ -5,6 +5,9 @@
 // 課題ステータス
 export type ChallengeStatus = 'open' | 'closed' | 'completed';
 
+// 課題フェーズ
+export type ChallengePhase = 'proposal' | 'edit' | 'evaluation' | 'closed';
+
 // 課題の基本情報
 export interface Challenge {
   id: number;
@@ -21,9 +24,15 @@ export interface Challenge {
   adoption_reward: number;
   required_participants: number;
   deadline: string;
+  proposal_deadline?: string;
+  edit_deadline?: string;
+  evaluation_deadline?: string;
+  current_phase?: ChallengePhase;
+  phase_display?: string;
   status: ChallengeStatus;
   created_at: string;
   updated_at: string;
+  has_completed_all_evaluations?: boolean;
 }
 
 // 課題一覧表示用（必要最小限の情報）
@@ -36,8 +45,16 @@ export interface ChallengeListItem {
   adoption_reward: number;
   required_participants: number;
   deadline: string;
+  proposal_deadline?: string;
+  edit_deadline?: string;
+  evaluation_deadline?: string;
+  current_phase?: ChallengePhase;
+  phase_display?: string;
   status: ChallengeStatus;
   created_at: string;
+  has_completed_all_evaluations?: boolean;
+  has_proposed?: boolean;
+  priority?: number;
 }
 
 // 課題作成リクエスト
@@ -75,7 +92,7 @@ export interface ChallengeListResponse {
 }
 
 // 課題詳細取得レスポンス
-export interface ChallengeDetailResponse extends Challenge {}
+export type ChallengeDetailResponse = Challenge;
 
 // API エラーレスポンス
 export interface ChallengeAPIError {
@@ -99,6 +116,8 @@ export interface ChallengeFilters {
   deadline_after?: string;
   deadline_before?: string;
   search?: string;
+  page?: number;
+  page_size?: number;
 }
 
 // 課題カード表示用のプロパティ

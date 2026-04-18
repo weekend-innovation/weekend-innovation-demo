@@ -15,7 +15,7 @@ export const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   return (
     <>
       <Header />
-      <main>
+      <main className="w-full">
         {children}
       </main>
     </>

@@ -363,24 +363,32 @@ class SelectionService:
                 return
             
             # 既にこの課題で使用されている匿名名を除外
-            used_names = ChallengeUserAnonymousName.objects.filter(
-                challenge=challenge
-            ).values_list('anonymous_name_id', flat=True)
-            
-            available_names = [name for name in all_anonymous_names if name.id not in used_names]
-            
-            # 利用可能な名前が不足している場合は全ての名前を使用
+            used_ids = set(
+                ChallengeUserAnonymousName.objects.filter(challenge=challenge)
+                .values_list('anonymous_name_id', flat=True)
+            )
+            available_names = [n for n in all_anonymous_names if n.id not in used_ids]
+
+            # 同一課題内では同じ匿名名を割り当てない（利用可能数が足りない場合は警告）
             if len(available_names) < len(users):
-                logger.warning(f"利用可能な匿名名が不足しています。重複を許可します。")
-                available_names = all_anonymous_names
-            
+                logger.warning(
+                    f"匿名名が不足しています（必要: {len(users)}件、利用可能: {len(available_names)}件）。"
+                    "重複を避けるため、利用可能な分のみ割り当てます。"
+                )
+
             # ランダムにシャッフル
             random.shuffle(available_names)
-            
-            # 各ユーザーに匿名名を割り当て
+
+            assigned_ids = set(used_ids)
             for i, user in enumerate(users):
-                anonymous_name = available_names[i % len(available_names)]
-                
+                # この課題で未使用の匿名名のみ使用（同一課題内で重複なし）
+                candidates = [n for n in available_names if n.id not in assigned_ids]
+                if not candidates:
+                    logger.warning(f"ユーザー {user.username} には匿名名を割り当てられません（重複回避のため）。")
+                    continue
+                anonymous_name = candidates[0]
+                assigned_ids.add(anonymous_name.id)
+
                 # 既存のレコードがあれば更新、なければ作成
                 ChallengeUserAnonymousName.objects.update_or_create(
                     challenge=challenge,

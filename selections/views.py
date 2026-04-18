@@ -81,10 +81,6 @@ class SelectionExecuteView(APIView):
     
     def post(self, request):
         """選出を実行"""
-        # デバッグ用ログ
-        print(f"選出API呼び出し: ユーザー={request.user.username if request.user.is_authenticated else '未認証'}")
-        print(f"リクエストデータ: {request.data}")
-        
         if not request.user.is_authenticated:
             return Response(
                 {'error': '認証が必要です'}, 
@@ -100,7 +96,6 @@ class SelectionExecuteView(APIView):
         serializer = SelectionRequestSerializer(data=request.data, context={'request': request})
         
         if not serializer.is_valid():
-            print(f"バリデーションエラー: {serializer.errors}")
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
         
         try:
@@ -111,8 +106,6 @@ class SelectionExecuteView(APIView):
             selection_method = serializer.validated_data.get('selection_method', 'random')
             required_count = serializer.validated_data['required_count']
             criteria = serializer.validated_data.get('selection_criteria', {})
-            
-            print(f"選出実行: 課題={challenge.title}, 方法={selection_method}, 人数={required_count}")
             
             if selection_method == 'random':
                 selection = SelectionService.random_selection(
@@ -132,14 +125,11 @@ class SelectionExecuteView(APIView):
                     status=status.HTTP_400_BAD_REQUEST
                 )
             
-            print(f"選出成功: ID={selection.id}, 選出人数={selection.selected_users.count()}")
-            
             # 結果を返す
             result_serializer = SelectionDetailSerializer(selection)
             return Response(result_serializer.data, status=status.HTTP_201_CREATED)
             
         except Exception as e:
-            print(f"選出エラー: {str(e)}")
             return Response(
                 {'error': str(e)}, 
                 status=status.HTTP_400_BAD_REQUEST

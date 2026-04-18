@@ -10,16 +10,22 @@
  * - フッター（著作権表示）
  */
 
+'use client';
+
 import Link from 'next/link';
+import { useState } from 'react';
+import ServiceDescriptionModal from '../components/common/ServiceDescriptionModal';
 
 export default function Home() {
+  const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-white w-full min-w-0 overflow-x-hidden">
       
       <main>
         {/* ヒーローセクション - メインタイトル・新規登録・ログインボタン */}
         <section className="bg-white pt-32 pb-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               {/* メインタイトル */}
               <h1 className="text-5xl md:text-7xl font-bold text-black mb-12">
@@ -46,12 +52,22 @@ export default function Home() {
 
         {/* サービス特徴セクション - 3つの主要機能を説明 */}
         <section className="bg-gray-50 py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             {/* セクションタイトル */}
             <div className="text-center mb-12">
-              <h2 className="text-3xl font-bold text-black mb-8">
-                サービスの特徴
-              </h2>
+              <div className="inline-block relative">
+                <h2 className="text-3xl font-bold text-black">
+                  サービスの特徴
+                </h2>
+                {/* 説明アイコン */}
+                <button
+                  onClick={() => setIsDescriptionOpen(true)}
+                  className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                  title="サービスの説明を見る"
+                >
+                  ?
+                </button>
+              </div>
             </div>
 
             {/* 特徴カード群 - 3つの主要機能 */}
@@ -91,7 +107,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">解決提案</h3>
                 <p className="text-gray-600">
-                  選出された提案者が回答を提案し、提案及び採用に際し報酬を受け取ることができます。
+                  選出された提案者が回答を提案します。本番では提案・採用に応じて報酬を受け取る想定です。
                 </p>
               </div>
             </div>
@@ -100,7 +116,7 @@ export default function Home() {
 
         {/* CTAセクション - 登録促進・行動喚起 */}
         <section className="bg-black py-20">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
             {/* CTAタイトル */}
             <h2 className="text-3xl font-bold text-white mb-4">
               今すぐ始めましょう
@@ -122,12 +138,18 @@ export default function Home() {
 
       {/* フッター - 著作権表示 */}
       <footer className="bg-white border-t border-gray-200 py-8">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-gray-600">
             <p>&copy; 2025 Weekend Innovation. All rights reserved.</p>
           </div>
         </div>
       </footer>
+
+      {/* サービス説明モーダル */}
+      <ServiceDescriptionModal 
+        isOpen={isDescriptionOpen} 
+        onClose={() => setIsDescriptionOpen(false)} 
+      />
     </div>
   );
 }

@@ -43,6 +43,7 @@ class ChallengeAnalysisSerializer(serializers.ModelSerializer):
             'executive_summary',
             'detailed_analysis',
             'recommendations',
+            'recommendations_source',
             'created_at',
             'updated_at',
             'analyzed_at',
@@ -83,12 +84,12 @@ class ChallengeAnalysisSerializer(serializers.ModelSerializer):
         # トップ提案を追加
         insights = instance.insights.all()
         if insights.exists():
-            # 独創性トップ
-            top_originality = insights.order_by('-innovation_score').first()
+            # 革新性トップ（同スコア時は文字数少ない順、その後 proposal_id）
+            top_originality = insights.order_by('-innovation_score', 'proposal_char_count', 'proposal_id').first()
             # 支持率トップ
-            top_insightfulness = insights.order_by('-insightfulness_score').first()
+            top_insightfulness = insights.order_by('-insightfulness_score', 'proposal_char_count', 'proposal_id').first()
             # 影響度トップ
-            top_impact = insights.order_by('-impact_score').first()
+            top_impact = insights.order_by('-impact_score', 'proposal_char_count', 'proposal_id').first()
             
             def add_user_attributes(insight_data, proposal_id):
                 """提案に属性情報を追加"""

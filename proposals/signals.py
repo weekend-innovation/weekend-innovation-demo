@@ -128,4 +128,4 @@ def update_proposal_rating(sender, instance, **kwargs):
         proposal.save(update_fields=['rating', 'rating_count'])
         
     except Exception as e:
-        print(f"評価集計エラー (提案ID: {instance.proposal_id}): {e}")
+        pass

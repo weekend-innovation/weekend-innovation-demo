@@ -1,9 +1,13 @@
 /**
  * 課題カードコンポーネント
  * 課題一覧表示用のカード形式UI
+ * 提案者: 期限切れ扱い（未提案・未評価含む）＝期限切れバッジ、全フェーズ達成＝別バッジ
+ * 投稿者: 期限切れ課題＝完了バッジ
  */
 import React from 'react';
-import type { ChallengeListItem, ChallengeCardProps } from '../../types/challenge';
+import type { ChallengeCardProps } from '../../types/challenge';
+import { isProposerExpiredOrFailed, isAllPhasesCompleted, isContributorExpired, canProposerViewResults } from '../../lib/challengeSortUtils';
+import { DemoRewardAmountPlaceholder } from '../common/DemoRewardDisclaimer';
 
 const ChallengeCard: React.FC<ChallengeCardProps> = ({
   challenge,
@@ -14,80 +18,112 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
   onEdit,
   onDelete
 }) => {
-  // ステータスに応じた表示色とラベル
-  const getStatusDisplay = (status: string) => {
-    switch (status) {
-      case 'open':
-        return { label: '募集中', color: 'text-green-600 bg-green-100' };
-      case 'closed':
-        return { label: '期限切れ', color: 'text-red-600 bg-red-100' };
-      case 'completed':
-        return { label: '完了', color: 'text-blue-600 bg-blue-100' };
-      default:
-        return { label: status, color: 'text-gray-600 bg-gray-100' };
-    }
+  const expiredOrFailed = userType === 'proposer' && isProposerExpiredOrFailed(challenge);
+  const allPhasesDone = userType === 'proposer' && isAllPhasesCompleted(challenge);
+  const canViewResults = userType === 'proposer' && canProposerViewResults(challenge);
+  const contributorExpired = userType === 'contributor' && isContributorExpired(challenge);
+
+  // 提案者用: 現在のフェーズの期限ラベルと値を取得（ソート順が分かるように）
+  const getCurrentPhaseDeadlineInfo = (): { label: string; value: string } | null => {
+    if (userType !== 'proposer' || expiredOrFailed) return null;
+    const p = challenge.current_phase;
+    if (p === 'proposal' && challenge.proposal_deadline)
+      return { label: '提案期限', value: challenge.proposal_deadline };
+    if (p === 'edit' && challenge.edit_deadline)
+      return { label: '編集期限', value: challenge.edit_deadline };
+    if (p === 'evaluation' && challenge.evaluation_deadline)
+      return { label: '評価期限', value: challenge.evaluation_deadline };
+    return null;
   };
 
   // 期限の表示形式
   const formatDeadline = (deadline: string) => {
     const date = new Date(deadline);
-    return date.toLocaleDateString('ja-JP', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric'
-    });
+    // UTCの値をそのまま使用（日本時間への変換を避ける）
+    const year = date.getUTCFullYear();
+    const month = date.getUTCMonth() + 1;
+    const day = date.getUTCDate();
+    const hours = String(date.getUTCHours()).padStart(2, '0');
+    const minutes = String(date.getUTCMinutes()).padStart(2, '0');
+    return `${year}年${month}月${day}日 ${hours}:${minutes}`;
   };
 
-  // 報酬の表示形式
-  const formatReward = (amount: number) => {
-    // 0の場合は空文字を返す
-    if (amount === 0) {
-      return '';
-    }
-    // 1万円未満の場合は円単位で表示
-    if (amount < 10000) {
-      return `${amount}円`;
-    }
-    // 1万円以上の場合は万円単位で表示
-    const amountInMan = amount / 10000;
-    // 整数の場合は小数点を表示しない
-    if (amountInMan % 1 === 0) {
-      return `${Math.floor(amountInMan)}万円`;
-    }
-    // 小数点がある場合は1桁まで表示
-    return `${amountInMan.toFixed(1)}万円`;
-  };
-
-  const statusDisplay = getStatusDisplay(challenge.status);
+  const cardStyle = userType === 'proposer'
+    ? expiredOrFailed
+      ? canViewResults
+        ? 'bg-teal-50 border border-teal-300'  // 期限切れだが結果閲覧可能
+        : 'bg-red-50 border border-red-300 opacity-60'  // 期限切れで結果閲覧不可
+      : allPhasesDone
+      ? 'bg-teal-50 border border-teal-300'
+      : 'bg-white border border-gray-200'
+    : contributorExpired
+    ? 'bg-teal-50 border border-teal-300'
+    : challenge.status === 'completed'
+    ? 'bg-blue-50 border border-blue-300 opacity-75'
+    : 'bg-white border border-gray-200';
 
   return (
-    <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 ${
-      challenge.status === 'closed'
-        ? 'bg-red-50 border border-red-300 opacity-60' 
-        : challenge.status === 'completed'
-        ? 'bg-blue-50 border border-blue-300 opacity-75'
-        : isProposed
-        ? 'bg-gray-200 border border-gray-500 opacity-50'
-        : 'bg-white border border-gray-200'
-    }`}>
+    <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-w-0 ${cardStyle}`}>
       {/* タイトル */}
       <div className="mb-4">
-        <div className="flex justify-end mb-2 gap-2">
-          {isProposed && (
+        <div className="flex justify-end mb-2 gap-2 flex-wrap">
+          {userType === 'proposer' && expiredOrFailed && !canViewResults && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-red-600 bg-red-100">
+              期限切れ
+            </span>
+          )}
+          {userType === 'proposer' && canViewResults && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-blue-600 bg-blue-100">
+              完了
+            </span>
+          )}
+          {userType === 'proposer' && allPhasesDone && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-teal-700 bg-teal-100">
+              全フェーズ達成
+            </span>
+          )}
+          {userType === 'proposer' && !expiredOrFailed && !allPhasesDone && challenge.phase_display && (
+            <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+              challenge.current_phase === 'proposal' ? 'text-green-600 bg-green-100' :
+              challenge.current_phase === 'edit' ? 'text-yellow-600 bg-yellow-100' :
+              challenge.current_phase === 'evaluation' ? 'text-orange-600 bg-orange-100' :
+              'text-gray-600 bg-gray-100'
+            }`}>
+              {challenge.phase_display}
+            </span>
+          )}
+          {userType === 'contributor' && contributorExpired && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-teal-700 bg-teal-100">
+              完了
+            </span>
+          )}
+          {userType === 'contributor' && !contributorExpired && challenge.phase_display && (
+            <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+              challenge.current_phase === 'proposal' ? 'text-green-600 bg-green-100' :
+              challenge.current_phase === 'edit' ? 'text-yellow-600 bg-yellow-100' :
+              challenge.current_phase === 'evaluation' ? 'text-orange-600 bg-orange-100' :
+              'text-gray-600 bg-gray-100'
+            }`}>
+              {challenge.phase_display}
+            </span>
+          )}
+          {isProposed && !expiredOrFailed && !allPhasesDone && (
             <span className="px-3 py-1 text-sm rounded-full bg-blue-600 text-white font-medium">
               提案済み
             </span>
           )}
-          <span className={`px-3 py-1 text-sm rounded-full font-medium ${statusDisplay.color}`}>
-            {statusDisplay.label}
-          </span>
+          {challenge.has_completed_all_evaluations && !allPhasesDone && !expiredOrFailed && (
+            <span className="px-3 py-1 text-sm rounded-full bg-purple-600 text-white font-medium">
+              ✓ 全評価完了
+            </span>
+          )}
         </div>
-        <div className="flex items-start justify-between mb-3">
-          <h3 className="text-xl font-bold text-gray-900 flex-1 pr-4">
+        <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
+          <h3 className="text-xl font-bold text-gray-900 flex-1 min-w-0 pr-2 break-words">
             {challenge.title}
           </h3>
-          <div className="text-right">
-            <div className="flex items-center gap-4 text-sm text-gray-600">
+          <div className="text-right flex-shrink-0">
+            <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap justify-end">
               <span>投稿者: {challenge.contributor_name}</span>
               <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
             </div>
@@ -102,30 +138,32 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         </p>
       </div>
 
-      {/* 報酬情報 */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      {/* 報酬情報（デモ: 金額は伏せてプレースホルダのみ） */}
+      <div className="grid grid-cols-2 gap-4 mb-2">
         <div className="bg-blue-50 rounded-lg p-4 text-center">
           <p className="text-sm text-blue-600 font-medium mb-2">提案報酬</p>
           <p className="text-2xl font-bold text-blue-900">
-            {userType === 'proposer' 
-              ? '6,000円'
-              : formatReward(challenge.reward_amount)
-            }
+            <DemoRewardAmountPlaceholder className="text-2xl font-bold text-blue-900" />
           </p>
         </div>
         <div className="bg-green-50 rounded-lg p-4 text-center">
           <p className="text-sm text-green-600 font-medium mb-2">採用報酬</p>
           <p className="text-2xl font-bold text-green-900">
-            {formatReward(challenge.adoption_reward)}
+            <DemoRewardAmountPlaceholder className="text-2xl font-bold text-green-900" />
           </p>
         </div>
       </div>
-
       {/* 詳細情報 */}
-      <div className="bg-gray-50 rounded-lg p-3 mb-4">
-        <div className="flex justify-between items-center text-sm text-gray-600">
+      <div className="bg-gray-50 rounded-lg p-3 mb-4 min-w-0">
+        <div className="flex justify-between items-center gap-4 text-sm text-gray-600 flex-wrap">
           <span className="font-medium">選出人数: {challenge.required_participants}人</span>
-          <span className="font-medium">期限: {formatDeadline(challenge.deadline)}</span>
+          <span className="font-medium">
+            {(() => {
+              const info = getCurrentPhaseDeadlineInfo();
+              if (info) return `${info.label}: ${formatDeadline(info.value)}`;
+              return `期限: ${formatDeadline(challenge.deadline)}`;
+            })()}
+          </span>
         </div>
       </div>
 

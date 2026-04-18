@@ -2,7 +2,7 @@
 選出機能の管理画面設定
 """
 from django.contrib import admin
-from .models import Selection, SelectionHistory, SelectionCriteria, ChallengeUserAnonymousName
+from .models import Selection, SelectionHistory, SelectionCriteria, ChallengeUserAnonymousName, UserEvaluationCompletion
 
 
 @admin.register(Selection)
@@ -114,3 +114,31 @@ class ChallengeUserAnonymousNameAdmin(admin.ModelAdmin):
     
     def get_queryset(self, request):
         return super().get_queryset(request).select_related('challenge', 'user', 'anonymous_name')
+
+
+@admin.register(UserEvaluationCompletion)
+class UserEvaluationCompletionAdmin(admin.ModelAdmin):
+    """ユーザー評価完了状態の管理画面設定"""
+    list_display = ('id', 'challenge', 'user', 'has_completed_all_evaluations', 'completed_at', 'created_at')
+    list_filter = ('has_completed_all_evaluations', 'created_at', 'completed_at')
+    search_fields = ('challenge__title', 'user__username')
+    raw_id_fields = ('challenge', 'user')
+    date_hierarchy = 'created_at'
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+    
+    fieldsets = (
+        (None, {
+            'fields': ('challenge', 'user')
+        }),
+        ('完了状態', {
+            'fields': ('has_completed_all_evaluations', 'completed_at')
+        }),
+        ('タイムスタンプ', {
+            'fields': ('created_at', 'updated_at'),
+            'classes': ('collapse',)
+        }),
+    )
+    
+    def get_queryset(self, request):
+        return super().get_queryset(request).select_related('challenge', 'user')

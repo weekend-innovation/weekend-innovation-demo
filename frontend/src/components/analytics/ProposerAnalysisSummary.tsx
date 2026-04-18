@@ -37,6 +37,8 @@ interface ChallengeAnalysisData {
   total_proposals: number;
   unique_proposers: number;
   common_themes: CommonTheme[];
+  executive_summary?: string;
+  detailed_analysis?: string;
   analyzed_at: string | null;
   top_proposals?: {
     originality: ProposalInsight | null;
@@ -78,23 +80,13 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
   clusteringData = null,
   isLoading = false
 }) => {
-  // デバッグ: クラスタリングデータの変更を監視
-  React.useEffect(() => {
-    console.log('ProposerAnalysisSummary: clusteringData更新', { 
-      hasData: !!clusteringData, 
-      coordinatesCount: clusteringData?.coordinates?.length 
-    });
-  }, [clusteringData]);
-
   // 提案IDからクラスタ番号を取得する関数
   const getProposalCluster = (proposalId: number): number => {
     if (!clusteringData || !clusteringData.coordinates) {
-      console.log('ProposerAnalysisSummary: クラスタリングデータなし', { clusteringData });
       return 0;
     }
     const coordinate = clusteringData.coordinates.find((c) => c.proposal_id === proposalId);
     const cluster = coordinate?.cluster ?? 0;
-    console.log('ProposerAnalysisSummary: クラスタ取得', { proposalId, cluster, coordinate });
     return cluster;
   };
 
@@ -142,11 +134,11 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
     );
   }
 
-  // スコアのラベルを取得
+  // スコアを数値でなく「大」「中」「小」で表示（実際の数値は出さない）
   const getScoreLabel = (score: number): string => {
-    if (score >= 0.7) return '高';
-    if (score >= 0.4) return '中';
-    return '要改善';
+    if (score >= 0.6) return '大';
+    if (score >= 0.3) return '中';
+    return '小';
   };
 
   return (
@@ -171,219 +163,103 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
       </div>
 
       <div className="px-6 py-6 space-y-6">
-        {/* スコア概要 */}
+        {/* エグゼクティブサマリー */}
+        {analysis.executive_summary && analysis.executive_summary.trim() && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              📋 サマリー
+            </h3>
+            <p className="text-sm text-gray-700 whitespace-pre-wrap">
+              {analysis.executive_summary}
+            </p>
+          </div>
+        )}
+
+        {/* スコア概要（数値は表示せず、ラベルを上に・評価は大/中/小） */}
         <div>
           <h3 className="text-lg font-semibold text-gray-900 mb-4">
-            📊 総合評価スコア
+            📊 総合評価
           </h3>
           <div className="grid grid-cols-3 gap-4">
-            {/* 革新性スコア */}
+            {/* 革新性 */}
             <div className={`text-center p-4 rounded-lg border-2 ${
-              myInsight.innovation_score >= 0.7 ? 'bg-green-50 border-green-300' :
-              myInsight.innovation_score >= 0.4 ? 'bg-yellow-50 border-yellow-300' :
-              'bg-red-50 border-red-300'
+              myInsight.innovation_score >= 0.6 ? 'bg-green-50 border-green-300' :
+              myInsight.innovation_score >= 0.3 ? 'bg-yellow-50 border-yellow-300' :
+              'bg-gray-50 border-gray-300'
             }`}>
-              <div className={`text-3xl font-bold mb-1 ${
-                myInsight.innovation_score >= 0.7 ? 'text-green-600' :
-                myInsight.innovation_score >= 0.4 ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {Math.round(myInsight.innovation_score * 100)}
-              </div>
-              <div className={`text-xs font-medium mb-2 ${
-                myInsight.innovation_score >= 0.7 ? 'text-green-700' :
-                myInsight.innovation_score >= 0.4 ? 'text-yellow-700' :
-                'text-red-700'
+              <div className="text-sm font-medium text-gray-700 mb-2">革新性</div>
+              <div className={`text-2xl font-bold ${
+                myInsight.innovation_score >= 0.6 ? 'text-green-600' :
+                myInsight.innovation_score >= 0.3 ? 'text-yellow-600' :
+                'text-gray-600'
               }`}>
                 {getScoreLabel(myInsight.innovation_score)}
               </div>
-              <div className="text-sm font-medium text-gray-700">革新性</div>
             </div>
 
-            {/* 支持率スコア */}
+            {/* 支持率 */}
             <div className={`text-center p-4 rounded-lg border-2 ${
-              myInsight.insightfulness_score >= 0.7 ? 'bg-green-50 border-green-300' :
-              myInsight.insightfulness_score >= 0.4 ? 'bg-yellow-50 border-yellow-300' :
-              'bg-red-50 border-red-300'
+              myInsight.insightfulness_score >= 0.6 ? 'bg-green-50 border-green-300' :
+              myInsight.insightfulness_score >= 0.3 ? 'bg-yellow-50 border-yellow-300' :
+              'bg-gray-50 border-gray-300'
             }`}>
-              <div className={`text-3xl font-bold mb-1 ${
-                myInsight.insightfulness_score >= 0.7 ? 'text-green-600' :
-                myInsight.insightfulness_score >= 0.4 ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {Math.round(myInsight.insightfulness_score * 100)}
-              </div>
-              <div className={`text-xs font-medium mb-2 ${
-                myInsight.insightfulness_score >= 0.7 ? 'text-green-700' :
-                myInsight.insightfulness_score >= 0.4 ? 'text-yellow-700' :
-                'text-red-700'
+              <div className="text-sm font-medium text-gray-700 mb-2">支持率</div>
+              <div className={`text-2xl font-bold ${
+                myInsight.insightfulness_score >= 0.6 ? 'text-green-600' :
+                myInsight.insightfulness_score >= 0.3 ? 'text-yellow-600' :
+                'text-gray-600'
               }`}>
                 {getScoreLabel(myInsight.insightfulness_score)}
               </div>
-              <div className="text-sm font-medium text-gray-700">支持率</div>
             </div>
 
-            {/* 影響度スコア */}
+            {/* 影響度 */}
             <div className={`text-center p-4 rounded-lg border-2 ${
-              myInsight.impact_score >= 0.7 ? 'bg-green-50 border-green-300' :
-              myInsight.impact_score >= 0.4 ? 'bg-yellow-50 border-yellow-300' :
-              'bg-red-50 border-red-300'
+              myInsight.impact_score >= 0.6 ? 'bg-green-50 border-green-300' :
+              myInsight.impact_score >= 0.3 ? 'bg-yellow-50 border-yellow-300' :
+              'bg-gray-50 border-gray-300'
             }`}>
-              <div className={`text-3xl font-bold mb-1 ${
-                myInsight.impact_score >= 0.7 ? 'text-green-600' :
-                myInsight.impact_score >= 0.4 ? 'text-yellow-600' :
-                'text-red-600'
-              }`}>
-                {Math.round(myInsight.impact_score * 100)}
-              </div>
-              <div className={`text-xs font-medium mb-2 ${
-                myInsight.impact_score >= 0.7 ? 'text-green-700' :
-                myInsight.impact_score >= 0.4 ? 'text-yellow-700' :
-                'text-red-700'
+              <div className="text-sm font-medium text-gray-700 mb-2">影響度</div>
+              <div className={`text-2xl font-bold ${
+                myInsight.impact_score >= 0.6 ? 'text-green-600' :
+                myInsight.impact_score >= 0.3 ? 'text-yellow-600' :
+                'text-gray-600'
               }`}>
                 {getScoreLabel(myInsight.impact_score)}
               </div>
-              <div className="text-sm font-medium text-gray-700">影響度</div>
             </div>
           </div>
-        </div>
-
-        {/* 総合スコアバー */}
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-gray-700">総合スコア</span>
-            <span className="text-lg font-bold text-gray-900">
-              {Math.round(((myInsight.innovation_score + myInsight.insightfulness_score + myInsight.impact_score) / 3) * 100)}点
+          <div className="mt-4 bg-gray-50 p-4 rounded-lg text-center">
+            <span className="text-sm font-medium text-gray-700">総合 </span>
+            <span className={`text-lg font-bold ${
+              (myInsight.innovation_score + myInsight.insightfulness_score + myInsight.impact_score) / 3 >= 0.6 ? 'text-green-600' :
+              (myInsight.innovation_score + myInsight.insightfulness_score + myInsight.impact_score) / 3 >= 0.3 ? 'text-yellow-600' :
+              'text-gray-600'
+            }`}>
+              {getScoreLabel((myInsight.innovation_score + myInsight.insightfulness_score + myInsight.impact_score) / 3)}
             </span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3">
-            <div 
-              className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3 rounded-full transition-all duration-500"
-              style={{ 
-                width: `${((myInsight.innovation_score + myInsight.insightfulness_score + myInsight.impact_score) / 3) * 100}%` 
-              }}
-            ></div>
-          </div>
         </div>
 
-        {/* 主要テーマ */}
-        {myInsight.key_themes && myInsight.key_themes.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              🎯 あなたの提案の主要テーマ
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {myInsight.key_themes.map((theme, index) => (
-                <span 
-                  key={index}
-                  className="px-3 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium"
-                >
-                  {theme}
-                </span>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 強み */}
-        {myInsight.strengths && myInsight.strengths.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              ✨ あなたの提案の強み
-            </h3>
-            <div className="bg-green-50 p-4 rounded-lg space-y-2">
-              {myInsight.strengths.map((strength, index) => (
-                <div key={index} className="flex items-start">
-                  <span className="text-green-600 mr-2">✓</span>
-                  <span className="text-sm text-gray-700">{strength}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 懸念点 */}
-        {myInsight.concerns && myInsight.concerns.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              ⚠️ 改善の余地がある点
-            </h3>
-            <div className="bg-yellow-50 p-4 rounded-lg space-y-2">
-              {myInsight.concerns.map((concern, index) => (
-                <div key={index} className="flex items-start">
-                  <span className="text-yellow-600 mr-2">!</span>
-                  <span className="text-sm text-gray-700">{concern}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* 課題全体の共通テーマとの比較 */}
-        {analysis.common_themes && analysis.common_themes.length > 0 && (
-          <div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-3">
-              📈 課題全体で注目されているテーマ
-            </h3>
-            <div className="bg-gray-50 p-4 rounded-lg">
-              <p className="text-sm text-gray-600 mb-3">
-                全{analysis.total_proposals}件の提案で共通して言及されているテーマです
-              </p>
-              <div className="space-y-2">
-                {analysis.common_themes.slice(0, 5).map((theme, index) => {
-                  const isMyTheme = myInsight.key_themes.includes(theme.theme);
-                  return (
-                    <div 
-                      key={index} 
-                      className={`flex items-center justify-between p-2 rounded ${
-                        isMyTheme ? 'bg-blue-100 border border-blue-300' : 'bg-white'
-                      }`}
-                    >
-                      <div className="flex items-center">
-                        <span className={`font-medium ${isMyTheme ? 'text-blue-900' : 'text-gray-900'}`}>
-                          {theme.theme}
-                        </span>
-                        {isMyTheme && (
-                          <span className="ml-2 text-xs bg-blue-600 text-white px-2 py-0.5 rounded-full">
-                            あなたも提案
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-sm text-gray-600">
-                        {theme.percentage}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* トップ提案の表示 */}
+        {/* 各カテゴリーのトップ解決案（散布図の下に表示） */}
         {analysis.top_proposals && (
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
               🏆 各カテゴリーのトップ解決案
             </h3>
             <div className="space-y-6">
-              {/* 最も独創的な解決案 */}
               {analysis.top_proposals.originality && (() => {
                 const proposal = proposals.find(p => p.id === analysis.top_proposals?.originality?.proposal_id);
                 const topData = analysis.top_proposals.originality;
                 const isMyProposal = topData.proposal_id === myProposalId;
-                const clusterIndex = getProposalCluster(topData.proposal_id); // 実際のクラスター番号を取得
+                const clusterIndex = getProposalCluster(topData.proposal_id);
                 const bgColor = getClusterLightColor(clusterIndex);
                 const borderColor = getClusterBorderColor(clusterIndex);
-                
                 return proposal && (
                   <div>
                     <div
                       className="px-4 py-2 rounded-t-lg border"
-                      style={{ 
-                        backgroundColor: bgColor,
-                        borderColor: borderColor
-                      }}
+                      style={{ backgroundColor: bgColor, borderColor: borderColor }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -401,7 +277,7 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                                   {getGenderDisplay(topData.gender)}
                                 </span>
                               )}
-                              {topData.age && (
+                              {topData.age != null && (
                                 <span className="bg-white px-2 py-1 rounded text-xs font-medium text-gray-700">
                                   {topData.age}歳
                                 </span>
@@ -409,9 +285,6 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                             </div>
                           )}
                         </div>
-                        <span className="text-xs bg-white px-2 py-1 rounded font-medium text-gray-700 border border-gray-300">
-                          革新性: {Math.round(topData.innovation_score * 100)}%
-                        </span>
                       </div>
                     </div>
                     <div
@@ -431,23 +304,18 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                 );
               })()}
 
-              {/* 最も支持されている解決案 */}
               {analysis.top_proposals.insightfulness && (() => {
                 const proposal = proposals.find(p => p.id === analysis.top_proposals?.insightfulness?.proposal_id);
                 const topData = analysis.top_proposals.insightfulness;
                 const isMyProposal = topData.proposal_id === myProposalId;
-                const clusterIndex = getProposalCluster(topData.proposal_id); // 実際のクラスター番号を取得
+                const clusterIndex = getProposalCluster(topData.proposal_id);
                 const bgColor = getClusterLightColor(clusterIndex);
                 const borderColor = getClusterBorderColor(clusterIndex);
-                
                 return proposal && (
                   <div>
                     <div
                       className="px-4 py-2 rounded-t-lg border"
-                      style={{ 
-                        backgroundColor: bgColor,
-                        borderColor: borderColor
-                      }}
+                      style={{ backgroundColor: bgColor, borderColor: borderColor }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -465,7 +333,7 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                                   {getGenderDisplay(topData.gender)}
                                 </span>
                               )}
-                              {topData.age && (
+                              {topData.age != null && (
                                 <span className="bg-white px-2 py-1 rounded text-xs font-medium text-gray-700">
                                   {topData.age}歳
                                 </span>
@@ -495,23 +363,18 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                 );
               })()}
 
-              {/* 最も議論が活発な解決案 */}
               {analysis.top_proposals.impact && (() => {
                 const proposal = proposals.find(p => p.id === analysis.top_proposals?.impact?.proposal_id);
                 const topData = analysis.top_proposals.impact;
                 const isMyProposal = topData.proposal_id === myProposalId;
-                const clusterIndex = getProposalCluster(topData.proposal_id); // 実際のクラスター番号を取得
+                const clusterIndex = getProposalCluster(topData.proposal_id);
                 const bgColor = getClusterLightColor(clusterIndex);
                 const borderColor = getClusterBorderColor(clusterIndex);
-                
                 return proposal && (
                   <div>
                     <div
                       className="px-4 py-2 rounded-t-lg border"
-                      style={{ 
-                        backgroundColor: bgColor,
-                        borderColor: borderColor
-                      }}
+                      style={{ backgroundColor: bgColor, borderColor: borderColor }}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
@@ -529,7 +392,7 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                                   {getGenderDisplay(topData.gender)}
                                 </span>
                               )}
-                              {topData.age && (
+                              {topData.age != null && (
                                 <span className="bg-white px-2 py-1 rounded text-xs font-medium text-gray-700">
                                   {topData.age}歳
                                 </span>
@@ -537,9 +400,6 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
                             </div>
                           )}
                         </div>
-                        <span className="text-xs bg-white px-2 py-1 rounded font-medium text-gray-700 border border-gray-300">
-                          影響度: {Math.round(topData.impact_score * 100)}%
-                        </span>
                       </div>
                     </div>
                     <div
