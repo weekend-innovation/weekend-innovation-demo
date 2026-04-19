@@ -180,17 +180,9 @@ AUTH_USER_MODEL = 'accounts.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Stripe設定（テストモード）
-# 実際のStripeテストキーを使用してください
-# https://dashboard.stripe.com/test/apikeys で取得可能
-STRIPE_PUBLISHABLE_KEY = os.getenv(
-    'STRIPE_PUBLISHABLE_KEY',
-    ''
-)
-STRIPE_SECRET_KEY = os.getenv(
-    'STRIPE_SECRET_KEY',
-    ''
-)
+# Stripe（キーは環境変数のみ。リポジトリに埋め込まない）
+STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
+STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
 
 # 本番環境向けセキュリティ設定
 SECURE_SSL_REDIRECT = not DEBUG
