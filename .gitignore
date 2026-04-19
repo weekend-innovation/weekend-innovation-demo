@@ -137,3 +137,6 @@ public
 tmp/
 temp/
 
+# ML model cache (Hugging Face / sentence-transformers; too large for GitHub)
+.model_cache/
+
