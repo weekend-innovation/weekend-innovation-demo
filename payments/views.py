@@ -1,7 +1,10 @@
 """
 報酬・ウォレット管理のビュー
 """
-import stripe
+try:
+    import stripe
+except ImportError:  # デモ版では Stripe SDK を入れない運用を許容
+    stripe = None
 from django.conf import settings
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes
@@ -18,7 +21,20 @@ from .serializers import (
 )
 
 # Stripe設定
-stripe.api_key = settings.STRIPE_SECRET_KEY
+if stripe is not None:
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+DEMO_STRIPE_DISABLED_MESSAGE = (
+    'デモ版のため決済機能（Stripe）は利用できません。'
+)
+
+
+def stripe_disabled_response():
+    """デモ版で Stripe API が呼ばれた際の統一レスポンス"""
+    return Response(
+        {'detail': DEMO_STRIPE_DISABLED_MESSAGE},
+        status=status.HTTP_503_SERVICE_UNAVAILABLE
+    )
 
 
 class WalletDetailView(generics.RetrieveAPIView):
@@ -187,6 +203,11 @@ def deposit_money(request):
 @permission_classes([IsAuthenticated])
 def create_payment_intent(request):
     """Stripe決済インテント作成"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     amount = request.data.get('amount')
     
     if not amount or amount <= 0:
@@ -227,6 +248,11 @@ def create_payment_intent(request):
 @permission_classes([IsAuthenticated])
 def confirm_payment(request):
     """決済完了後の入金処理"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     payment_intent_id = request.data.get('payment_intent_id')
     amount = request.data.get('amount')
     
@@ -279,6 +305,10 @@ def confirm_payment(request):
 @permission_classes([IsAuthenticated])
 def create_stripe_account(request):
     """Stripe Connectアカウント作成（提案者用）"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     try:
         # 提案者のみ利用可能
@@ -352,6 +382,10 @@ def create_stripe_account(request):
 @permission_classes([IsAuthenticated])
 def get_stripe_account_status(request):
     """Stripe Connectアカウントの状態確認"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     try:
         wallet, created = Wallet.objects.get_or_create(user=request.user)
@@ -435,6 +469,10 @@ def get_stripe_account_status(request):
 @permission_classes([IsAuthenticated])
 def create_stripe_customer(request):
     """Stripe Customer作成（投稿者用）"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
     
     try:
         # 投稿者のみ利用可能
@@ -479,6 +517,11 @@ def create_stripe_customer(request):
 @permission_classes([IsAuthenticated])
 def create_withdrawal(request):
     """出金申請（提案者ユーザー用）"""
+    if settings.DEMO_DISABLE_STRIPE:
+        return stripe_disabled_response()
+    if stripe is None:
+        return Response({'error': 'Stripe SDK がインストールされていません'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
     if request.user.user_type != 'proposer':
         return Response({
             'error': '提案者ユーザーのみ利用可能です'

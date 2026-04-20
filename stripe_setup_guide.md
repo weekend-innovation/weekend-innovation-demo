@@ -1,5 +1,10 @@
 # Stripe設定ガイド
 
+> [!IMPORTANT]
+> このリポジトリのデモ版では Stripe 決済を利用しません。  
+> `DEMO_DISABLE_STRIPE=True`（既定値）の間、Stripe 関連 API は利用不可レスポンスを返します。  
+> 本ドキュメントは将来 Stripe を再導入する場合の参考情報です。
+
 ## 目次
 1. [Stripeアカウント設定](#1-stripeアカウント設定)
 2. [APIキーの取得](#2-apiキーの取得)

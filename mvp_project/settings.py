@@ -180,9 +180,10 @@ AUTH_USER_MODEL = 'accounts.User'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Stripe（キーは環境変数のみ。リポジトリに埋め込まない）
+# Stripe（デモ版では既定で無効）
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', '')
 STRIPE_SECRET_KEY = os.getenv('STRIPE_SECRET_KEY', '')
+DEMO_DISABLE_STRIPE = os.getenv('DEMO_DISABLE_STRIPE', 'True').lower() in ('1', 'true', 'yes', 'on')
 
 # 本番環境向けセキュリティ設定
 SECURE_SSL_REDIRECT = not DEBUG
@@ -192,10 +193,7 @@ SECURE_HSTS_SECONDS = 31536000 if not DEBUG else 0
 SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
 SECURE_HSTS_PRELOAD = not DEBUG
 
-# Stripe設定の説明
-# 1. https://dashboard.stripe.com/test/apikeys で実際のテストキーを取得
-# 2. 上記のダミーキーを実際のキーに置き換えてください
-# 3. テスト用カード: 4242424242424242 (有効期限: 任意の未来の日付, CVC: 任意の3桁)
+# DEMO_DISABLE_STRIPE=True の間は、Stripe関連APIは「デモ版では利用不可」を返します。
 
 # ログ設定
 LOGGING = {
