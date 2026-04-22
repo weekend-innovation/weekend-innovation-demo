@@ -142,9 +142,16 @@ STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# CORS設定 - Next.jsフロントエンドからのリクエストを許可
+# CORS設定
+# Render 等の本番環境では DJANGO_CORS_ALLOWED_ORIGINS に
+# 例: "https://foo.onrender.com,https://bar.example.com" を設定する
 CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",  # Next.jsのデフォルトポート
+    origin.strip()
+    for origin in os.getenv(
+        'DJANGO_CORS_ALLOWED_ORIGINS',
+        'http://localhost:3000'
+    ).split(',')
+    if origin.strip()
 ]
 
 # 開発環境でのCORS設定（本番環境では適切に制限してください）
