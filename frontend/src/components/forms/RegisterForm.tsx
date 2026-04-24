@@ -53,7 +53,7 @@ export function RegisterForm() {
         industry: '',
       } : {
         full_name: '',
-        gender: 'male',
+        gender: '',
         birth_date: '',
         address: '',
         phone_number: '',
@@ -191,7 +191,7 @@ export function RegisterForm() {
 
         <div>
           <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-            メールアドレス
+            メールアドレス *
           </label>
           <input
             id="email"
@@ -203,6 +203,11 @@ export function RegisterForm() {
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
             placeholder="your@email.com"
           />
+          {userType === 'proposer' && (
+            <p className="mt-1 text-xs text-gray-500">
+              提案者はメールアドレス必須です。デモ版では通知用途のため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
+            </p>
+          )}
         </div>
 
         <div>
@@ -316,13 +321,12 @@ export function RegisterForm() {
           <>
             <div>
               <label htmlFor="full_name" className="block text-sm font-medium text-gray-700">
-                氏名 *
+                氏名（任意）
               </label>
               <input
                 id="full_name"
                 name="full_name"
                 type="text"
-                required
                 value={formData.profile.full_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
@@ -332,16 +336,16 @@ export function RegisterForm() {
 
             <div>
               <label htmlFor="gender" className="block text-sm font-medium text-gray-700">
-                性別 *
+                性別（任意）
               </label>
               <select
                 id="gender"
                 name="gender"
-                required
-                value={formData.profile.gender ?? 'male'}
+                value={formData.profile.gender ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
               >
+                <option value="">選択しない</option>
                 <option value="male">男性</option>
                 <option value="female">女性</option>
                 <option value="other">その他</option>
@@ -350,13 +354,12 @@ export function RegisterForm() {
 
             <div>
               <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700">
-                生年月日 *
+                生年月日（任意）
               </label>
               <input
                 id="birth_date"
                 name="birth_date"
                 type="date"
-                required
                 value={formData.profile.birth_date ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-black focus:border-black"
@@ -367,12 +370,12 @@ export function RegisterForm() {
 
         <div>
           <label htmlFor="address" className="block text-sm font-medium text-gray-700">
-            住所 *
+            住所 {userType === 'contributor' ? '*' : '（任意）'}
           </label>
           <textarea
             id="address"
             name="address"
-            required
+            required={userType === 'contributor'}
             rows={3}
             value={formData.profile.address}
             onChange={handleProfileChange}
@@ -383,13 +386,13 @@ export function RegisterForm() {
 
         <div>
           <label htmlFor="phone_number" className="block text-sm font-medium text-gray-700">
-            電話番号 *
+            電話番号 {userType === 'contributor' ? '*' : '（任意）'}
           </label>
           <input
             id="phone_number"
             name="phone_number"
             type="tel"
-            required
+            required={userType === 'contributor'}
             value={formData.profile.phone_number}
             onChange={handleProfileChange}
             className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"

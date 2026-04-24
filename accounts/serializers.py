@@ -54,6 +54,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     """
     password = serializers.CharField(write_only=True, min_length=8)
     password_confirm = serializers.CharField(write_only=True)
+    email = serializers.EmailField(required=True, allow_blank=False)
     profile = serializers.JSONField(write_only=True)
     
     class Meta:
@@ -69,6 +70,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         """
         if data['password'] != data['password_confirm']:
             raise serializers.ValidationError("パスワードが一致しません")
+        if not data.get('email'):
+            raise serializers.ValidationError("メールアドレスは必須です")
         
         user_type = data.get('user_type')
         profile_data = data.get('profile', {})
@@ -79,12 +82,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             for field in required_fields:
                 if not profile_data.get(field):
                     raise serializers.ValidationError(f"投稿者プロフィールの{field}は必須です")
-        
-        elif user_type == 'proposer':
-            required_fields = ['full_name', 'gender', 'birth_date', 'address', 'phone_number', 'email']
-            for field in required_fields:
-                if not profile_data.get(field):
-                    raise serializers.ValidationError(f"提案者プロフィールの{field}は必須です")
         
         return data
     

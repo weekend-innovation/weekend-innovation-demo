@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>選出完了通知</title>
+</head>
+<body style="font-family: sans-serif; line-height: 1.6; color: #333;">
+  <p>{{ user.username }} 様</p>
+  <p>課題「<strong>{{ challenge.title }}</strong>」の選出が完了しました。</p>
+  <hr style="border: none; border-top: 1px solid #ccc;">
+  <h3 style="margin-bottom: 0.5em;">選出結果</h3>
+  <ul>
+    <li>選出人数: {{ selection.selected_count }} / {{ selection.required_count }} 人</li>
+    <li>選出方法: {{ selection_method_label }}</li>
+    <li>完了日時: {{ selection.completed_at|date:"Y年m月d日 H:i" }}</li>
+  </ul>
+  <h3 style="margin-bottom: 0.5em;">選出されたユーザー</h3>
+  <p>
+    {% for u in selection.selected_users.all %}
+      {{ u.username }}{% if not forloop.last %}、{% endif %}
+    {% empty %}
+      （なし）
+    {% endfor %}
+  </p>
+  <p>選出の詳細は次のURLから確認できます。</p>
+  <p><a href="{{ site_url }}/selections/{{ selection.id }}">{{ site_url }}/selections/{{ selection.id }}</a></p>
+  <p style="margin-top: 2em; color: #666; font-size: 0.9em;">{{ site_name }} 運営</p>
+</body>
+</html>

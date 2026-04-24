@@ -19,6 +19,20 @@ User = get_user_model()
 logger = logging.getLogger(__name__)
 
 
+def _notify_selection_completed(selection_id: int) -> None:
+    """
+    選出のDBコミット後に通知メールを送る（同じトランザクション内で送らない）
+    """
+    from .models import Selection
+
+    try:
+        selection = Selection.objects.get(pk=selection_id)
+    except Selection.DoesNotExist:
+        logger.error("選出通知: Selection id=%s が存在しません", selection_id)
+        return
+    SelectionNotificationService.send_selection_notification(selection)
+
+
 class SelectionService:
     """
     選出サービスクラス
@@ -148,6 +162,7 @@ class SelectionService:
                 selection.selected_count = len(selected_users)
                 selection.status = 'completed'
                 selection.completed_at = timezone.now()
+                selection.selection_method = 'random'
                 selection.save()
                 
                 # 各ユーザーに匿名名を割り当て
@@ -169,8 +184,10 @@ class SelectionService:
                 
                 logger.info(f"ランダム選出完了: {selection.id}, 選出人数: {len(selected_users)}")
                 
-                # 通知を送信
-                SelectionNotificationService.send_selection_notification(selection)
+                selection_id = selection.id
+                transaction.on_commit(
+                    lambda sid=selection_id: _notify_selection_completed(sid)
+                )
                 
                 return selection
                 
@@ -226,6 +243,7 @@ class SelectionService:
                 selection.selected_count = len(selected_users)
                 selection.status = 'completed'
                 selection.completed_at = timezone.now()
+                selection.selection_method = 'weighted'
                 selection.save()
                 
                 # 各ユーザーに匿名名を割り当て
@@ -247,8 +265,10 @@ class SelectionService:
                 
                 logger.info(f"重み付き選出完了: {selection.id}, 選出人数: {len(selected_users)}")
                 
-                # 通知を送信
-                SelectionNotificationService.send_selection_notification(selection)
+                selection_id = selection.id
+                transaction.on_commit(
+                    lambda sid=selection_id: _notify_selection_completed(sid)
+                )
                 
                 return selection
                 

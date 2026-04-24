@@ -14,6 +14,15 @@ from .models import Selection
 User = get_user_model()
 logger = logging.getLogger(__name__)
 
+_SELECTION_METHOD_LABELS = {
+    'random': 'ランダム選出',
+    'weighted': '重み付き選出',
+}
+
+
+def _selection_method_label(method: str) -> str:
+    return _SELECTION_METHOD_LABELS.get(method, method or '—')
+
 
 class SelectionNotificationService:
     """
@@ -140,6 +149,9 @@ class SelectionNotificationService:
                 'contributor': selection.contributor,
                 'site_name': getattr(settings, 'SITE_NAME', 'Weekend Innovation'),
                 'site_url': getattr(settings, 'SITE_URL', 'http://localhost:3000'),
+                'selection_method_label': _selection_method_label(
+                    selection.selection_method
+                ),
             }
             
             if notification_type == 'selected':
@@ -225,7 +237,7 @@ class SelectionNotificationService:
 
 ■ 選出結果
 - 選出人数: {selection.selected_count}/{selection.required_count}人
-- 選出方法: {selection.get_selection_method_display()}
+- 選出方法: {_selection_method_label(selection.selection_method)}
 - 完了日時: {selection.completed_at.strftime('%Y年%m月%d日 %H:%M')}
 
 ■ 選出されたユーザー

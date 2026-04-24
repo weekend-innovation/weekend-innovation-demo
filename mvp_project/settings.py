@@ -216,6 +216,31 @@ SECURE_HSTS_PRELOAD = not DEBUG
 
 # DEMO_DISABLE_STRIPE=True の間は、Stripe関連APIは「デモ版では利用不可」を返します。
 
+# サイト名・フロントURL（選出通知メールの文面・リンク用）
+SITE_NAME = os.getenv('DJANGO_SITE_NAME', 'Weekend Innovation')
+SITE_URL = os.getenv('DJANGO_SITE_URL', 'http://localhost:3000').rstrip('/')
+
+# メール: DJANGO_EMAIL_HOST があるときは SMTP、無ければ既定でコンソール（ログ）のみ
+DEFAULT_FROM_EMAIL = os.getenv('DJANGO_DEFAULT_FROM_EMAIL', 'webmaster@localhost')
+_email_host = os.getenv('DJANGO_EMAIL_HOST', '').strip()
+if _email_host:
+    EMAIL_BACKEND = os.getenv(
+        'DJANGO_EMAIL_BACKEND',
+        'django.core.mail.backends.smtp.EmailBackend',
+    )
+    EMAIL_HOST = _email_host
+    EMAIL_PORT = int(os.getenv('DJANGO_EMAIL_PORT', '587'))
+    EMAIL_USE_TLS = os.getenv('DJANGO_EMAIL_USE_TLS', 'true').lower() in (
+        '1', 'true', 'yes', 'on',
+    )
+    EMAIL_HOST_USER = os.getenv('DJANGO_EMAIL_HOST_USER', '')
+    EMAIL_HOST_PASSWORD = os.getenv('DJANGO_EMAIL_HOST_PASSWORD', '')
+else:
+    EMAIL_BACKEND = os.getenv(
+        'DJANGO_EMAIL_BACKEND',
+        'django.core.mail.backends.console.EmailBackend',
+    )
+
 # ログ設定
 LOGGING = {
     'version': 1,
