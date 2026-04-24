@@ -15,7 +15,7 @@ import type {
 } from '../types/challenge';
 
 // API ベースURL
-const API_BASE_URL = 'http://localhost:8000/api/challenges';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/challenges`;
 
 // 共通のAPI呼び出し関数
 async function apiCall<T>(

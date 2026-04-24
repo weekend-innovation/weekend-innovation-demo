@@ -22,7 +22,7 @@ import type {
 } from '../types/proposal';
 
 // API ベースURL
-const API_BASE_URL = 'http://localhost:8000/api/proposals';
+const API_BASE_URL = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'}/proposals`;
 
 // 共通のAPI呼び出し関数
 async function apiCall<T>(
