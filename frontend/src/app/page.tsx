@@ -28,9 +28,21 @@ export default function Home() {
           <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center">
               {/* メインタイトル */}
-              <h1 className="text-5xl md:text-7xl font-bold text-black mb-12">
-                Weekend Innovation
-              </h1>
+              <div className="inline-block relative mb-12">
+                <h1 className="text-5xl md:text-7xl font-bold text-black">
+                  Weekend Innovation
+                </h1>
+                <a
+                  href="https://note.com/k_kohinata/n/n208bfd8d4450"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                  title="サービス理念の記事を開く"
+                  aria-label="サービス理念の記事を開く"
+                >
+                  ?
+                </a>
+              </div>
               {/* CTAボタン群 - 新規登録・ログイン */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
                 <Link
@@ -105,7 +117,18 @@ export default function Home() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-black mb-2">解決提案</h3>
+                <div className="inline-block relative mb-2">
+                  <h3 className="text-xl font-semibold text-black">解決提案</h3>
+                  <button
+                    type="button"
+                    onClick={() => setIsDescriptionOpen(true)}
+                    className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                    title="デモ版の報酬説明を見る"
+                    aria-label="デモ版の報酬説明を見る"
+                  >
+                    ?
+                  </button>
+                </div>
                 <p className="text-gray-600">
                   選出された提案者が回答を提案します。本番では提案・採用に応じて報酬を受け取る想定です。
                 </p>
