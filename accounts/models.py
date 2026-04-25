@@ -21,7 +21,12 @@ class User(AbstractUser):
     ]
 
     # 連絡用メールアドレス（提案者登録時は必須、実在確認は行わない）
-    email = models.EmailField(blank=False, null=False, verbose_name="メールアドレス")
+    email = models.EmailField(
+        blank=False,
+        null=False,
+        unique=True,
+        verbose_name="メールアドレス",
+    )
     
     # ユーザータイプ（投稿者 or 提案者）
     user_type = models.CharField(
@@ -59,7 +64,6 @@ class ContributorProfile(models.Model):
     representative_name = models.CharField(max_length=50, verbose_name="代表者名")
     address = models.TextField(verbose_name="住所")
     phone_number = models.CharField(max_length=20, verbose_name="電話番号")
-    email = models.EmailField(verbose_name="メールアドレス")
     
     # 企業情報（任意項目）
     industry = models.CharField(max_length=50, verbose_name="業種")
@@ -191,7 +195,6 @@ class ProposerProfile(models.Model):
     birth_date = models.DateField(null=True, blank=True, verbose_name="生年月日")
     address = models.TextField(null=True, blank=True, verbose_name="住所")
     phone_number = models.CharField(max_length=20, null=True, blank=True, verbose_name="電話番号")
-    email = models.EmailField(null=True, blank=True, verbose_name="メールアドレス")
     
     # 職業・専門分野（任意項目）
     occupation = models.CharField(max_length=50, null=True, blank=True, verbose_name="職業")

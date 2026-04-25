@@ -49,7 +49,6 @@ export function RegisterForm() {
         representative_name: '',
         address: '',
         phone_number: '',
-        email: '',
         industry: '',
       } : {
         full_name: '',
@@ -57,7 +56,6 @@ export function RegisterForm() {
         birth_date: '',
         address: '',
         phone_number: '',
-        email: '',
       },
     }));
     setStep('user-info');
@@ -262,7 +260,7 @@ export function RegisterForm() {
           ← 戻る
         </button>
         <h2 className="mt-4 text-3xl font-extrabold text-gray-900">
-          {userType === 'contributor' ? '企業情報' : '個人情報'}
+          {userType === 'contributor' ? '団体情報' : '個人情報'}
         </h2>
       </div>
 
@@ -281,13 +279,13 @@ export function RegisterForm() {
                 value={formData.profile.company_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
-                placeholder="会社名"
+                placeholder="会社名・自治体名など"
               />
             </div>
 
             <div>
               <label htmlFor="representative_name" className="block text-sm font-medium text-gray-700">
-                代表者名 *
+                担当者名 *
               </label>
               <input
                 id="representative_name"
@@ -297,19 +295,18 @@ export function RegisterForm() {
                 value={formData.profile.representative_name ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
-                placeholder="代表者名"
+                placeholder="担当者名"
               />
             </div>
 
             <div>
               <label htmlFor="industry" className="block text-sm font-medium text-gray-700">
-                業種 *
+                業種（任意）
               </label>
               <input
                 id="industry"
                 name="industry"
                 type="text"
-                required
                 value={formData.profile.industry ?? ''}
                 onChange={handleProfileChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"

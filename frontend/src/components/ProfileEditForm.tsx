@@ -14,10 +14,12 @@ type ProfileFormState = Record<string, string | number | undefined>;
 
 const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCancel }) => {
   const [formData, setFormData] = useState<ProfileFormState>({});
+  const [email, setEmail] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setEmail(profile.email || '');
     if (profile.user_type === 'contributor' && profile.contributor_profile) {
       setFormData(profile.contributor_profile as unknown as ProfileFormState);
     } else if (profile.user_type === 'proposer' && profile.proposer_profile) {
@@ -39,6 +41,8 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
     setError(null);
 
     try {
+      await authAPI.updateUserProfile({ email });
+
       if (profile.user_type === 'contributor') {
         await authAPI.updateContributorProfile(formData);
       } else {
@@ -139,11 +143,29 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+                メールアドレス *
+              </label>
+              <input
+                id="email"
+                name="email"
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+              <p className="mt-1 text-xs text-gray-500">
+                連絡用メールアドレスです（デモ版では実在確認メールは送信しません）。
+              </p>
+            </div>
+
             {profile.user_type === 'contributor' ? (
               <>
                 <div>
                   <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    会社名
+                    会社名・自治体名など
                   </label>
                   <input
                     id="company_name"
@@ -156,59 +178,14 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
                 </div>
 
                 <div>
-                  <label htmlFor="full_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    氏名
+                  <label htmlFor="representative_name" className="block text-sm font-medium text-gray-700 mb-1">
+                    担当者名
                   </label>
                   <input
-                    id="full_name"
-                    name="full_name"
+                    id="representative_name"
+                    name="representative_name"
                     type="text"
-                    value={formData.full_name || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="gender" className="block text-sm font-medium text-gray-700 mb-1">
-                    性別
-                  </label>
-                  <select
-                    id="gender"
-                    name="gender"
-                    value={formData.gender || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="male">男性</option>
-                    <option value="female">女性</option>
-                    <option value="other">その他</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="birth_date" className="block text-sm font-medium text-gray-700 mb-1">
-                    生年月日
-                  </label>
-                  <input
-                    id="birth_date"
-                    name="birth_date"
-                    type="date"
-                    value={formData.birth_date || ''}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  />
-                </div>
-
-                <div>
-                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
-                    所在地
-                  </label>
-                  <input
-                    id="location"
-                    name="location"
-                    type="text"
-                    value={formData.location || ''}
+                    value={formData.representative_name || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />
@@ -243,14 +220,34 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
                 </div>
 
                 <div>
-                  <label htmlFor="occupation" className="block text-sm font-medium text-gray-700 mb-1">
-                    職業
+                  <label htmlFor="location" className="block text-sm font-medium text-gray-700 mb-1">
+                    所在地
+                  </label>
+                  <select
+                    id="location"
+                    name="location"
+                    value={formData.location || ''}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">選択してください</option>
+                    {countryOptions.map((country) => (
+                      <option key={country.value} value={country.value}>
+                        {country.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="industry" className="block text-sm font-medium text-gray-700 mb-1">
+                    業種（任意）
                   </label>
                   <input
-                    id="occupation"
-                    name="occupation"
+                    id="industry"
+                    name="industry"
                     type="text"
-                    value={formData.occupation || ''}
+                    value={formData.industry || ''}
                     onChange={handleChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   />

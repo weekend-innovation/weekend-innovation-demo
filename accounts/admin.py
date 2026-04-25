@@ -27,7 +27,7 @@ class ContributorProfileAdmin(admin.ModelAdmin):
     """投稿者プロフィールの管理画面設定"""
     list_display = ('user', 'company_name', 'representative_name', 'industry', 'created_at')
     list_filter = ('industry', 'created_at')
-    search_fields = ('company_name', 'representative_name', 'email')
+    search_fields = ('company_name', 'representative_name')
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
@@ -35,7 +35,7 @@ class ContributorProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'company_name', 'representative_name')
         }),
         ('連絡先情報', {
-            'fields': ('address', 'phone_number', 'email')
+            'fields': ('address', 'phone_number')
         }),
         ('企業情報', {
             'fields': ('industry', 'employee_count', 'established_year', 'company_url', 'company_logo')
@@ -51,7 +51,7 @@ class ProposerProfileAdmin(admin.ModelAdmin):
     """提案者プロフィールの管理画面設定"""
     list_display = ('user', 'full_name', 'gender', 'occupation', 'created_at')
     list_filter = ('gender', 'occupation', 'created_at')
-    search_fields = ('full_name', 'email', 'expertise')
+    search_fields = ('full_name', 'occupation')
     readonly_fields = ('created_at', 'updated_at')
     
     fieldsets = (
@@ -59,10 +59,10 @@ class ProposerProfileAdmin(admin.ModelAdmin):
             'fields': ('user', 'full_name', 'gender', 'birth_date')
         }),
         ('連絡先情報', {
-            'fields': ('address', 'phone_number', 'email')
+            'fields': ('address', 'phone_number')
         }),
         ('プロフィール情報', {
-            'fields': ('occupation', 'expertise', 'bio', 'profile_image')
+            'fields': ('occupation', 'nationality', 'profile_image')
         }),
         ('システム情報', {
             'fields': ('created_at', 'updated_at'),

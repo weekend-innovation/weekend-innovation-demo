@@ -238,6 +238,14 @@ export const authAPI = {
     return await apiRequest<UserDetail>('/auth/profile/');
   },
 
+  // ユーザー基本情報更新（user.email など）
+  updateUserProfile: async (data: Record<string, unknown>): Promise<UserDetail> => {
+    return await apiRequest<UserDetail>('/auth/profile/', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
   // 投稿者プロフィール更新
   updateContributorProfile: async (data: Record<string, unknown>): Promise<UserDetail> => {
     return await apiRequest<UserDetail>('/auth/profile/contributor/', {

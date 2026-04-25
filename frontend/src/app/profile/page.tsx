@@ -140,38 +140,24 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* 個人情報 */}
+          {/* 詳細情報 */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">個人情報</h2>
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+              {user.user_type === 'contributor' ? '団体情報' : '個人情報'}
+            </h2>
             <div className="space-y-4">
               {user.user_type === 'contributor' ? (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">会社名</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">会社名・自治体名など</label>
                     <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                       <p className="text-gray-900">{profile.contributor_profile?.company_name || '未設定'}</p>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">氏名</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">担当者名</label>
                     <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
-                      <p className="text-gray-900">{profile.contributor_profile?.full_name || '未設定'}</p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">性別</label>
-                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
-                      <p className="text-gray-900">
-                        {profile.contributor_profile?.gender === 'male' ? '男性' :
-                         profile.contributor_profile?.gender === 'female' ? '女性' :
-                         profile.contributor_profile?.gender === 'other' ? 'その他' : '未設定'}
-                      </p>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">生年月日</label>
-                    <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
-                      <p className="text-gray-900">{profile.contributor_profile?.birth_date || '未設定'}</p>
+                      <p className="text-gray-900">{profile.contributor_profile?.representative_name || '未設定'}</p>
                     </div>
                   </div>
                   <div>
@@ -193,9 +179,9 @@ const ProfilePage = () => {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">職業</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">業種</label>
                     <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
-                      <p className="text-gray-900">{profile.contributor_profile?.occupation || '未設定'}</p>
+                      <p className="text-gray-900">{profile.contributor_profile?.industry || '未設定'}</p>
                     </div>
                   </div>
                 </>

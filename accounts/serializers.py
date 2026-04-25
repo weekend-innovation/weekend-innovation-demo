@@ -30,7 +30,7 @@ class ContributorProfileSerializer(serializers.ModelSerializer):
         model = ContributorProfile
         fields = [
             'company_name', 'representative_name', 'address', 
-            'phone_number', 'email', 'industry', 'employee_count', 
+            'phone_number', 'industry', 'employee_count', 
             'established_year', 'company_url', 'company_logo', 'location'
         ]
 
@@ -43,7 +43,7 @@ class ProposerProfileSerializer(serializers.ModelSerializer):
         model = ProposerProfile
         fields = [
             'full_name', 'gender', 'birth_date', 'address', 
-            'phone_number', 'email', 'occupation', 'nationality', 
+            'phone_number', 'occupation', 'nationality', 
             'profile_image'
         ]
 
@@ -72,13 +72,16 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("パスワードが一致しません")
         if not data.get('email'):
             raise serializers.ValidationError("メールアドレスは必須です")
+        data['email'] = data['email'].strip().lower()
+        if User.objects.filter(email__iexact=data['email']).exists():
+            raise serializers.ValidationError("このメールアドレスは既に使用されています")
         
         user_type = data.get('user_type')
         profile_data = data.get('profile', {})
         
         # ユーザータイプ別の必須フィールド検証
         if user_type == 'contributor':
-            required_fields = ['company_name', 'representative_name', 'address', 'phone_number', 'industry']
+            required_fields = ['company_name', 'representative_name', 'address', 'phone_number']
             for field in required_fields:
                 if not profile_data.get(field):
                     raise serializers.ValidationError(f"投稿者プロフィールの{field}は必須です")
@@ -102,8 +105,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # プロフィール作成
         if user.user_type == 'contributor':
-            # 投稿者プロフィールのemailは、未指定/空なら基本情報のuser.emailを使用
-            profile_data['email'] = profile_data.get('email') or validated_data['email']
             ContributorProfile.objects.create(user=user, **profile_data)
         elif user.user_type == 'proposer':
             ProposerProfile.objects.create(user=user, **profile_data)
@@ -126,18 +127,30 @@ class UserLoginSerializer(serializers.Serializer):
         password = data.get('password')
         
         if email and password:
-            # メールアドレスでユーザーを検索
-            try:
-                user = User.objects.get(email=email)
-                username = user.username
-            except User.DoesNotExist:
+            # メールアドレスで候補ユーザーを検索（重複メールにも対応）
+            users = User.objects.filter(email=email)
+            if not users.exists():
                 raise serializers.ValidationError("ユーザーが存在しません")
-            
-            # 認証実行
-            user = authenticate(username=username, password=password)
-            if not user:
+
+            matched_users = []
+            for candidate in users:
+                authed_user = authenticate(
+                    username=candidate.username,
+                    password=password,
+                )
+                if authed_user:
+                    matched_users.append(authed_user)
+
+            if not matched_users:
                 raise serializers.ValidationError("メールアドレスまたはパスワードが正しくありません")
-            
+
+            if len(matched_users) > 1:
+                raise serializers.ValidationError(
+                    "同じメールアドレス・同じパスワードのアカウントが複数あるためログインできません。"
+                    "どちらかのパスワードまたはメールアドレスを変更してください。"
+                )
+
+            user = matched_users[0]
             if not user.is_active:
                 raise serializers.ValidationError("アカウントが無効です")
             
@@ -161,6 +174,15 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'contributor_profile', 'proposer_profile'
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
+
+    def validate_email(self, value):
+        normalized = value.strip().lower()
+        qs = User.objects.filter(email__iexact=normalized)
+        if self.instance:
+            qs = qs.exclude(pk=self.instance.pk)
+        if qs.exists():
+            raise serializers.ValidationError("このメールアドレスは既に使用されています")
+        return normalized
 
 
 class ProfileUpdateSerializer(serializers.ModelSerializer):
