@@ -78,7 +78,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # ユーザータイプ別の必須フィールド検証
         if user_type == 'contributor':
-            required_fields = ['company_name', 'representative_name', 'address', 'phone_number', 'email', 'industry']
+            required_fields = ['company_name', 'representative_name', 'address', 'phone_number', 'industry']
             for field in required_fields:
                 if not profile_data.get(field):
                     raise serializers.ValidationError(f"投稿者プロフィールの{field}は必須です")
@@ -102,6 +102,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         # プロフィール作成
         if user.user_type == 'contributor':
+            # 投稿者プロフィールのemailは、未指定/空なら基本情報のuser.emailを使用
+            profile_data['email'] = profile_data.get('email') or validated_data['email']
             ContributorProfile.objects.create(user=user, **profile_data)
         elif user.user_type == 'proposer':
             ProposerProfile.objects.create(user=user, **profile_data)
