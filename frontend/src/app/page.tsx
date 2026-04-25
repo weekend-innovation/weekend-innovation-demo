@@ -15,9 +15,11 @@
 import Link from 'next/link';
 import { useState } from 'react';
 import ServiceDescriptionModal from '../components/common/ServiceDescriptionModal';
+import { DemoVersionModal } from '../components/common/DemoVersionNotice';
 
 export default function Home() {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
+  const [isDemoVersionOpen, setIsDemoVersionOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white w-full min-w-0 overflow-x-hidden">
@@ -121,7 +123,7 @@ export default function Home() {
                   <h3 className="text-xl font-semibold text-black">解決提案</h3>
                   <button
                     type="button"
-                    onClick={() => setIsDescriptionOpen(true)}
+                    onClick={() => setIsDemoVersionOpen(true)}
                     className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
                     title="デモ版の報酬説明を見る"
                     aria-label="デモ版の報酬説明を見る"
@@ -172,6 +174,10 @@ export default function Home() {
       <ServiceDescriptionModal 
         isOpen={isDescriptionOpen} 
         onClose={() => setIsDescriptionOpen(false)} 
+      />
+      <DemoVersionModal
+        isOpen={isDemoVersionOpen}
+        onClose={() => setIsDemoVersionOpen(false)}
       />
     </div>
   );

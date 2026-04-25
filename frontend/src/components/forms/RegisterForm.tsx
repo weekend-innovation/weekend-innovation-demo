@@ -117,7 +117,7 @@ export function RegisterForm() {
       <div className="grid grid-cols-1 gap-4">
         <button
           onClick={() => handleUserTypeSelect('contributor')}
-          className="relative p-6 border-2 border-gray-200 rounded-lg hover:border-black transition-colors text-left"
+          className="relative p-6 border-2 border-gray-200 rounded-lg hover:border-black transition-colors text-left cursor-pointer"
         >
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -138,7 +138,7 @@ export function RegisterForm() {
 
         <button
           onClick={() => handleUserTypeSelect('proposer')}
-          className="relative p-6 border-2 border-gray-200 rounded-lg hover:border-black transition-colors text-left"
+          className="relative p-6 border-2 border-gray-200 rounded-lg hover:border-black transition-colors text-left cursor-pointer"
         >
           <div className="flex items-center">
             <div className="flex-shrink-0">
@@ -165,7 +165,7 @@ export function RegisterForm() {
       <div className="text-center">
         <button
           onClick={() => setStep('user-type')}
-          className="text-sm text-gray-600 hover:text-black"
+          className="text-sm text-gray-600 hover:text-black cursor-pointer"
         >
           ← 戻る
         </button>
@@ -205,7 +205,7 @@ export function RegisterForm() {
           />
           {userType === 'proposer' && (
             <p className="mt-1 text-xs text-gray-500">
-              提案者はメールアドレス必須です。デモ版では通知用途のため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
+              デモ版では通知用途のため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
             </p>
           )}
         </div>
@@ -244,7 +244,7 @@ export function RegisterForm() {
 
         <button
           type="submit"
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black cursor-pointer"
         >
           次へ
         </button>
@@ -257,7 +257,7 @@ export function RegisterForm() {
       <div className="text-center">
         <button
           onClick={() => setStep('user-info')}
-          className="text-sm text-gray-600 hover:text-black"
+          className="text-sm text-gray-600 hover:text-black cursor-pointer"
         >
           ← 戻る
         </button>
@@ -409,7 +409,7 @@ export function RegisterForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isLoading ? '登録中...' : '登録完了'}
         </button>
