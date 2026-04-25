@@ -8,6 +8,8 @@ from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import User, ContributorProfile, ProposerProfile
 
+APP_USER_TYPES = ['contributor', 'proposer']
+
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -73,7 +75,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         if not data.get('email'):
             raise serializers.ValidationError("メールアドレスは必須です")
         data['email'] = data['email'].strip().lower()
-        if User.objects.filter(email__iexact=data['email']).exists():
+        if User.objects.filter(
+            email__iexact=data['email'],
+            user_type__in=APP_USER_TYPES,
+        ).exists():
             raise serializers.ValidationError("このメールアドレスは既に使用されています")
         
         user_type = data.get('user_type')
@@ -128,7 +133,10 @@ class UserLoginSerializer(serializers.Serializer):
         
         if email and password:
             # メールアドレスで候補ユーザーを検索（重複メールにも対応）
-            users = User.objects.filter(email=email)
+            users = User.objects.filter(
+                email__iexact=email.strip().lower(),
+                user_type__in=APP_USER_TYPES,
+            )
             if not users.exists():
                 raise serializers.ValidationError("ユーザーが存在しません")
 
@@ -177,7 +185,13 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     def validate_email(self, value):
         normalized = value.strip().lower()
-        qs = User.objects.filter(email__iexact=normalized)
+        if self.instance and self.instance.user_type not in APP_USER_TYPES:
+            return normalized
+
+        qs = User.objects.filter(
+            email__iexact=normalized,
+            user_type__in=APP_USER_TYPES,
+        )
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():

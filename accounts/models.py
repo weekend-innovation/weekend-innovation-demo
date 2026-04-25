@@ -8,6 +8,7 @@ Weekend Innovationプロジェクトのユーザーシステム
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.db.models.functions import Lower
 
 
 class User(AbstractUser):
@@ -24,7 +25,6 @@ class User(AbstractUser):
     email = models.EmailField(
         blank=False,
         null=False,
-        unique=True,
         verbose_name="メールアドレス",
     )
     
@@ -42,6 +42,13 @@ class User(AbstractUser):
     class Meta:
         verbose_name = "ユーザー"
         verbose_name_plural = "ユーザー"
+        constraints = [
+            models.UniqueConstraint(
+                Lower('email'),
+                condition=models.Q(user_type__in=['contributor', 'proposer']),
+                name='uniq_lower_email_app_users_only',
+            )
+        ]
     
     def __str__(self):
         return f"{self.username} ({self.get_user_type_display()})"
