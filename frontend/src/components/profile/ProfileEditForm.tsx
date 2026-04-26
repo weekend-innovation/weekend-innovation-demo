@@ -31,7 +31,7 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ user, profile, onSave
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
       <h3 className="text-lg font-semibold text-gray-900 mb-4">
-        {user.user_type === 'contributor' ? '企業情報の編集' : '個人情報の編集'}
+        {user.user_type === 'contributor' ? '団体情報の編集' : '個人情報の編集'}
       </h3>
       
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -39,7 +39,7 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ user, profile, onSave
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">会社名</label>
+                <label className="block text-sm font-medium text-gray-500 mb-1">会社名や自治体名など</label>
                 <input
                   type="text"
                   value={editedProfile.company_name}
@@ -49,11 +49,11 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ user, profile, onSave
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">代表者名</label>
+                <label className="block text-sm font-medium text-gray-500 mb-1">担当者名</label>
                 <input
                   type="text"
-                  value={editedProfile.full_name}
-                  onChange={(e) => handleChange('full_name', e.target.value)}
+                  value={editedProfile.representative_name}
+                  onChange={(e) => handleChange('representative_name', e.target.value)}
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   required
                 />

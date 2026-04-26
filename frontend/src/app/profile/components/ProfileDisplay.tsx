@@ -1,6 +1,6 @@
 /**
  * プロフィール表示コンポーネント
- * リファクタリング: 企業情報と個人情報の表示ロジックを統一
+ * リファクタリング: 団体情報と個人情報の表示ロジックを統一
  */
 
 import React from 'react';
@@ -17,13 +17,13 @@ interface ProposerDisplayProps {
 }
 
 /**
- * 企業情報（Contributor）表示コンポーネント
+ * 団体情報（Contributor）表示コンポーネント
  */
 export const ContributorProfileDisplay: React.FC<ContributorDisplayProps> = ({ profile }) => {
   return (
-    <ProfileSection title="企業情報">
-      <ProfileField label="会社名" value={profile.company_name} />
-      <ProfileField label="代表者名" value={profile.full_name} />
+    <ProfileSection title="団体情報">
+      <ProfileField label="会社名や自治体名など" value={profile.company_name} />
+      <ProfileField label="担当者名" value={profile.representative_name} />
       <ProfileField 
         label="所在地" 
         value={countryCodeToJapanese(profile.location || '')} 
