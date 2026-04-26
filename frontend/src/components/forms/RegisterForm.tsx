@@ -17,7 +17,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authAPI } from '@/lib/api';
+import { authAPI, ApiError, mapDrfErrorBodyToFieldErrors } from '@/lib/api';
 import { RegisterRequest, UserType } from '@/types/auth';
 
 type RegisterFormData = Omit<RegisterRequest, 'profile'> & {
@@ -36,8 +36,13 @@ export function RegisterForm() {
     profile: {},
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [isCheckingUserInfo, setIsCheckingUserInfo] = useState(false);
   const [error, setError] = useState<string>('');
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const router = useRouter();
+
+  const inputErrorClass = (name: string) =>
+    fieldErrors[name] ? ' border-red-500 focus:border-red-500 focus:ring-red-200' : '';
 
   const handleUserTypeSelect = (type: UserType) => {
     setUserType(type);
@@ -68,6 +73,14 @@ export function RegisterForm() {
       [name]: value,
     }));
     if (error) setError('');
+    if (name) {
+      setFieldErrors((prev) => {
+        const n = { ...prev };
+        delete n[name];
+        delete n._form;
+        return n;
+      });
+    }
   };
 
   const handleProfileChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
@@ -80,12 +93,112 @@ export function RegisterForm() {
       },
     }));
     if (error) setError('');
+    if (name) {
+      setFieldErrors((prev) => {
+        const n = { ...prev };
+        delete n[name];
+        return n;
+      });
+    }
+  };
+
+  const validateBasicInfo = (): boolean => {
+    const fe: Record<string, string> = {};
+    if (!formData.username.trim()) {
+      fe.username = 'ユーザー名を入力してください';
+    }
+    if (!formData.email.trim()) {
+      fe.email = 'メールアドレスを入力してください';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email.trim())) {
+      fe.email = '有効なメールアドレスの形式で入力してください';
+    }
+    if (!formData.password) {
+      fe.password = 'パスワードを入力してください';
+    } else if (formData.password.length < 8) {
+      fe.password = 'パスワードは8文字以上にしてください';
+    }
+    if (formData.password !== formData.password_confirm) {
+      fe.password_confirm = 'パスワードとパスワード確認が一致しません';
+    }
+    if (Object.keys(fe).length) {
+      setFieldErrors(fe);
+      return false;
+    }
+    return true;
+  };
+
+  const validateProfileStep = (): boolean => {
+    if (!userType) {
+      return false;
+    }
+    const fe: Record<string, string> = {};
+    if (userType === 'contributor') {
+      if (!formData.profile.company_name?.trim()) {
+        fe.company_name = '商号を入力してください';
+      }
+      if (!formData.profile.representative_name?.trim()) {
+        fe.representative_name = '担当者名を入力してください';
+      }
+      if (!formData.profile.address?.trim()) {
+        fe.address = '住所を入力してください';
+      }
+      if (!formData.profile.phone_number?.trim()) {
+        fe.phone_number = '電話番号を入力してください';
+      }
+    }
+    if (Object.keys(fe).length) {
+      setFieldErrors((prev) => ({ ...prev, ...fe }));
+      return false;
+    }
+    return true;
+  };
+
+  const handleUserInfoNext = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+    setFieldErrors((prev) => {
+      const n = { ...prev };
+      for (const k of ['username', 'email', 'password', 'password_confirm', '_form'] as const) {
+        delete n[k];
+      }
+      return n;
+    });
+    if (!validateBasicInfo()) {
+      return;
+    }
+    setIsCheckingUserInfo(true);
+    try {
+      const r = await authAPI.checkRegistrationAvailability(
+        formData.email,
+        formData.username
+      );
+      const fe: Record<string, string> = {};
+      if (!r.email_available) {
+        fe.email = 'このメールアドレスは既に使用されています。別のメールアドレスを入力するか、ログインをお試しください。';
+      }
+      if (!r.username_available) {
+        fe.username = 'このユーザー名は既に使われています。別のユーザー名にしてください。';
+      }
+      if (Object.keys(fe).length) {
+        setFieldErrors(fe);
+        return;
+      }
+      setStep('profile');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '利用可否の確認に失敗しました');
+    } finally {
+      setIsCheckingUserInfo(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validateProfileStep()) {
+      return;
+    }
     setIsLoading(true);
     setError('');
+    setFieldErrors({});
 
     try {
       const response = await authAPI.register(formData as unknown as RegisterRequest);
@@ -97,6 +210,11 @@ export function RegisterForm() {
         router.push('/dashboard/proposer');
       }
     } catch (err: unknown) {
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setFieldErrors(mapDrfErrorBodyToFieldErrors(err.body));
+        return;
+      }
       setError(err instanceof Error ? err.message : '登録に失敗しました');
     } finally {
       setIsLoading(false);
@@ -170,7 +288,7 @@ export function RegisterForm() {
         <h2 className="mt-4 text-3xl font-extrabold text-gray-900">基本情報</h2>
       </div>
 
-      <form onSubmit={(e) => { e.preventDefault(); setStep('profile'); }} className="space-y-4">
+      <form onSubmit={handleUserInfoNext} className="space-y-4" noValidate>
         <div>
           <label htmlFor="username" className="block text-sm font-medium text-gray-700">
             ユーザー名
@@ -179,12 +297,18 @@ export function RegisterForm() {
             id="username"
             name="username"
             type="text"
-            required
+            autoComplete="username"
             value={formData.username}
             onChange={handleUserInfoChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('username')
+            }
             placeholder="ユーザー名"
           />
+          {fieldErrors.username && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
+          )}
         </div>
 
         <div>
@@ -195,12 +319,18 @@ export function RegisterForm() {
             id="email"
             name="email"
             type="email"
-            required
+            autoComplete="email"
             value={formData.email}
             onChange={handleUserInfoChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('email')
+            }
             placeholder="your@email.com"
           />
+          {fieldErrors.email && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+          )}
           {userType === 'proposer' && (
             <p className="mt-1 text-xs text-gray-500">
               デモ版では通知用途のため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
@@ -216,12 +346,18 @@ export function RegisterForm() {
             id="password"
             name="password"
             type="password"
-            required
+            autoComplete="new-password"
             value={formData.password}
             onChange={handleUserInfoChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('password')
+            }
             placeholder="パスワード（8文字以上）"
           />
+          {fieldErrors.password && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.password}</p>
+          )}
         </div>
 
         <div>
@@ -232,19 +368,26 @@ export function RegisterForm() {
             id="password_confirm"
             name="password_confirm"
             type="password"
-            required
+            autoComplete="new-password"
             value={formData.password_confirm}
             onChange={handleUserInfoChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('password_confirm')
+            }
             placeholder="パスワードを再入力"
           />
+          {fieldErrors.password_confirm && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.password_confirm}</p>
+          )}
         </div>
 
         <button
           type="submit"
-          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black cursor-pointer"
+          disabled={isCheckingUserInfo}
+          className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-black hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-black cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          次へ
+          {isCheckingUserInfo ? '確認中...' : '次へ'}
         </button>
       </form>
     </div>
@@ -264,7 +407,18 @@ export function RegisterForm() {
         </h2>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+        {fieldErrors._form && (
+          <div className="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded text-sm">
+            {fieldErrors._form}
+          </div>
+        )}
+        {fieldErrors.email && (
+          <p className="text-sm text-red-600">
+            {fieldErrors.email}（上の「← 戻る」で基本情報のメールを変更できます）
+          </p>
+        )}
+
         {userType === 'contributor' ? (
           <>
             <div>
@@ -275,12 +429,17 @@ export function RegisterForm() {
                 id="company_name"
                 name="company_name"
                 type="text"
-                required
                 value={formData.profile.company_name ?? ''}
                 onChange={handleProfileChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+                className={
+                  'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+                  inputErrorClass('company_name')
+                }
                 placeholder="会社名や自治体名など"
               />
+              {fieldErrors.company_name && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.company_name}</p>
+              )}
             </div>
 
             <div>
@@ -291,12 +450,17 @@ export function RegisterForm() {
                 id="representative_name"
                 name="representative_name"
                 type="text"
-                required
                 value={formData.profile.representative_name ?? ''}
                 onChange={handleProfileChange}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+                className={
+                  'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+                  inputErrorClass('representative_name')
+                }
                 placeholder="担当者名"
               />
+              {fieldErrors.representative_name && (
+                <p className="mt-1 text-sm text-red-600">{fieldErrors.representative_name}</p>
+              )}
             </div>
 
             <div>
@@ -372,13 +536,18 @@ export function RegisterForm() {
           <textarea
             id="address"
             name="address"
-            required={userType === 'contributor'}
             rows={3}
             value={formData.profile.address}
             onChange={handleProfileChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('address')
+            }
             placeholder="住所"
           />
+          {fieldErrors.address && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.address}</p>
+          )}
         </div>
 
         <div>
@@ -389,12 +558,17 @@ export function RegisterForm() {
             id="phone_number"
             name="phone_number"
             type="tel"
-            required={userType === 'contributor'}
             value={formData.profile.phone_number}
             onChange={handleProfileChange}
-            className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
+            className={
+              'mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black' +
+              inputErrorClass('phone_number')
+            }
             placeholder="電話番号"
           />
+          {fieldErrors.phone_number && (
+            <p className="mt-1 text-sm text-red-600">{fieldErrors.phone_number}</p>
+          )}
         </div>
 
         {error && (

@@ -11,6 +11,7 @@ app_name = 'accounts'
 
 urlpatterns = [
     # 認証関連
+    path('check-registration/', views.CheckRegistrationAvailabilityView.as_view(), name='check-registration'),
     path('register/', views.RegisterView.as_view(), name='register'),
     path('login/', views.LoginView.as_view(), name='login'),
     path('logout/', views.LogoutView.as_view(), name='logout'),

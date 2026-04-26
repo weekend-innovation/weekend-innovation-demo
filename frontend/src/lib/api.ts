@@ -19,6 +19,18 @@ import {
   AuthTokens
 } from '@/types/auth';
 
+/** API 失敗時に DRF の JSON 本文を保持（登録エラーの欄表示用） */
+export class ApiError extends Error {
+  constructor(
+    message: string,
+    public status: number,
+    public body: unknown
+  ) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
 // API ベースURL
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -62,6 +74,102 @@ export const tokenManager = {
     localStorage.setItem('access_token', access);
   }
 };
+
+/**
+ * DRF の 400/422 等で返る JSON（フィールド名→メッセージ配列 等）を人が読める1文にまとめる
+ */
+function formatDjangoRestErrorBody(data: unknown): string {
+  if (data == null) {
+    return 'リクエストに失敗しました';
+  }
+  if (typeof data === 'string') {
+    return data;
+  }
+  if (Array.isArray(data)) {
+    return data.map((v) => (typeof v === 'string' ? v : JSON.stringify(v))).join(' ');
+  }
+  if (typeof data !== 'object') {
+    return String(data);
+  }
+  const o = data as Record<string, unknown>;
+  if (o.detail != null) {
+    const d = o.detail;
+    if (typeof d === 'string') {
+      return d;
+    }
+    if (Array.isArray(d)) {
+      return d.map((x) => (typeof x === 'string' ? x : JSON.stringify(x))).join(' ');
+    }
+  }
+  if (typeof o.error === 'string') {
+    return o.error;
+  }
+  if (typeof o.message === 'string') {
+    return o.message;
+  }
+  if (Array.isArray(o.non_field_errors) && o.non_field_errors.length) {
+    return o.non_field_errors
+      .map((x) => (typeof x === 'string' ? x : JSON.stringify(x)))
+      .join(' ');
+  }
+  const parts: string[] = [];
+  for (const [k, v] of Object.entries(o)) {
+    if (k === 'detail' || k === 'non_field_errors') {
+      continue;
+    }
+    if (Array.isArray(v)) {
+      const msgs = v.map((x) => (typeof x === 'string' ? x : JSON.stringify(x)));
+      if (msgs.length) {
+        const label = k === 'non_field_errors' ? '' : `${k}: `;
+        parts.push(`${label}${msgs.join(' ')}`.trim());
+      }
+    } else if (v != null && v !== '' && k !== 'detail') {
+      parts.push(`${k}: ${String(v)}`);
+    }
+  }
+  if (parts.length) {
+    return parts.join(' / ');
+  }
+  return 'リクエストに失敗しました';
+}
+
+/**
+ * 登録・更新などの 400 応答を input の name に近いキーへ割り当てる
+ */
+export function mapDrfErrorBodyToFieldErrors(data: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (!data || typeof data !== 'object') {
+    return out;
+  }
+  const o = data as Record<string, unknown>;
+  if (Array.isArray(o.non_field_errors) && o.non_field_errors.length) {
+    const msg = o.non_field_errors
+      .map((x) => (typeof x === 'string' ? x : String(x)))
+      .join(' ');
+    if (msg.includes('メール') || /email/i.test(msg)) {
+      out.email = msg;
+    } else {
+      out._form = msg;
+    }
+  }
+  for (const key of ['username', 'email', 'password', 'password_confirm', 'user_type'] as const) {
+    const v = o[key];
+    if (Array.isArray(v) && v.length && typeof v[0] === 'string') {
+      out[key] = (v as string[]).join(' ');
+    }
+  }
+  if (o.profile && typeof o.profile === 'object' && o.profile !== null) {
+    const p = o.profile as Record<string, unknown>;
+    for (const [k, v] of Object.entries(p)) {
+      if (Array.isArray(v) && v.length && typeof (v as string[])[0] === 'string') {
+        out[k] = (v as string[]).join(' ');
+      } else if (typeof v === 'string') {
+        out[k] = v;
+      }
+    }
+  }
+  return out;
+}
 
 // API リクエスト用のヘルパー関数
 const apiRequest = async <T>(
@@ -121,16 +229,24 @@ const apiRequest = async <T>(
         console.error('API Error Response:', errorData);
         
         // 空のオブジェクトの場合は特別な処理
-        if (Object.keys(errorData).length === 0) {
+        if (Object.keys(errorData as object).length === 0) {
           errorMessage = `HTTP error! status: ${response.status}`;
         } else {
-          errorMessage = errorData.detail || errorData.error || errorData.message || errorMessage;
+          errorMessage = formatDjangoRestErrorBody(errorData);
         }
+        throw new ApiError(errorMessage, response.status, errorData);
       } catch (e) {
         // JSON解析に失敗した場合はデフォルトメッセージを使用
         console.error('Failed to parse error response:', e);
+        if (e instanceof ApiError) {
+          throw e;
+        }
       }
-      throw new Error(errorMessage);
+      throw new ApiError(
+        `HTTP error! status: ${response.status}`,
+        response.status,
+        null
+      );
     }
 
     return await response.json();
@@ -171,6 +287,25 @@ const refreshAccessToken = async (): Promise<boolean> => {
 
 // 認証関連API
 export const authAPI = {
+  /**
+   * 新規登録の基本情報で、メール・ユーザー名が既に使われているか（GET）
+   */
+  checkRegistrationAvailability: async (
+    email: string,
+    username: string
+  ): Promise<{ email_available: boolean; username_available: boolean }> => {
+    const q = new URLSearchParams();
+    if (email.trim()) {
+      q.set('email', email.trim().toLowerCase());
+    }
+    if (username.trim()) {
+      q.set('username', username.trim());
+    }
+    return await apiRequest<{ email_available: boolean; username_available: boolean }>(
+      `/auth/check-registration/?${q.toString()}`
+    );
+  },
+
   // ログイン
   login: async (data: LoginRequest): Promise<AuthResponse> => {
     const response = await apiRequest<AuthResponse>('/auth/login/', {

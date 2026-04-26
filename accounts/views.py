@@ -19,7 +19,8 @@ from .serializers import (
     UserDetailSerializer,
     ContributorProfileSerializer,
     ProposerProfileSerializer,
-    ProfileUpdateSerializer
+    ProfileUpdateSerializer,
+    APP_USER_TYPES,
 )
 
 
@@ -50,6 +51,31 @@ class RegisterView(generics.CreateAPIView):
                 'access': str(refresh.access_token),
             }
         }, status=status.HTTP_201_CREATED)
+
+
+class CheckRegistrationAvailabilityView(generics.GenericAPIView):
+    """
+    新規登録前の重複確認（基本情報用）
+    メール・ユーザー名がアプリ登録用ユーザーで既に使われているかを返す
+    """
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        email = (request.query_params.get('email') or '').strip().lower()
+        username = (request.query_params.get('username') or '').strip()
+
+        result = {
+            'email_available': True,
+            'username_available': True,
+        }
+        if email and User.objects.filter(
+            email__iexact=email,
+            user_type__in=APP_USER_TYPES,
+        ).exists():
+            result['email_available'] = False
+        if username and User.objects.filter(username=username).exists():
+            result['username_available'] = False
+        return Response(result)
 
 
 class LoginView(generics.GenericAPIView):
