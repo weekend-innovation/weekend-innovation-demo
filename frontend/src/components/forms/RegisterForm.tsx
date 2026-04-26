@@ -252,7 +252,7 @@ export function RegisterForm() {
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">投稿者</h3>
               <p className="text-sm text-gray-500">
-                創出に繋がる課題を投稿します
+                多様な視点を必要とする課題を投稿します
               </p>
             </div>
           </div>
@@ -273,7 +273,7 @@ export function RegisterForm() {
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">提案者</h3>
               <p className="text-sm text-gray-500">
-                課題に対する解決案を提案します
+                ランダムに選出された場合に課題に対して解決案を提案します
               </p>
             </div>
           </div>
@@ -337,11 +337,11 @@ export function RegisterForm() {
             placeholder="your@email.com"
           />
           {fieldErrors.email && (
-            <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
+            <p className="mt-1 text-xs text-red-600 leading-relaxed">{fieldErrors.email}</p>
           )}
           {userType === 'proposer' && (
-            <p className="mt-1 pl-3 text-xs text-gray-500 border-l-2 border-gray-200">
-              デモ版ではランダムに選出された際に通知するためのものであるため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
+            <p className="mt-1 text-xs text-gray-500 indent-4">
+              デモ版では、ランダムに選出された際に通知するためのものです。実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
             </p>
           )}
         </div>
@@ -422,7 +422,7 @@ export function RegisterForm() {
           </div>
         )}
         {fieldErrors.email && (
-          <p className="text-sm text-red-600">
+          <p className="text-xs text-red-600 leading-relaxed">
             {fieldErrors.email}（上の「← 戻る」で基本情報のメールを変更できます）
           </p>
         )}
