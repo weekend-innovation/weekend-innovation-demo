@@ -4,6 +4,7 @@
 API通信でのデータシリアライゼーションを管理
 """
 
+from django.db import transaction
 from rest_framework import serializers
 from django.contrib.auth import authenticate
 from .models import User, ContributorProfile, ProposerProfile
@@ -93,26 +94,61 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         
         return data
     
+    def _normalize_profile_for_create(
+        self, user_type: str, profile_data: dict
+    ) -> dict:
+        """
+        フロントの空文字 '' などを DB 向けに正規化する。
+        提案者: birth_date='' だと DateField で 500 になるため特に要対応。
+        投稿者: 業種はモデル上必須のため未入力はプレースホルダーにする。
+        """
+        data = dict(profile_data)
+        if user_type == 'proposer':
+            for key in ('full_name', 'address', 'phone_number', 'occupation', 'nationality'):
+                if data.get(key) == '':
+                    data[key] = None
+            if data.get('gender') == '':
+                data['gender'] = None
+            bd = data.get('birth_date')
+            if bd in ('', None) or (isinstance(bd, str) and not str(bd).strip()):
+                data['birth_date'] = None
+        elif user_type == 'contributor':
+            if not (data.get('industry') or '').strip():
+                data['industry'] = '未設定'
+            if data.get('location') == '':
+                data['location'] = None
+            for key in ('company_url', 'company_logo'):
+                if data.get(key) == '':
+                    data[key] = None
+            if data.get('employee_count') in ('', None):
+                data['employee_count'] = None
+            if data.get('established_year') in ('', None):
+                data['established_year'] = None
+        return data
+
     def create(self, validated_data):
         """
         ユーザーとプロフィールを作成
         """
-        profile_data = validated_data.pop('profile')
+        profile_data = self._normalize_profile_for_create(
+            validated_data['user_type'],
+            validated_data.pop('profile'),
+        )
         validated_data.pop('password_confirm')
         
-        # ユーザー作成
-        user = User.objects.create_user(
-            username=validated_data['username'],
-            email=validated_data['email'],
-            password=validated_data['password'],
-            user_type=validated_data['user_type']
-        )
-        
-        # プロフィール作成
-        if user.user_type == 'contributor':
-            ContributorProfile.objects.create(user=user, **profile_data)
-        elif user.user_type == 'proposer':
-            ProposerProfile.objects.create(user=user, **profile_data)
+        with transaction.atomic():
+            # ユーザー作成
+            user = User.objects.create_user(
+                username=validated_data['username'],
+                email=validated_data['email'],
+                password=validated_data['password'],
+                user_type=validated_data['user_type']
+            )
+            # プロフィール作成（失敗時はユーザーも巻き戻す）
+            if user.user_type == 'contributor':
+                ContributorProfile.objects.create(user=user, **profile_data)
+            elif user.user_type == 'proposer':
+                ProposerProfile.objects.create(user=user, **profile_data)
         
         return user
 
