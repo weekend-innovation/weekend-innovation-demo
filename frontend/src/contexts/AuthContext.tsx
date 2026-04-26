@@ -13,6 +13,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   isLoading: boolean;
   token: string | null;
+  /** 登録/ログイン API のレスポンスで React 上のセッションをログインと同じ状態に揃える */
+  applyAuthResponse: (response: AuthResponse) => void;
   login: (email: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -67,20 +69,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
+  const applyAuthResponse = (response: AuthResponse) => {
+    tokenManager.setTokens(response.tokens);
+    setToken(response.tokens.access);
+    setUser(response.user);
+    setIsAuthenticated(true);
+    localStorage.setItem('user', JSON.stringify(response.user));
+  };
+
   // ログイン処理
   const login = async (email: string, password: string) => {
     try {
       setIsLoading(true);
       const response: AuthResponse = await authAPI.login({ email, password });
-      
-      // トークンを設定
-      tokenManager.setTokens(response.tokens);
-      setToken(response.tokens.access);
-      
-      // レスポンスからユーザー情報を設定
-      setUser(response.user);
-      setIsAuthenticated(true);
-      localStorage.setItem('user', JSON.stringify(response.user));
+      applyAuthResponse(response);
     } catch (error) {
       throw error;
     } finally {
@@ -124,6 +126,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     isAuthenticated,
     isLoading,
     token,
+    applyAuthResponse,
     login,
     logout,
     refreshUser

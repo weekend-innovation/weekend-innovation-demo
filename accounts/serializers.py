@@ -80,7 +80,10 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             email__iexact=data['email'],
             user_type__in=APP_USER_TYPES,
         ).exists():
-            raise serializers.ValidationError("このメールアドレスは既に使用されています")
+            # メール重複の有無を文面に含めない（ユーザ列挙の抑止）
+            raise serializers.ValidationError(
+                "登録に失敗しました。入力内容をご確認のうえ、再度お試しください。登録がお済みの場合はログインをお試しください。"
+            )
         
         user_type = data.get('user_type')
         profile_data = data.get('profile', {})
@@ -231,7 +234,9 @@ class UserDetailSerializer(serializers.ModelSerializer):
         if self.instance:
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
-            raise serializers.ValidationError("このメールアドレスは既に使用されています")
+            raise serializers.ValidationError(
+                "ご入力内容をご確認のうえ、再度お試しください。"
+            )
         return normalized
 
 

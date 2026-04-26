@@ -17,6 +17,7 @@
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { authAPI, ApiError, mapDrfErrorBodyToFieldErrors } from '@/lib/api';
 import { RegisterRequest, UserType } from '@/types/auth';
 
@@ -25,6 +26,7 @@ type RegisterFormData = Omit<RegisterRequest, 'profile'> & {
 };
 
 export function RegisterForm() {
+  const { applyAuthResponse } = useAuth();
   const [step, setStep] = useState<'user-type' | 'user-info' | 'profile'>('user-type');
   const [userType, setUserType] = useState<UserType | null>(null);
   const [formData, setFormData] = useState<RegisterFormData>({
@@ -174,7 +176,9 @@ export function RegisterForm() {
       );
       const fe: Record<string, string> = {};
       if (!r.email_available) {
-        fe.email = 'このメールアドレスは既に使用されています。別のメールアドレスを入力するか、ログインをお試しください。';
+        // メール存在の有無を断定しない（ユーザ列挙の抑止）
+        fe.email =
+          '入力内容をご確認のうえ、再度お試しください。登録がお済みの場合はログイン画面をご利用ください。';
       }
       if (!r.username_available) {
         fe.username = 'このユーザー名は既に使われています。別のユーザー名にしてください。';
@@ -202,7 +206,9 @@ export function RegisterForm() {
 
     try {
       const response = await authAPI.register(formData as unknown as RegisterRequest);
-      
+      // トークンは api 層で保存済み。ヘッダー等は user を見るためコンテキストも同期する
+      applyAuthResponse(response);
+
       // 登録成功後、ユーザータイプに応じてリダイレクト
       if (response.user.user_type === 'contributor') {
         router.push('/dashboard/contributor');
@@ -307,7 +313,9 @@ export function RegisterForm() {
             placeholder="ユーザー名"
           />
           {fieldErrors.username && (
-            <p className="mt-1 text-sm text-red-600">{fieldErrors.username}</p>
+            <p className="mt-1 text-xs text-red-600 leading-relaxed">
+              {fieldErrors.username}
+            </p>
           )}
         </div>
 
@@ -332,8 +340,8 @@ export function RegisterForm() {
             <p className="mt-1 text-sm text-red-600">{fieldErrors.email}</p>
           )}
           {userType === 'proposer' && (
-            <p className="mt-1 text-xs text-gray-500">
-              デモ版では通知用途のため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
+            <p className="mt-1 pl-3 text-xs text-gray-500 border-l-2 border-gray-200">
+              デモ版ではランダムに選出された際に通知するためのものであるため、実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
             </p>
           )}
         </div>
