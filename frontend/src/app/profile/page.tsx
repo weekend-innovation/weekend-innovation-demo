@@ -149,7 +149,7 @@ const ProfilePage = () => {
               {user.user_type === 'contributor' ? (
                 <>
                   <div>
-                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">会社名・自治体名など</label>
+                    <label className="block text-sm font-medium text-gray-500 mb-1 ml-8">会社名や自治体名など</label>
                     <div className="bg-blue-50 border border-gray-200 rounded-lg p-3 text-center">
                       <p className="text-gray-900">{profile.contributor_profile?.company_name || '未設定'}</p>
                     </div>

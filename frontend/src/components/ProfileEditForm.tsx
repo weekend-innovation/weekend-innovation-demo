@@ -165,7 +165,7 @@ const ProfileEditForm: React.FC<ProfileEditFormProps> = ({ profile, onSave, onCa
               <>
                 <div>
                   <label htmlFor="company_name" className="block text-sm font-medium text-gray-700 mb-1">
-                    会社名・自治体名など
+                    会社名や自治体名など
                   </label>
                   <input
                     id="company_name"
