@@ -130,6 +130,9 @@ dist
 # Gatsby files
 .cache/
 public
+!frontend/public/
+frontend/public/*
+!frontend/public/sw.js
 
 # Storybook build outputs
 .out

@@ -15,6 +15,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ProposalCard from '../../../components/proposals/ProposalCard';
 import ChallengeCard from '../../../components/challenges/ChallengeCard';
 import { DemoVersionModal, DashboardDemoVersionTrigger } from '../../../components/common/DemoVersionNotice';
+import { ensurePushSubscription, disablePushSubscription, getPushStatus } from '../../../lib/push';
 
 const ProposerDashboard: React.FC = () => {
   const { user, isAuthenticated } = useAuth();
@@ -24,6 +25,9 @@ const ProposerDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [hasNewChallenges, setHasNewChallenges] = useState<boolean>(false);
   const [demoVersionOpen, setDemoVersionOpen] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushMessage, setPushMessage] = useState<string>('');
 
   // ダッシュボードデータの取得
   const fetchDashboardData = useCallback(async () => {
@@ -75,6 +79,38 @@ const ProposerDashboard: React.FC = () => {
       setLoading(false);
     }
   }, [isAuthenticated, user, fetchDashboardData]);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    void (async () => {
+      const status = await getPushStatus();
+      setPushEnabled(status.permission === 'granted' && status.subscribed);
+    })();
+  }, [isAuthenticated, user]);
+
+  const handleTogglePush = async () => {
+    try {
+      setPushLoading(true);
+      setPushMessage('');
+      if (pushEnabled) {
+        await disablePushSubscription();
+        setPushEnabled(false);
+        setPushMessage('通知をOFFにしました。');
+      } else {
+        await ensurePushSubscription();
+        const status = await getPushStatus();
+        const enabled = status.permission === 'granted' && status.subscribed;
+        setPushEnabled(enabled);
+        setPushMessage(
+          enabled
+            ? '通知をONにしました。'
+            : '通知を有効化できませんでした。ブラウザの通知許可をご確認ください。'
+        );
+      }
+    } finally {
+      setPushLoading(false);
+    }
+  };
 
   // 統計情報の計算（安全な処理）
   const totalProposals = proposals?.length || 0;
@@ -154,12 +190,29 @@ const ProposerDashboard: React.FC = () => {
         {/* ページヘッダー */}
         <div className="mb-8 flex flex-wrap justify-between items-start gap-4">
           <DashboardDemoVersionTrigger onOpen={() => setDemoVersionOpen(true)} />
-          <Link
-            href="/challenges"
-            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 shrink-0"
-          >
-            新しい解決案を提案
-          </Link>
+          <div className="bg-white border border-gray-200 rounded-lg px-4 py-3 shrink-0 min-w-72">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-gray-900">通知設定</p>
+                <p className="text-xs text-gray-500">
+                  ランダム選出時にプッシュ通知を受け取る
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleTogglePush}
+                disabled={pushLoading}
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                  pushEnabled
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                } disabled:opacity-50`}
+              >
+                {pushLoading ? '処理中...' : pushEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            {pushMessage ? <p className="mt-2 text-xs text-gray-600">{pushMessage}</p> : null}
+          </div>
         </div>
 
         <DemoVersionModal

@@ -398,6 +398,25 @@ export const authAPI = {
   },
 };
 
+// Push通知購読API
+export const notificationAPI = {
+  subscribePush: async (data: {
+    endpoint: string;
+    keys: { p256dh: string; auth: string };
+  }): Promise<{ id: number; status: string }> => {
+    return await apiRequest<{ id: number; status: string }>('/notifications/push/subscribe/', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+  unsubscribePush: async (endpoint: string): Promise<{ status: string; deleted: number }> => {
+    return await apiRequest<{ status: string; deleted: number }>('/notifications/push/unsubscribe/', {
+      method: 'POST',
+      body: JSON.stringify({ endpoint }),
+    });
+  },
+};
+
 // 認証状態のチェック
 export const isAuthenticated = (): boolean => {
   return !!tokenManager.getAccessToken();

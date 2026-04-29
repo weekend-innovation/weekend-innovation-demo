@@ -30,6 +30,7 @@ urlpatterns = [
     path('api/wallet/', include('payments.urls')),
     path('api/moderation/', include('moderation.urls')),
     path('api/analytics/', include('challenge_analytics.urls')),
+    path('api/notifications/', include('notifications.urls')),
 ]
 
 # メディアファイルの配信設定（開発環境のみ）

@@ -86,16 +86,16 @@ export default function Home() {
 
             {/* 特徴カード群 - 3つの主要機能 */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {/* 課題投稿カード */}
+              {/* 課題の投稿カード */}
               <div className="bg-white p-8 rounded-lg shadow-sm">
                 <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-black mb-2">課題投稿</h3>
+                <h3 className="text-xl font-semibold text-black mb-2">課題の投稿</h3>
                 <p className="text-gray-600">
-                  企業・行政機関などが課題を投稿し、報酬と期限を設定できます。
+                  企業・自治体など、課題を掲出する側（投稿者）が、多様な視点を必要とする課題を投稿します。
                 </p>
               </div>
 
@@ -108,11 +108,11 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">ランダム選出</h3>
                 <p className="text-gray-600">
-                  提案者をランダムに選出し、偏見のない公平な提案を実現します。
+                  投稿された課題に対する解決案の提案者を、登録している提案者の中からランダムに選出することで、構成の偏りを防ぐことができ、多様な視点の確保につながります。
                 </p>
               </div>
 
-              {/* 解決提案カード */}
+              {/* 解決案の提案カード */}
               <div className="bg-white p-8 rounded-lg shadow-sm">
                 <div className="w-12 h-12 bg-black rounded-lg flex items-center justify-center mb-4">
                   <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -120,7 +120,7 @@ export default function Home() {
                   </svg>
                 </div>
                 <div className="inline-block relative mb-2">
-                  <h3 className="text-xl font-semibold text-black">解決提案</h3>
+                  <h3 className="text-xl font-semibold text-black">解決案の提案</h3>
                   <button
                     type="button"
                     onClick={() => setIsDemoVersionOpen(true)}
@@ -132,7 +132,7 @@ export default function Home() {
                   </button>
                 </div>
                 <p className="text-gray-600">
-                  選出された提案者が回答を提案します。本番では提案・採用に応じて報酬を受け取る想定です。
+                  ランダムに選出された提案者が自身の経験や知識に基づいて解決案を提案します。
                 </p>
               </div>
             </div>

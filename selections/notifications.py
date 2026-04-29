@@ -10,6 +10,7 @@ from django.conf import settings
 from django.contrib.auth import get_user_model
 
 from .models import Selection
+from notifications.services import PushNotificationService
 
 User = get_user_model()
 logger = logging.getLogger(__name__)
@@ -82,6 +83,13 @@ class SelectionNotificationService:
                 SelectionNotificationService._send_email_notification(
                     selection, user, 'selected'
                 )
+            # Push通知（許可済みユーザーのみ）
+            PushNotificationService.send_to_user(
+                user=user,
+                title='ランダム選出のお知らせ',
+                body=f'課題「{selection.challenge.title}」に選出されました。',
+                url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}/propose",
+            )
             
             # システム内通知（今後の実装用）
             SelectionNotificationService._create_system_notification(
@@ -114,6 +122,12 @@ class SelectionNotificationService:
                 SelectionNotificationService._send_email_notification(
                     selection, contributor, 'contributor'
                 )
+            PushNotificationService.send_to_user(
+                user=contributor,
+                title='選出完了のお知らせ',
+                body=f'課題「{selection.challenge.title}」の選出が完了しました。',
+                url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}",
+            )
             
             # システム内通知
             SelectionNotificationService._create_system_notification(

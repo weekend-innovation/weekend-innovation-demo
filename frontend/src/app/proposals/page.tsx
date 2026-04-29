@@ -177,15 +177,6 @@ const ProposalsPage: React.FC = () => {
               </p>
             </div>
             
-            {/* 提案者のみ提案作成ボタンを表示 */}
-            {user?.user_type === 'proposer' && (
-              <Link
-                href="/challenges"
-                className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200"
-              >
-                新しい解決案を提案
-              </Link>
-            )}
           </div>
         </div>
         {!proposals || proposals.length === 0 ? (

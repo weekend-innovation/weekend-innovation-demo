@@ -273,7 +273,7 @@ export function RegisterForm() {
             <div className="ml-4">
               <h3 className="text-lg font-medium text-gray-900">提案者</h3>
               <p className="text-sm text-gray-500">
-                ランダムに選出された場合に課題に対して解決案を提案します
+                投稿された課題についてランダムに選出された場合、その課題の解決案を提案します
               </p>
             </div>
           </div>
@@ -338,11 +338,6 @@ export function RegisterForm() {
           />
           {fieldErrors.email && (
             <p className="mt-1 text-xs text-red-600 leading-relaxed">{fieldErrors.email}</p>
-          )}
-          {userType === 'proposer' && (
-            <p className="mt-1 text-xs text-gray-500 indent-4">
-              デモ版では、ランダムに選出された際に通知するためのものです。実在しないメールアドレスでも登録できます（確認メール認証は行いません）。
-            </p>
           )}
         </div>
 

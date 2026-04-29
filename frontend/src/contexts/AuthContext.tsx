@@ -7,6 +7,7 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import type { User, AuthResponse } from '../types/auth';
 import { authAPI, tokenManager } from '../lib/api';
+import { ensurePushSubscription } from '../lib/push';
 
 interface AuthContextType {
   user: User | null;
@@ -68,6 +69,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initAuth();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    void ensurePushSubscription().catch(() => {
+      // 通知許可しないユーザーもいるため、失敗でUI全体を止めない
+    });
+  }, [isAuthenticated, user]);
 
   const applyAuthResponse = (response: AuthResponse) => {
     tokenManager.setTokens(response.tokens);

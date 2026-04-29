@@ -6,18 +6,30 @@ import { authAPI } from '@/lib/api';
 import { UserDetail } from '@/types/auth';
 import { getNationalityName } from '@/lib/nationalityMapping';
 import ProfileEditForm from '@/components/ProfileEditForm';
+import { ensurePushSubscription, disablePushSubscription, getPushStatus } from '@/lib/push';
 
 const ProfilePage = () => {
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [pushEnabled, setPushEnabled] = useState(false);
+  const [pushLoading, setPushLoading] = useState(false);
+  const [pushMessage, setPushMessage] = useState('');
 
   // Hooksは常に同じ順序で呼ばれる必要があるため、条件分岐の前に配置
   useEffect(() => {
     if (user && isAuthenticated) {
       fetchProfile();
     }
+  }, [user, isAuthenticated]);
+
+  useEffect(() => {
+    if (!user || !isAuthenticated) return;
+    void (async () => {
+      const status = await getPushStatus();
+      setPushEnabled(status.permission === 'granted' && status.subscribed);
+    })();
   }, [user, isAuthenticated]);
 
   // 認証チェック
@@ -74,6 +86,30 @@ const ProfilePage = () => {
 
   const handleCancelEdit = () => {
     setIsEditing(false);
+  };
+
+  const handleTogglePush = async () => {
+    try {
+      setPushLoading(true);
+      setPushMessage('');
+      if (pushEnabled) {
+        await disablePushSubscription();
+        setPushEnabled(false);
+        setPushMessage('通知をOFFにしました。');
+      } else {
+        await ensurePushSubscription();
+        const status = await getPushStatus();
+        const enabled = status.permission === 'granted' && status.subscribed;
+        setPushEnabled(enabled);
+        setPushMessage(
+          enabled
+            ? '通知をONにしました。'
+            : '通知を有効化できませんでした。ブラウザの通知許可をご確認ください。'
+        );
+      }
+    } finally {
+      setPushLoading(false);
+    }
   };
 
   if (loading) {
@@ -236,6 +272,32 @@ const ProfilePage = () => {
                 </>
               )}
             </div>
+          </div>
+
+          {/* 通知設定 */}
+          <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">通知設定</h2>
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm text-gray-900">ランダム選出通知（プッシュ）</p>
+                <p className="text-xs text-gray-500">
+                  ランダムに選出された際にブラウザへ通知します
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleTogglePush}
+                disabled={pushLoading}
+                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                  pushEnabled
+                    ? 'bg-green-100 text-green-700 hover:bg-green-200'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                } disabled:opacity-50`}
+              >
+                {pushLoading ? '処理中...' : pushEnabled ? 'ON' : 'OFF'}
+              </button>
+            </div>
+            {pushMessage ? <p className="mt-3 text-xs text-gray-600">{pushMessage}</p> : null}
           </div>
 
           {/* 編集ボタン */}
