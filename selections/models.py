@@ -38,7 +38,7 @@ class Selection(models.Model):
         verbose_name="選出されたユーザー"
     )
     required_count = models.IntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(790)],
+        validators=[MinValueValidator(1), MaxValueValidator(300)],
         verbose_name="選出人数"
     )
     selected_count = models.IntegerField(

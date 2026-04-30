@@ -47,7 +47,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   
   // 提案報酬を計算する関数
   const calculateRewardAmount = async (participants: number) => {
-    if (participants < 50 || participants > 790) {
+    if (participants < 50 || participants > 300) {
       // エラー範囲の場合は報酬を無効値に設定
       setFormData(prev => ({ ...prev, reward_amount: -1 }));
       return;
@@ -98,7 +98,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
     // 選出人数の場合、報酬を先に設定
     let rewardAmount = formData.reward_amount;
     if (mode === 'create' && name === 'required_participants' && participants !== null) {
-      if (participants < 50 || participants > 790) {
+      if (participants < 50 || participants > 300) {
         // エラー範囲の場合は報酬を無効値に設定
         rewardAmount = -1;
       }
@@ -129,7 +129,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         newErrors.required_participants = 'invalid_min';
         // 報酬を無効値に設定
         setFormData(prev => ({ ...prev, reward_amount: -1 }));
-      } else if (participants! > 790) {
+      } else if (participants! > 300) {
         // エラー状態を設定（メッセージは表示しない）
         newErrors.required_participants = 'invalid_max';
         // 報酬を無効値に設定
@@ -189,7 +189,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         if (formData.reward_amount !== -1) {
           setFormData(prev => ({ ...prev, reward_amount: -1 }));
         }
-      } else if (formData.required_participants > 790) {
+      } else if (formData.required_participants > 300) {
         // エラー状態を設定（メッセージは表示しない）
         newErrors.required_participants = 'invalid_max';
         // 報酬を無効値に設定
@@ -238,7 +238,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
       if (validationErrors.required_participants === 'invalid_min') {
         alert('選出人数は50人以上にする必要があります。');
       } else if (validationErrors.required_participants === 'invalid_max') {
-        alert('選出人数は790人以下にする必要があります。');
+        alert('選出人数は300人以下にする必要があります。');
       }
       // 必須エラー（'選出人数は必須です'）の場合はポップアップを表示しない
       
@@ -407,7 +407,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
                 value={formData.required_participants === 0 ? '' : formData.required_participants}
                 onChange={handleChange}
                 min="50"
-                max="790"
+                max="300"
                 step="1"
                 className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${
                   errors.required_participants ? 'border-red-500' : 'border-gray-300'
@@ -419,7 +419,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
                 <p className="mt-1 text-sm text-red-600">{errors.required_participants}</p>
               )}
               <p className="mt-1 text-sm text-gray-500">
-                50人〜790人まで設定可能です
+                50人〜300人まで設定可能です
               </p>
             </div>
 

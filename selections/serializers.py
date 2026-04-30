@@ -57,8 +57,8 @@ class SelectionSerializer(serializers.ModelSerializer):
         """選出人数のバリデーション"""
         if value <= 0:
             raise serializers.ValidationError("選出人数は1以上である必要があります")
-        if value > 790:
-            raise serializers.ValidationError("選出人数は790人以下である必要があります。匿名化用の名前数の上限に達しています。")
+        if value > 300:
+            raise serializers.ValidationError("選出人数は300人以下である必要があります。匿名化用の名前数の上限に達しています。")
         return value
     
     def validate(self, data):
@@ -191,7 +191,7 @@ class SelectionRequestSerializer(serializers.Serializer):
     選出リクエスト用のシリアライザー
     """
     challenge_id = serializers.IntegerField()
-    required_count = serializers.IntegerField(min_value=1, max_value=790)
+    required_count = serializers.IntegerField(min_value=1, max_value=300)
     selection_method = serializers.ChoiceField(
         choices=['random', 'weighted'],
         default='random'

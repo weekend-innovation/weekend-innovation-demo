@@ -99,7 +99,7 @@ const CreateChallengePage: React.FC = () => {
       const errorMessage = err instanceof Error ? err.message : '課題の作成に失敗しました';
       const showAlert =
         errorMessage.includes('現在登録されている提案者数が不足しています') ||
-        (errorMessage.includes('選出人数は') && (errorMessage.includes('50人以上') || errorMessage.includes('790人以下'))) ||
+        (errorMessage.includes('選出人数は') && (errorMessage.includes('50人以上') || errorMessage.includes('300人以下'))) ||
         errorMessage.includes('期限まで最低');
       if (showAlert) {
         alert(errorMessage);

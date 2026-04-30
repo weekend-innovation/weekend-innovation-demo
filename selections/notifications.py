@@ -90,7 +90,7 @@ class SelectionNotificationService:
                 body=f'課題「{selection.challenge.title}」に選出されました。',
                 url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}/propose",
             )
-            push_ok = sent_count >= 0
+            push_ok = sent_count > 0
         except BaseException as exc:
             logger.error(f"Push通知送信エラー (user: {user.username}): {exc}")
 
@@ -154,7 +154,7 @@ class SelectionNotificationService:
                 body=f'課題「{selection.challenge.title}」の選出が完了しました。',
                 url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}",
             )
-            push_ok = sent_count >= 0
+            push_ok = sent_count > 0
         except BaseException as exc:
             logger.error(f"投稿者Push通知送信エラー: {exc}")
 

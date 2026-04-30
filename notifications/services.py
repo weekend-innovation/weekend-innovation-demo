@@ -38,6 +38,11 @@ class PushNotificationService:
             'url': url,
         })
         subscriptions = PushSubscription.objects.filter(user=user, is_active=True)
+        subscription_count = subscriptions.count()
+        if subscription_count == 0:
+            logger.info("Push通知送信対象なし user=%s active_subscriptions=0", user.username)
+            return 0
+
         for sub in subscriptions:
             try:
                 webpush(
@@ -60,4 +65,10 @@ class PushNotificationService:
                     sub.save(update_fields=['is_active', 'updated_at'])
             except Exception as exc:
                 logger.warning("Push送信例外 user=%s endpoint=%s err=%s", user.username, sub.id, exc)
+        logger.info(
+            "Push通知送信結果 user=%s sent=%s active_subscriptions=%s",
+            user.username,
+            sent,
+            subscription_count,
+        )
         return sent

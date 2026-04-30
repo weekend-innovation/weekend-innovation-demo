@@ -60,8 +60,8 @@ class ChallengeSerializer(serializers.ModelSerializer):
         """選出人数のバリデーション"""
         if value < 50:
             raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
-        if value > 790:
-            raise serializers.ValidationError("選出人数は790人以下にする必要があります。")
+        if value > 300:
+            raise serializers.ValidationError("選出人数は300人以下にする必要があります。")
         return value
     
     def validate_reward_amount(self, value):
@@ -125,8 +125,8 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
         
         if value < 50:
             raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
-        if value > 790:
-            raise serializers.ValidationError("選出人数は790人以下にする必要があります。")
+        if value > 300:
+            raise serializers.ValidationError("選出人数は300人以下にする必要があります。")
         
         # 選出可能な提案者数をチェック
         request = self.context.get('request')

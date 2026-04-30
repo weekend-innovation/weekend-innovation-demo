@@ -384,9 +384,9 @@ def calculate_proposal_reward(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if participants > 790:
+    if participants > 300:
         return Response(
-            {'error': '選出人数は790人以下である必要があります。匿名化用の名前数の上限に達しています。'},
+            {'error': '選出人数は300人以下である必要があります。匿名化用の名前数の上限に達しています。'},
             status=status.HTTP_400_BAD_REQUEST
         )
     

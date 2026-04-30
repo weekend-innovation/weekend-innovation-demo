@@ -95,7 +95,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">課題の投稿</h3>
                 <p className="text-gray-600">
-                  企業・自治体などが、多様な視点を必要とする課題を投稿します。
+                  企業・自治体などが多様な視点を必要とする課題を投稿します。
                 </p>
               </div>
 
