@@ -95,17 +95,14 @@ const ProposerDashboard: React.FC = () => {
       if (pushEnabled) {
         await disablePushSubscription();
         setPushEnabled(false);
-        setPushMessage('通知をOFFにしました。');
       } else {
         await ensurePushSubscription();
         const status = await getPushStatus();
         const enabled = status.permission === 'granted' && status.subscribed;
         setPushEnabled(enabled);
-        setPushMessage(
-          enabled
-            ? '通知をONにしました。'
-            : '通知を有効化できませんでした。ブラウザの通知許可をご確認ください。'
-        );
+        if (!enabled) {
+          setPushMessage('通知を有効化できませんでした。ブラウザの通知許可をご確認ください。');
+        }
       }
     } finally {
       setPushLoading(false);
@@ -202,7 +199,7 @@ const ProposerDashboard: React.FC = () => {
                 type="button"
                 onClick={handleTogglePush}
                 disabled={pushLoading}
-                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed ${
                   pushEnabled
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'

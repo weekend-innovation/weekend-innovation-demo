@@ -95,7 +95,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">課題の投稿</h3>
                 <p className="text-gray-600">
-                  企業・自治体など、課題を掲出する側（投稿者）が、多様な視点を必要とする課題を投稿します。
+                  企業・自治体などが、多様な視点を必要とする課題を投稿します。
                 </p>
               </div>
 
@@ -108,7 +108,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">ランダム選出</h3>
                 <p className="text-gray-600">
-                  投稿された課題に対する解決案の提案者を、登録している提案者の中からランダムに選出することで、構成の偏りを防ぐことができ、多様な視点の確保につながります。
+                  投稿された課題に対して解決案を提案する者を、登録している提案者の中からランダムに選出することで、構成の偏りを防ぐことができ、多様な視点の確保につながります。
                 </p>
               </div>
 

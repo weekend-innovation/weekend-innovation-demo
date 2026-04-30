@@ -95,17 +95,14 @@ const ProfilePage = () => {
       if (pushEnabled) {
         await disablePushSubscription();
         setPushEnabled(false);
-        setPushMessage('通知をOFFにしました。');
       } else {
         await ensurePushSubscription();
         const status = await getPushStatus();
         const enabled = status.permission === 'granted' && status.subscribed;
         setPushEnabled(enabled);
-        setPushMessage(
-          enabled
-            ? '通知をONにしました。'
-            : '通知を有効化できませんでした。ブラウザの通知許可をご確認ください。'
-        );
+        if (!enabled) {
+          setPushMessage('通知を有効化できませんでした。ブラウザの通知許可をご確認ください。');
+        }
       }
     } finally {
       setPushLoading(false);
@@ -274,21 +271,20 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* 通知設定 */}
+          {/* 通知設定（文言・トグルは提案者ダッシュボードと同一） */}
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">通知設定</h2>
             <div className="flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm text-gray-900">ランダム選出通知（プッシュ）</p>
                 <p className="text-xs text-gray-500">
-                  ランダムに選出された際にブラウザへ通知します
+                  ランダム選出時にプッシュ通知を受け取る
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleTogglePush}
                 disabled={pushLoading}
-                className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-full text-xs font-semibold transition-colors cursor-pointer disabled:cursor-not-allowed ${
                   pushEnabled
                     ? 'bg-green-100 text-green-700 hover:bg-green-200'
                     : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
@@ -297,7 +293,7 @@ const ProfilePage = () => {
                 {pushLoading ? '処理中...' : pushEnabled ? 'ON' : 'OFF'}
               </button>
             </div>
-            {pushMessage ? <p className="mt-3 text-xs text-gray-600">{pushMessage}</p> : null}
+            {pushMessage ? <p className="mt-2 text-xs text-gray-600">{pushMessage}</p> : null}
           </div>
 
           {/* 編集ボタン */}
