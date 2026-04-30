@@ -42,7 +42,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
           <div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">サービス概要</h3>
             <p className="text-gray-700 text-sm leading-relaxed indent-4">
-              Weekend Innovationは、企業や組織（投稿者）が抱える課題に対して、世界中の多様な提案者から革新的な解決案を募集するプラットフォームです。
+              Weekend Innovationは、企業や自治体などが抱える課題に対して、世界中の多様な提案者から革新的な解決案を募集するプラットフォームです。
             </p>
             <p className="text-gray-700 text-sm leading-relaxed mt-2 indent-4">
               提案者の選出はシステムによるランダム選出で行い、期限後にAIが集まった解決案を整理・分析することで、従来の発想にとらわれない新しい解決策の発見を支援します。
@@ -63,7 +63,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
                   投稿者（企業や自治体）が、新規事業や新商品・サービスに関する課題を投稿します。
                 </p>
                 <p className="text-gray-600 text-xs indent-4">
-                  同時に、提案報酬の総額、採用報酬及び期限を設定します。
+                  その際、投稿者は、他にも提案報酬の総額、採用報酬及び期限を設定します。
                 </p>
               </div>
 
@@ -93,7 +93,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
                   選出された提案者が、その課題に対する解決案（結論・理由）を提出します。
                 </p>
                 <p className="text-gray-600 text-xs indent-4">
-                  提案者の属性情報（国籍・性別・年齢）は期限が満了するまで公開されず、代わりの名前（Lion、Tigerなど）が割り当てられます。これにより、偏見のない公平な議論と評価を実現します。
+                  なお、提案者の属性情報（国籍・性別・年齢）は期限が満了するまで公開されず、代わりの名前（Lion、Tigerなど）が割り当てられます。これにより、偏見のない公平な議論と評価を実現します。
                 </p>
               </div>
 

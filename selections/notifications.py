@@ -4,8 +4,6 @@
 """
 import logging
 from typing import List, Dict, Any
-from django.core.mail import send_mail
-from django.template.loader import render_to_string
 from django.conf import settings
 from django.contrib.auth import get_user_model
 
@@ -19,6 +17,9 @@ _SELECTION_METHOD_LABELS = {
     'random': 'ランダム選出',
     'weighted': '重み付き選出',
 }
+
+# 選出通知はPushを主系とし、メール通知は無効化
+ENABLE_SELECTION_EMAIL_NOTIFICATIONS = False
 
 
 def _selection_method_label(method: str) -> str:
@@ -77,31 +78,57 @@ class SelectionNotificationService:
         Returns:
             bool: 送信成功フラグ
         """
+        push_ok = False
+        email_ok = False
+        system_ok = False
+
+        # Push通知は最優先で試行（メール失敗の影響を受けない）
         try:
-            # メール通知
-            if user.email:
-                SelectionNotificationService._send_email_notification(
-                    selection, user, 'selected'
-                )
-            # Push通知（許可済みユーザーのみ）
-            PushNotificationService.send_to_user(
+            sent_count = PushNotificationService.send_to_user(
                 user=user,
                 title='ランダム選出のお知らせ',
                 body=f'課題「{selection.challenge.title}」に選出されました。',
                 url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}/propose",
             )
-            
-            # システム内通知（今後の実装用）
-            SelectionNotificationService._create_system_notification(
+            push_ok = sent_count >= 0
+        except BaseException as exc:
+            logger.error(f"Push通知送信エラー (user: {user.username}): {exc}")
+
+        # メール通知は現在無効化（Push通知を主系で利用）
+        if ENABLE_SELECTION_EMAIL_NOTIFICATIONS and user.email:
+            try:
+                email_ok = SelectionNotificationService._send_email_notification(
+                    selection, user, 'selected'
+                )
+            except BaseException as exc:
+                logger.error(f"メール通知送信エラー (user: {user.username}): {exc}")
+
+        # システム内通知（今後の実装用）
+        try:
+            system_ok = SelectionNotificationService._create_system_notification(
                 selection, user, 'selected'
             )
-            
-            logger.info(f"ユーザー通知送信成功: {user.username}")
+        except BaseException as exc:
+            logger.error(f"システム通知作成エラー (user: {user.username}): {exc}")
+
+        if push_ok or email_ok or system_ok:
+            logger.info(
+                "ユーザー通知処理完了: %s (push=%s email=%s system=%s)",
+                user.username,
+                push_ok,
+                email_ok,
+                system_ok,
+            )
             return True
-            
-        except Exception as e:
-            logger.error(f"ユーザー通知送信エラー (user: {user.username}): {e}")
-            return False
+
+        logger.error(
+            "ユーザー通知送信失敗: %s (push=%s email=%s system=%s)",
+            user.username,
+            push_ok,
+            email_ok,
+            system_ok,
+        )
+        return False
     
     @staticmethod
     def _send_contributor_notification(selection: Selection) -> bool:
@@ -114,32 +141,58 @@ class SelectionNotificationService:
         Returns:
             bool: 送信成功フラグ
         """
+        contributor = selection.contributor
+        push_ok = False
+        email_ok = False
+        system_ok = False
+
+        # Push通知は最優先で試行（メール失敗の影響を受けない）
         try:
-            contributor = selection.contributor
-            
-            # メール通知
-            if contributor.email:
-                SelectionNotificationService._send_email_notification(
-                    selection, contributor, 'contributor'
-                )
-            PushNotificationService.send_to_user(
+            sent_count = PushNotificationService.send_to_user(
                 user=contributor,
                 title='選出完了のお知らせ',
                 body=f'課題「{selection.challenge.title}」の選出が完了しました。',
                 url=f"{getattr(settings, 'SITE_URL', 'http://localhost:3000')}/challenges/{selection.challenge.id}",
             )
-            
-            # システム内通知
-            SelectionNotificationService._create_system_notification(
+            push_ok = sent_count >= 0
+        except BaseException as exc:
+            logger.error(f"投稿者Push通知送信エラー: {exc}")
+
+        # メール通知は現在無効化（Push通知を主系で利用）
+        if ENABLE_SELECTION_EMAIL_NOTIFICATIONS and contributor.email:
+            try:
+                email_ok = SelectionNotificationService._send_email_notification(
+                    selection, contributor, 'contributor'
+                )
+            except BaseException as exc:
+                logger.error(f"投稿者メール通知送信エラー: {exc}")
+
+        # システム内通知
+        try:
+            system_ok = SelectionNotificationService._create_system_notification(
                 selection, contributor, 'contributor'
             )
-            
-            logger.info(f"投稿者通知送信成功: {contributor.username}")
+        except BaseException as exc:
+            logger.error(f"投稿者システム通知作成エラー: {exc}")
+
+        if push_ok or email_ok or system_ok:
+            logger.info(
+                "投稿者通知処理完了: %s (push=%s email=%s system=%s)",
+                contributor.username,
+                push_ok,
+                email_ok,
+                system_ok,
+            )
             return True
-            
-        except Exception as e:
-            logger.error(f"投稿者通知送信エラー: {e}")
-            return False
+
+        logger.error(
+            "投稿者通知送信失敗: %s (push=%s email=%s system=%s)",
+            contributor.username,
+            push_ok,
+            email_ok,
+            system_ok,
+        )
+        return False
     
     @staticmethod
     def _send_email_notification(selection: Selection, user: User, notification_type: str) -> bool:
@@ -197,7 +250,7 @@ class SelectionNotificationService:
             logger.info(f"メール通知送信成功: {user.email}")
             return True
             
-        except Exception as e:
+        except BaseException as e:
             logger.error(f"メール通知送信エラー (user: {user.email}): {e}")
             return False
     
