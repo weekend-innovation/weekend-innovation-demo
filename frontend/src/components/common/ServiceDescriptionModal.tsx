@@ -75,10 +75,10 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
                   <h4 className="font-semibold text-gray-900 text-sm">提案者の選出</h4>
                 </div>
                 <p className="text-gray-600 text-xs mb-1 indent-4">
-                  システムが、登録されているユーザーの中から、その課題に対する解決案を提出する提案者をランダムに選出します。
+                  システムが、登録している提案者の中から、その課題に対する解決案を提出する提案者をランダムに選出します。
                 </p>
                 <p className="text-gray-600 text-xs indent-4">
-                  結果として、属性の偏りが生じにくく、多様な視点が集まりやすくなります。
+                  結果として、属性の偏りが生じにくく、多様な視点を集めやすくなります。
                 </p>
               </div>
 
@@ -187,7 +187,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
               className="rounded-lg border-l-4 border-red-600 border-y border-r border-red-200 bg-red-50 px-3 py-3 shadow-sm"
             >
               <p className="text-xs font-medium leading-relaxed text-red-950 indent-4">
-                提案者はランダムに選出されるため、選出されるまで時間がかかるものと考えてください。
+                解決案を提案するためには、ランダム選出により選出される必要があるため、時間がかかってしまうおそれがあります。
               </p>
             </div>
           </div>

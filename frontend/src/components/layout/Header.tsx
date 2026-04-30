@@ -126,11 +126,8 @@ export function Header() {
             <div className="fixed right-0 top-0 z-50 h-full w-72 border-l border-gray-200/80 bg-white/95 shadow-2xl backdrop-blur-xl rounded-l-2xl transition-all duration-200">
               <div className="flex h-full flex-col">
                 {/* ヘッダー */}
-                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                  <div>
-                    <h2 className="text-base font-semibold text-gray-900">メニュー</h2>
-                    <p className="mt-0.5 text-xs text-gray-500">操作を選択してください</p>
-                  </div>
+                <div className="flex items-center justify-between border-b border-gray-100 px-5 py-5">
+                  <h2 className="text-xl font-bold tracking-tight text-gray-900">メニュー</h2>
                   <button
                     onClick={() => setIsMenuOpen(false)}
                     className="rounded-lg p-2 text-gray-400 transition-colors duration-200 hover:bg-gray-100 hover:text-gray-700 cursor-pointer"
@@ -143,30 +140,27 @@ export function Header() {
                 </div>
 
                 {/* メニューアイテム */}
-                <div className="flex-1 py-4">
-                  <div className="space-y-1.5 px-3">
+                <div className="flex-1 py-3">
+                  <div className="space-y-1 px-3">
                     {user.user_type === 'contributor' && (
                       <>
                         <Link
                           href="/dashboard/contributor" 
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">H</span>
                           ホーム
                         </Link>
                         <Link
                           href="/challenges" 
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">C</span>
                           課題一覧
                         </Link>
                         <span
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-400 cursor-not-allowed line-through"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-400 cursor-not-allowed line-through"
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-xs">W</span>
                           ウォレット
                         </span>
                       </>
@@ -175,48 +169,42 @@ export function Header() {
                       <>
                         <Link
                           href="/dashboard/proposer" 
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">H</span>
                           ホーム
                         </Link>
                         <Link
                           href="/proposals" 
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">P</span>
                           解決案一覧
                         </Link>
                         <Link
                           href="/challenges" 
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                           onClick={() => setIsMenuOpen(false)}
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">C</span>
                           課題一覧
                         </Link>
                         <span
-                          className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-400 cursor-not-allowed line-through"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-400 cursor-not-allowed line-through"
                         >
-                          <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-xs">W</span>
                           ウォレット
                         </span>
                       </>
                     )}
                     <Link
                       href="/profile"
-                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100"
+                      className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
                       onClick={() => setIsMenuOpen(false)}
                     >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">U</span>
                       プロフィール
                     </Link>
                     <span
-                      className="flex items-center gap-3 rounded-xl px-4 py-3 text-gray-400 cursor-not-allowed line-through"
+                      className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-400 cursor-not-allowed line-through"
                     >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-400 text-xs">S</span>
                       設定
                     </span>
                     <button
@@ -225,9 +213,8 @@ export function Header() {
                         setIsDescriptionOpen(true);
                         setIsMenuOpen(false);
                       }}
-                      className="w-full text-left flex items-center gap-3 rounded-xl px-4 py-3 text-gray-700 transition-colors duration-200 hover:bg-gray-100 cursor-pointer"
+                      className="w-full rounded-xl px-4 py-3.5 text-left text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100 cursor-pointer"
                     >
-                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-gray-100 text-gray-600 text-xs">?</span>
                       サービスの説明
                     </button>
                   </div>

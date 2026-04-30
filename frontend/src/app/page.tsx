@@ -108,7 +108,7 @@ export default function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-black mb-2">ランダム選出</h3>
                 <p className="text-gray-600">
-                  投稿された課題に対して解決案を提案する者を、登録している提案者の中からランダムに選出することで、構成の偏りを防ぐことができ、多様な視点の確保につながります。
+                  投稿された課題に対して解決案を提案する者を、登録している提案者の中からランダムに選出します。
                 </p>
               </div>
 
@@ -132,7 +132,7 @@ export default function Home() {
                   </button>
                 </div>
                 <p className="text-gray-600">
-                  ランダムに選出された提案者が自身の経験や知識に基づいて解決案を提案します。
+                  ランダムに選出された提案者が自身の経験や知識に基づいて解決案を提出します。
                 </p>
               </div>
             </div>
