@@ -18,6 +18,7 @@ import {
   UserDetail, 
   AuthTokens
 } from '@/types/auth';
+import type { QaCreateRequest, QaQuestion } from '@/types/qa';
 
 /** API 失敗時に DRF の JSON 本文を保持（登録エラーの欄表示用） */
 export class ApiError extends Error {
@@ -413,6 +414,18 @@ export const notificationAPI = {
     return await apiRequest<{ status: string; deleted: number }>('/notifications/push/unsubscribe/', {
       method: 'POST',
       body: JSON.stringify({ endpoint }),
+    });
+  },
+};
+
+export const qaAPI = {
+  listQuestions: async (): Promise<QaQuestion[]> => {
+    return await apiRequest<QaQuestion[]>('/qa/questions/');
+  },
+  createQuestion: async (data: QaCreateRequest): Promise<QaQuestion> => {
+    return await apiRequest<QaQuestion>('/qa/questions/', {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   },
 };

@@ -160,51 +160,38 @@ class UserLoginSerializer(serializers.Serializer):
     """
     ユーザーログイン用のシリアライザー
     """
-    email = serializers.EmailField()
+    username = serializers.CharField()
     password = serializers.CharField()
     
     def validate(self, data):
         """
         認証情報の検証
         """
-        email = data.get('email')
+        username = data.get('username')
         password = data.get('password')
         
-        if email and password:
-            # メールアドレスで候補ユーザーを検索（重複メールにも対応）
-            users = User.objects.filter(
-                email__iexact=email.strip().lower(),
+        if username and password:
+            candidate = User.objects.filter(
+                username=username.strip(),
                 user_type__in=APP_USER_TYPES,
+            ).first()
+            if not candidate:
+                raise serializers.ValidationError("ユーザー名またはパスワードが正しくありません")
+
+            user = authenticate(
+                username=candidate.username,
+                password=password,
             )
-            if not users.exists():
-                raise serializers.ValidationError("ユーザーが存在しません")
+            if not user:
+                raise serializers.ValidationError("ユーザー名またはパスワードが正しくありません")
 
-            matched_users = []
-            for candidate in users:
-                authed_user = authenticate(
-                    username=candidate.username,
-                    password=password,
-                )
-                if authed_user:
-                    matched_users.append(authed_user)
-
-            if not matched_users:
-                raise serializers.ValidationError("メールアドレスまたはパスワードが正しくありません")
-
-            if len(matched_users) > 1:
-                raise serializers.ValidationError(
-                    "同じメールアドレス・同じパスワードのアカウントが複数あるためログインできません。"
-                    "どちらかのパスワードまたはメールアドレスを変更してください。"
-                )
-
-            user = matched_users[0]
             if not user.is_active:
                 raise serializers.ValidationError("アカウントが無効です")
             
             data['user'] = user
             return data
         else:
-            raise serializers.ValidationError("メールアドレスとパスワードを入力してください")
+            raise serializers.ValidationError("ユーザー名とパスワードを入力してください")
 
 
 class UserDetailSerializer(serializers.ModelSerializer):

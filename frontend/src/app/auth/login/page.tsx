@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
   const router = useRouter();
   const { user, isAuthenticated, login, isLoading } = useAuth();
   const [formData, setFormData] = useState({
-    email: '',
+    username: '',
     password: ''
   });
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +39,7 @@ const LoginPage: React.FC = () => {
       setIsSubmitting(true);
       setError(null);
       
-      await login(formData.email, formData.password);
+      await login(formData.username, formData.password);
       
       // ログイン成功時はuseEffectでリダイレクトされる
     } catch (err) {
@@ -101,20 +101,20 @@ const LoginPage: React.FC = () => {
           )}
 
           <div className="space-y-4">
-            {/* メールアドレス */}
+            {/* ユーザー名 */}
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                メールアドレス
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                ユーザー名
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
+                id="username"
+                name="username"
+                type="text"
                 required
-                value={formData.email}
+                value={formData.username}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
-                placeholder="your@email.com"
+                placeholder="ユーザー名"
               />
             </div>
 

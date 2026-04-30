@@ -96,7 +96,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
           結論 <span className="text-red-500">*</span>
         </label>
         <p className="text-sm text-gray-600 mb-3">
-          提案の結論を簡潔にまとめてください。（500文字以内）
+          提案の結論を簡潔にまとめてください。（10文字～500文字）
         </p>
         <textarea
           id="conclusion"
@@ -124,7 +124,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
           理由 <span className="text-red-500">*</span>
         </label>
         <p className="text-sm text-gray-600 mb-3">
-          理由を詳しく説明してください。（1000文字以内）
+          理由を詳しく説明してください。（20文字～1000文字）
         </p>
         <textarea
           id="reasoning"
@@ -161,7 +161,7 @@ const ProposalForm: React.FC<ProposalFormProps> = ({
         <button
           type="submit"
           disabled={isLoading}
-          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
+          className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-200"
         >
           {isLoading ? '処理中...' : mode === 'create' ? '解決案を提案' : '更新'}
         </button>

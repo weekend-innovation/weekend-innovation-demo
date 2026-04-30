@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'moderation',               # モデレーション管理
     'notifications',            # 通知管理
     'challenge_analytics',      # 課題分析・まとめ機能
+    'qa',                       # Q&A機能
 ]
 
 MIDDLEWARE = [

@@ -81,7 +81,7 @@ class CheckRegistrationAvailabilityView(generics.GenericAPIView):
 class LoginView(generics.GenericAPIView):
     """
     ユーザーログインAPI
-    メールアドレスとパスワードで認証
+    ユーザー名とパスワードで認証
     """
     permission_classes = [AllowAny]
     serializer_class = UserLoginSerializer

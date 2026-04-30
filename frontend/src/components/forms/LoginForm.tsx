@@ -3,7 +3,7 @@
  * Weekend Innovationプロジェクトのログイン機能
  * 
  * Phase 1実装内容:
- * - メールアドレス・パスワード入力フォーム
+ * - ユーザー名・パスワード入力フォーム
  * - バリデーション・エラーハンドリング
  * - ログイン成功時のダッシュボードリダイレクト
  * - ユーザータイプ別リダイレクト（投稿者・提案者）
@@ -21,7 +21,7 @@ import { LoginRequest } from '@/types/auth';
 
 export function LoginForm() {
   const [formData, setFormData] = useState<LoginRequest>({
-    email: '',
+    username: '',
     password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
@@ -87,19 +87,19 @@ export function LoginForm() {
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           <div className="space-y-4">
             <div>
-              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                メールアドレス
+              <label htmlFor="username" className="block text-sm font-medium text-gray-700">
+                ユーザー名
               </label>
               <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
+                id="username"
+                name="username"
+                type="text"
+                autoComplete="username"
                 required
-                value={formData.email}
+                value={formData.username}
                 onChange={handleChange}
                 className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-black focus:border-black"
-                placeholder="your@email.com"
+                placeholder="ユーザー名"
               />
             </div>
 

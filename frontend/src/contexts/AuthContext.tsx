@@ -16,7 +16,7 @@ interface AuthContextType {
   token: string | null;
   /** 登録/ログイン API のレスポンスで React 上のセッションをログインと同じ状態に揃える */
   applyAuthResponse: (response: AuthResponse) => void;
-  login: (email: string, password: string) => Promise<void>;
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
 }
@@ -86,10 +86,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   };
 
   // ログイン処理
-  const login = async (email: string, password: string) => {
+  const login = async (username: string, password: string) => {
     try {
       setIsLoading(true);
-      const response: AuthResponse = await authAPI.login({ email, password });
+      const response: AuthResponse = await authAPI.login({ username, password });
       applyAuthResponse(response);
     } catch (error) {
       throw error;

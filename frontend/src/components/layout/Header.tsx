@@ -202,6 +202,13 @@ export function Header() {
                     >
                       プロフィール
                     </Link>
+                    <Link
+                      href="/qa"
+                      className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
+                      onClick={() => setIsMenuOpen(false)}
+                    >
+                      Q&A
+                    </Link>
                     <span
                       className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-400 cursor-not-allowed line-through"
                     >
