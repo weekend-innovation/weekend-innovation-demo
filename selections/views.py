@@ -102,28 +102,12 @@ class SelectionExecuteView(APIView):
             from challenges.models import Challenge
             challenge = Challenge.objects.get(id=serializer.validated_data['challenge_id'])
             
-            # 選出方法に応じて実行
-            selection_method = serializer.validated_data.get('selection_method', 'random')
+            # 選出は常に等確率ランダム（random.sample / 事前スコア・属性フィルタなし）
             required_count = serializer.validated_data['required_count']
-            criteria = serializer.validated_data.get('selection_criteria', {})
-            
-            if selection_method == 'random':
-                selection = SelectionService.random_selection(
-                    challenge=challenge,
-                    required_count=required_count,
-                    criteria=criteria
-                )
-            elif selection_method == 'weighted':
-                selection = SelectionService.weighted_selection(
-                    challenge=challenge,
-                    required_count=required_count,
-                    criteria=criteria
-                )
-            else:
-                return Response(
-                    {'error': '無効な選出方法です'}, 
-                    status=status.HTTP_400_BAD_REQUEST
-                )
+            selection = SelectionService.random_selection(
+                challenge=challenge,
+                required_count=required_count,
+            )
             
             # 結果を返す
             result_serializer = SelectionDetailSerializer(selection)
@@ -262,15 +246,7 @@ def get_eligible_users(request, challenge_id):
                 status=status.HTTP_403_FORBIDDEN
             )
         
-        criteria = request.GET.get('criteria', {})
-        if isinstance(criteria, str):
-            import json
-            try:
-                criteria = json.loads(criteria)
-            except:
-                criteria = {}
-        
-        eligible_users = SelectionService.get_eligible_users(challenge, criteria)
+        eligible_users = SelectionService.get_eligible_users(challenge)
         
         user_data = [
             {

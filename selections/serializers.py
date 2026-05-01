@@ -6,6 +6,8 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 
 from .models import Selection, SelectionHistory, SelectionCriteria
+from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
+
 from challenges.serializers import ChallengeSerializer
 from accounts.serializers import UserSerializer
 
@@ -57,8 +59,10 @@ class SelectionSerializer(serializers.ModelSerializer):
         """選出人数のバリデーション"""
         if value <= 0:
             raise serializers.ValidationError("選出人数は1以上である必要があります")
-        if value > 300:
-            raise serializers.ValidationError("選出人数は300人以下である必要があります。匿名化用の名前数の上限に達しています。")
+        if value > MAX_SELECTION_PARTICIPANTS:
+            raise serializers.ValidationError(
+                f"選出人数は{MAX_SELECTION_PARTICIPANTS}人以下である必要があります。"
+            )
         return value
     
     def validate(self, data):
@@ -72,15 +76,13 @@ class SelectionSerializer(serializers.ModelSerializer):
 class SelectionCreateSerializer(serializers.ModelSerializer):
     """
     選出作成用のシリアライザー
+    （偏り防止のため selection_criteria は受け付けず常に {} を保存）
     """
     challenge_id = serializers.IntegerField(write_only=True)
-    
+
     class Meta:
         model = Selection
-        fields = [
-            'challenge_id', 'required_count', 'selection_method', 
-            'selection_criteria'
-        ]
+        fields = ["challenge_id", "required_count"]
     
     def validate_challenge_id(self, value):
         """課題IDのバリデーション"""
@@ -97,15 +99,20 @@ class SelectionCreateSerializer(serializers.ModelSerializer):
     
     def create(self, validated_data):
         """選出オブジェクトの作成"""
-        challenge_id = validated_data.pop('challenge_id')
+        challenge_id = validated_data.pop("challenge_id")
         from challenges.models import Challenge
+
         challenge = Challenge.objects.get(id=challenge_id)
-        
-        validated_data.update({
-            'challenge': challenge,
-            'contributor': self.context['request'].user,
-        })
-        
+
+        validated_data.update(
+            {
+                "challenge": challenge,
+                "contributor": self.context["request"].user,
+                "selection_method": "random",
+                "selection_criteria": {},
+            }
+        )
+
         return super().create(validated_data)
 
 
@@ -113,10 +120,10 @@ class SelectionUpdateSerializer(serializers.ModelSerializer):
     """
     選出更新用のシリアライザー
     """
-    
+
     class Meta:
         model = Selection
-        fields = ['status', 'selection_criteria']
+        fields = ["status"]
     
     def validate_status(self, value):
         """ステータスのバリデーション"""
@@ -188,15 +195,14 @@ class SelectionStatisticsSerializer(serializers.Serializer):
 
 class SelectionRequestSerializer(serializers.Serializer):
     """
-    選出リクエスト用のシリアライザー
+    選出実行 API 用 — challenge_id と人数のみ（等確率ランダム固定）
     """
+
     challenge_id = serializers.IntegerField()
-    required_count = serializers.IntegerField(min_value=1, max_value=300)
-    selection_method = serializers.ChoiceField(
-        choices=['random', 'weighted'],
-        default='random'
+    required_count = serializers.IntegerField(
+        min_value=1,
+        max_value=MAX_SELECTION_PARTICIPANTS,
     )
-    selection_criteria = serializers.JSONField(default=dict, required=False)
     
     def validate_challenge_id(self, value):
         """課題IDのバリデーション"""

@@ -5,6 +5,8 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
+
 from .models import Challenge, MIN_TOTAL_DAYS
 from .serializers import ChallengeSerializer, ChallengeCreateSerializer, ChallengeListSerializer
 
@@ -149,7 +151,7 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         # 選出可能な提案者数を再チェック（念のため）
         from selections.services import SelectionService
         temp_challenge = Challenge(contributor=user)
-        eligible_users = SelectionService.get_eligible_users(temp_challenge, None)
+        eligible_users = SelectionService.get_eligible_users(temp_challenge)
         eligible_count = len(eligible_users)
         
         if required_participants > eligible_count:
@@ -384,9 +386,13 @@ def calculate_proposal_reward(request):
             status=status.HTTP_400_BAD_REQUEST
         )
     
-    if participants > 300:
+    if participants > MAX_SELECTION_PARTICIPANTS:
         return Response(
-            {'error': '選出人数は300人以下である必要があります。匿名化用の名前数の上限に達しています。'},
+            {
+                'error': (
+                    f'選出人数は{MAX_SELECTION_PARTICIPANTS}人以下である必要があります。'
+                )
+            },
             status=status.HTTP_400_BAD_REQUEST
         )
     

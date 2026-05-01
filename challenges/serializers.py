@@ -1,4 +1,6 @@
 from rest_framework import serializers
+from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
+
 from .models import Challenge
 from accounts.serializers import UserSerializer
 
@@ -60,8 +62,10 @@ class ChallengeSerializer(serializers.ModelSerializer):
         """選出人数のバリデーション"""
         if value < 50:
             raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
-        if value > 300:
-            raise serializers.ValidationError("選出人数は300人以下にする必要があります。")
+        if value > MAX_SELECTION_PARTICIPANTS:
+            raise serializers.ValidationError(
+                f"選出人数は{MAX_SELECTION_PARTICIPANTS}人以下にする必要があります。"
+            )
         return value
     
     def validate_reward_amount(self, value):
@@ -125,8 +129,10 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
         
         if value < 50:
             raise serializers.ValidationError("選出人数は50人以上にする必要があります。")
-        if value > 300:
-            raise serializers.ValidationError("選出人数は300人以下にする必要があります。")
+        if value > MAX_SELECTION_PARTICIPANTS:
+            raise serializers.ValidationError(
+                f"選出人数は{MAX_SELECTION_PARTICIPANTS}人以下にする必要があります。"
+            )
         
         # 選出可能な提案者数をチェック
         request = self.context.get('request')
@@ -134,7 +140,7 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
             try:
                 # 一時的なChallengeオブジェクトを作成（保存はしない）
                 temp_challenge = Challenge(contributor=request.user)
-                eligible_users = SelectionService.get_eligible_users(temp_challenge, None)
+                eligible_users = SelectionService.get_eligible_users(temp_challenge)
                 eligible_count = len(eligible_users)
                 
                 if value > eligible_count:
