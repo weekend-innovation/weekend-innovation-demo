@@ -5,7 +5,7 @@ from .models import Question
 
 class QuestionSerializer(serializers.ModelSerializer):
     asked_by_username = serializers.ReadOnlyField(source="asked_by.username")
-    answered_by_username = serializers.ReadOnlyField(source="answered_by.username")
+    answered_by_username = serializers.SerializerMethodField()
 
     class Meta:
         model = Question
@@ -33,6 +33,11 @@ class QuestionSerializer(serializers.ModelSerializer):
             "created_at",
             "updated_at",
         ]
+
+    def get_answered_by_username(self, obj):
+        if obj.answer_text and obj.answer_text.strip():
+            return "Weekend Innovation 運営"
+        return None
 
 
 class QuestionCreateSerializer(serializers.ModelSerializer):

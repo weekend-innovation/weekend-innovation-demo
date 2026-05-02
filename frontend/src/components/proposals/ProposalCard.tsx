@@ -459,7 +459,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
         <div className="mb-4">
           <div className="flex justify-end">
             <ReportButton
-              contentType={11} // ContentType ID for Proposal
+              contentTypeModel="proposal"
               objectId={proposal.id}
               contentTypeName="解決案"
               size="sm"

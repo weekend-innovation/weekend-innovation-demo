@@ -175,7 +175,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                       {/* 自分の解決案に対するコメントの通報ボタン（自分のコメント以外） */}
                       {comment.commenter_name !== user.username && (
                         <ReportButton
-                          contentType={10} // ContentType ID for ProposalComment
+                          contentTypeModel="proposalcomment"
                           objectId={comment.id}
                           contentTypeName="コメント"
                           size="sm"
@@ -192,7 +192,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <div className="flex justify-end">
                     <ReportButton
-                      contentType={10} // ContentType ID for ProposalComment
+                      contentTypeModel="proposalcomment"
                       objectId={comment.id}
                       contentTypeName="コメント"
                       size="sm"
@@ -219,7 +219,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <div className="flex justify-end">
                             <ReportButton
-                              contentType={17} // ContentType ID for ProposalCommentReply
+                              contentTypeModel="proposalcommentreply"
                               objectId={reply.id}
                               contentTypeName="返信"
                               size="sm"
