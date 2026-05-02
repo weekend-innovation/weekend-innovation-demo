@@ -1,3 +1,5 @@
+import math
+
 from rest_framework import serializers
 from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
 
@@ -81,10 +83,10 @@ class ChallengeSerializer(serializers.ModelSerializer):
         return value
     
     def validate_deadline(self, value):
-        """期限のバリデーション（最低6日必要: 提案3日、編集1日、評価2日）"""
+        """期限のバリデーション（最低6日・最大90日: カレンダー日数は作成日時基準で切り上げ）"""
         from datetime import timedelta
         from django.utils import timezone
-        from challenges.models import MIN_TOTAL_DAYS
+        from challenges.models import MAX_TOTAL_DAYS, MIN_TOTAL_DAYS
         now = timezone.now()
         if value <= now:
             raise serializers.ValidationError("期限は現在時刻より後の日時である必要があります。")
@@ -93,6 +95,11 @@ class ChallengeSerializer(serializers.ModelSerializer):
         if (value - start) < timedelta(days=MIN_TOTAL_DAYS):
             raise serializers.ValidationError(
                 f"期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。"
+            )
+        span_days = math.ceil((value - start).total_seconds() / 86400.0)
+        if span_days > MAX_TOTAL_DAYS:
+            raise serializers.ValidationError(
+                f"課題の総日数は最大{MAX_TOTAL_DAYS}日までです（作成日時から最終期限まで）。"
             )
         return value
 
@@ -169,16 +176,21 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
         return value
     
     def validate_deadline(self, value):
-        """期限のバリデーション（最低6日必要: 提案3日、編集1日、評価2日）"""
+        """期限のバリデーション（最低6日・最大90日: カレンダー日数は現在時刻基準で切り上げ）"""
         from datetime import timedelta
         from django.utils import timezone
-        from challenges.models import MIN_TOTAL_DAYS
+        from challenges.models import MAX_TOTAL_DAYS, MIN_TOTAL_DAYS
         now = timezone.now()
         if value <= now:
             raise serializers.ValidationError("期限は現在時刻より後の日時である必要があります。")
         if (value - now) < timedelta(days=MIN_TOTAL_DAYS):
             raise serializers.ValidationError(
                 f"期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。"
+            )
+        span_days = math.ceil((value - now).total_seconds() / 86400.0)
+        if span_days > MAX_TOTAL_DAYS:
+            raise serializers.ValidationError(
+                f"課題の総日数は最大{MAX_TOTAL_DAYS}日までです（現在から最終期限まで）。"
             )
         return value
 

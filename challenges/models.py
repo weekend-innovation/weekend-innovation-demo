@@ -1,4 +1,3 @@
-import math
 from django.db import models
 from django.contrib.auth import get_user_model
 from datetime import timedelta
@@ -13,47 +12,160 @@ MIN_EDIT_DAYS = 1
 MIN_EVALUATION_DAYS = 2
 MIN_TOTAL_DAYS = MIN_PROPOSAL_DAYS + MIN_EDIT_DAYS + MIN_EVALUATION_DAYS  # 6
 
+# 課題の総日数の上限（API・管理画面の目安。長期化による評価負荷・離脱を抑える）
+MAX_TOTAL_DAYS = 90
+
+# フェーズ日数の基準比率（提案:編集:評価）＝4:2:3
+# 4:2:4 に近い共創・編集の重みを保ちつつ、評価を提案より短くし「提案 > 評価 > 編集」を満たす。
+_PHASE_WEIGHTS_SUM = 9
+_PHASE_WEIGHT_PROPOSAL = 4
+_PHASE_WEIGHT_EDIT = 2
+_PHASE_WEIGHT_EVALUATION = 3
+
+
+def _allocate_phase_days_ratio(total_days: int) -> tuple[int, int, int]:
+    """
+    提案・編集・評価の日数を整数で割り当てる（合計 total_days）。
+
+    - 基準比率 4:2:3（Hamilton 最大剰余で端数を配分）
+    - その後、最低日数と 提案 > 評価 > 編集 を満たすよう微調整
+    """
+    s = _PHASE_WEIGHTS_SUM
+    vals = {
+        "p": total_days * _PHASE_WEIGHT_PROPOSAL,
+        "ed": total_days * _PHASE_WEIGHT_EDIT,
+        "ev": total_days * _PHASE_WEIGHT_EVALUATION,
+    }
+    seats = {k: vals[k] // s for k in vals}
+    r = total_days - sum(seats.values())
+    # 端数は「重み×総日数 mod s」が大きい順（同率は提案→評価→編集）
+    prio = {"p": 2, "ev": 1, "ed": 0}
+    for _ in range(r):
+        k = max(vals, key=lambda x: ((vals[x] - seats[x] * s), prio[x]))
+        seats[k] += 1
+
+    p, ed, ev = seats["p"], seats["ed"], seats["ev"]
+
+    for _ in range(total_days * 4):
+        if p + ed + ev != total_days:
+            diff = total_days - (p + ed + ev)
+            if diff > 0:
+                p += diff
+                continue
+            if diff < 0:
+                if p > MIN_PROPOSAL_DAYS:
+                    p += diff
+                    continue
+                if ev > MIN_EVALUATION_DAYS:
+                    ev += diff
+                    continue
+                if ed > MIN_EDIT_DAYS:
+                    ed += diff
+                    continue
+            break
+
+        if p < MIN_PROPOSAL_DAYS:
+            if ev > MIN_EVALUATION_DAYS and ev > ed:
+                ev -= 1
+                p += 1
+                continue
+            if ed > MIN_EDIT_DAYS:
+                ed -= 1
+                p += 1
+                continue
+            break
+
+        if ev < MIN_EVALUATION_DAYS:
+            if p > MIN_PROPOSAL_DAYS and p - 1 > ev:
+                p -= 1
+                ev += 1
+                continue
+            if ed > MIN_EDIT_DAYS:
+                ed -= 1
+                ev += 1
+                continue
+            break
+
+        if ed < MIN_EDIT_DAYS:
+            if ev > MIN_EVALUATION_DAYS and ev - 1 > ed:
+                ev -= 1
+                ed += 1
+                continue
+            if p > MIN_PROPOSAL_DAYS:
+                p -= 1
+                ed += 1
+                continue
+            break
+
+        if p > ev > ed:
+            break
+
+        # 編集と評価が同数などで「評価 > 編集」が崩れるときは、編集から提案へ1日ずらす（例: T=7 の 3,2,2 → 4,1,2）
+        if ed >= ev and ed > MIN_EDIT_DAYS and p + 1 > ev:
+            p += 1
+            ed -= 1
+            continue
+
+        if ev >= p:
+            if ed > MIN_EDIT_DAYS:
+                ed -= 1
+                p += 1
+                continue
+            if ev > MIN_EVALUATION_DAYS:
+                ev -= 1
+                p += 1
+                continue
+            break
+
+        if ed >= ev:
+            if ev > MIN_EVALUATION_DAYS and p > ev:
+                ev -= 1
+                ed += 1
+                continue
+            if p > MIN_PROPOSAL_DAYS and p > ev:
+                p -= 1
+                ed += 1
+                continue
+            break
+
+        break
+
+    return p, ed, ev
+
+
 def calculate_phase_deadlines(start_datetime, total_days):
     """
-    総期限日数から3つの期限を計算（案A: 提案50%, 編集20%, 評価30%）
-    重要度順に切り上げ、編集期間で帳尻合わせ（一意に決まる）
-    最低: 提案3日、編集1日、評価2日（total_days >= 6 であること）
-    
+    総期限日数から3つの期限を計算する。
+
+    方針（total_days >= MIN_TOTAL_DAYS のとき）:
+    - 提案:編集:評価の基準比率を **4:2:3** とし（4:2:4 の体感に近いが評価を提案より短く）、
+      Hamilton（最大剰余法）で整数化したあと、**提案 > 評価 > 編集** と各最低日数を満たすよう調整する。
+    - 編集期間は共創（コメント・返信・編集）のため、1日固定にはしない。
+
+    最低: 提案3日、編集1日、評価2日。total_days は MIN_TOTAL_DAYS 以上 MAX_TOTAL_DAYS 以下。
+
     Args:
         start_datetime: 開始日時
-        total_days: 総日数
-    
+        total_days: 総日数（カレンダー日ベースでビュー側と揃えた整数）
+
     Returns:
         tuple: (proposal_deadline, edit_deadline, evaluation_deadline)
-    
+
     Raises:
-        ValueError: total_days < 6 の場合
+        ValueError: total_days が範囲外の場合
     """
     if total_days < MIN_TOTAL_DAYS:
         raise ValueError(
             f"期限まで最低{MIN_TOTAL_DAYS}日必要です"
             f"（提案{MIN_PROPOSAL_DAYS}日、編集{MIN_EDIT_DAYS}日、評価{MIN_EVALUATION_DAYS}日）"
         )
-    
-    # 案1: 重要度順に切り上げ、編集で調整
-    proposal_days = math.ceil(total_days * 0.5)   # 提案 50%
-    edit_days = math.ceil(total_days * 0.2)       # 編集 20%
-    evaluation_days = total_days - proposal_days - edit_days  # 評価 = 残り
-    
-    # 評価期間が最低2日未満の場合、編集・提案から調整
-    if evaluation_days < MIN_EVALUATION_DAYS:
-        need = MIN_EVALUATION_DAYS - evaluation_days
-        if edit_days - need >= MIN_EDIT_DAYS:
-            edit_days -= need
-            evaluation_days = MIN_EVALUATION_DAYS
-        else:
-            give_from_edit = edit_days - MIN_EDIT_DAYS
-            edit_days = MIN_EDIT_DAYS
-            evaluation_days += give_from_edit
-            if evaluation_days < MIN_EVALUATION_DAYS:
-                proposal_days -= (MIN_EVALUATION_DAYS - evaluation_days)
-                evaluation_days = MIN_EVALUATION_DAYS
-    
+    if total_days > MAX_TOTAL_DAYS:
+        raise ValueError(
+            f"課題の総日数は最大{MAX_TOTAL_DAYS}日までです（提案・編集・評価の合計）。"
+        )
+
+    proposal_days, edit_days, evaluation_days = _allocate_phase_days_ratio(total_days)
+
     # 各期限を計算（その日の23:59:59まで）
     proposal_deadline = start_datetime + timedelta(days=proposal_days)
     proposal_deadline = proposal_deadline.replace(hour=23, minute=59, second=59, microsecond=999999)

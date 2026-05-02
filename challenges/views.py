@@ -7,7 +7,7 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
 
-from .models import Challenge, MIN_TOTAL_DAYS
+from .models import Challenge, MAX_TOTAL_DAYS, MIN_TOTAL_DAYS
 from .serializers import ChallengeSerializer, ChallengeCreateSerializer, ChallengeListSerializer
 
 class ChallengeListCreateView(generics.ListCreateAPIView):
@@ -177,6 +177,10 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
                 'deadline': f'期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。'
             })
         total_days = math.ceil(total_delta.total_seconds() / 86400)
+        if total_days > MAX_TOTAL_DAYS:
+            raise serializers.ValidationError({
+                'deadline': f'課題の総日数は最大{MAX_TOTAL_DAYS}日までです（作成日時から最終期限まで）。'
+            })
         proposal_deadline, edit_deadline, evaluation_deadline = calculate_phase_deadlines(created_at, total_days)
         validated_data['proposal_deadline'] = proposal_deadline
         validated_data['edit_deadline'] = edit_deadline
@@ -256,6 +260,10 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
                     'deadline': f'期限まで最低{MIN_TOTAL_DAYS}日必要です（提案3日、編集1日、評価2日以上）。'
                 })
             total_days = math.ceil(total_delta.total_seconds() / 86400)
+            if total_days > MAX_TOTAL_DAYS:
+                raise serializers.ValidationError({
+                    'deadline': f'課題の総日数は最大{MAX_TOTAL_DAYS}日までです（作成日時から最終期限まで）。'
+                })
             proposal_deadline, edit_deadline, evaluation_deadline = calculate_phase_deadlines(created_at, total_days)
             validated_data['proposal_deadline'] = proposal_deadline
             validated_data['edit_deadline'] = edit_deadline
