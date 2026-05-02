@@ -64,15 +64,16 @@ const QaPage = () => {
     [questions]
   );
 
-  const myPending = useMemo(
-    () =>
-      questions.filter(
-        (q) =>
-          q.asked_by === user?.id &&
-          (q.status === 'pending' || !q.answer_text?.trim())
-      ),
-    [questions, user?.username]
-  );
+  const myPending = useMemo(() => {
+    if (!user) return [];
+    const myNumericId = Number(user.id);
+    if (!Number.isFinite(myNumericId)) return [];
+    return questions.filter(
+      (q) =>
+        q.asked_by === myNumericId &&
+        (q.status === 'pending' || !q.answer_text?.trim())
+    );
+  }, [questions, user]);
 
   if (isLoading) {
     return (
