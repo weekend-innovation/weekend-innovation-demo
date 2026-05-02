@@ -105,7 +105,12 @@ class Report(models.Model):
         ]
     
     def __str__(self):
-        return f'{self.reporter.username} -> {self.content_object} ({self.reason})'
+        try:
+            target = self.content_object
+            label = str(target) if target is not None else "（削除済み参照）"
+        except Exception:
+            label = "（参照エラー）"
+        return f"{self.reporter.username} -> {label} ({self.reason})"
     
     def get_content_type_name(self):
         """コンテンツタイプの表示名を取得"""
@@ -248,6 +253,7 @@ class ModerationAction(models.Model):
         ('report_resolved', '報告解決'),
         ('user_suspended', 'ユーザー停止'),
         ('user_unsuspended', 'ユーザー停止解除'),
+        ('user_deleted', 'ユーザー削除'),
         ('content_hidden', 'コンテンツ非表示'),
         ('content_deleted', 'コンテンツ削除'),
     ]
@@ -309,4 +315,5 @@ class ModerationAction(models.Model):
         ]
     
     def __str__(self):
-        return f'{self.action_type} - {self.target_user} ({self.created_at})'
+        tu = self.target_user.username if self.target_user_id and self.target_user else "(ユーザー削除済)"
+        return f"{self.action_type} - {tu} ({self.created_at})"

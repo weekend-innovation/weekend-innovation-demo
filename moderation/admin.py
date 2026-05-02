@@ -1,11 +1,14 @@
 """
 モデレーション管理の管理画面設定
 """
+from datetime import timedelta
+
 from django.contrib import admin
 from django.urls import reverse
 from django.utils.html import format_html
 
 from .models import ModerationAction, Report, UserSuspension
+from . import services
 
 
 @admin.register(Report)
@@ -174,6 +177,36 @@ class ReportAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         """クエリセットの最適化"""
         return super().get_queryset(request).select_related("reporter", "moderator", "content_type")
+
+    @admin.action(description="通報対象ユーザーを約1か月（30日間）利用停止する")
+    def suspend_target_users_30_days(self, request, queryset):
+        services.apply_suspension_from_reports(
+            queryset, request.user, timedelta(days=30), request, "約1か月（30日）"
+        )
+
+    @admin.action(description="通報対象ユーザーを約3か月（90日間）利用停止する")
+    def suspend_target_users_90_days(self, request, queryset):
+        services.apply_suspension_from_reports(
+            queryset, request.user, timedelta(days=90), request, "約3か月（90日）"
+        )
+
+    @admin.action(description="通報対象ユーザーを約6か月（180日間）利用停止する")
+    def suspend_target_users_180_days(self, request, queryset):
+        services.apply_suspension_from_reports(
+            queryset, request.user, timedelta(days=180), request, "約6か月（180日）"
+        )
+
+    @admin.action(description="通報対象ユーザーを約1年（365日間）利用停止する")
+    def suspend_target_users_365_days(self, request, queryset):
+        services.apply_suspension_from_reports(
+            queryset, request.user, timedelta(days=365), request, "約1年（365日）"
+        )
+
+    @admin.action(
+        description="⚠ 通報対象ユーザーを削除（スタッフ・本人は除外／取り返し不可）"
+    )
+    def delete_target_users_from_reports(self, request, queryset):
+        services.delete_target_users_from_reports(queryset, request.user, request)
 
 
 @admin.register(UserSuspension)
