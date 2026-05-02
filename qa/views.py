@@ -26,7 +26,7 @@ class QuestionListCreateView(generics.GenericAPIView):
         else:
             queryset = (public_qs | own_qs).distinct().order_by("-created_at")
 
-        serializer = QuestionSerializer(queryset, many=True)
+        serializer = QuestionSerializer(queryset, many=True, context={"request": request})
         return Response(serializer.data)
 
     def post(self, request):
@@ -38,7 +38,10 @@ class QuestionListCreateView(generics.GenericAPIView):
             status=Question.STATUS_PENDING,
             is_public=False,
         )
-        return Response(QuestionSerializer(question).data, status=201)
+        return Response(
+            QuestionSerializer(question, context={"request": request}).data,
+            status=201,
+        )
 
 
 class QuestionAnswerView(generics.UpdateAPIView):

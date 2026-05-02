@@ -70,7 +70,8 @@ export function isProposerFailed(c: SortableChallenge): boolean {
  * 期限に達したら期限切れになる。
  */
 export function isAllPhasesCompleted(c: SortableChallenge): boolean {
-  if (c.current_phase === 'closed' || c.status === 'closed') return false;
+  if (c.current_phase === 'closed' || c.status === 'closed' || c.status === 'completed')
+    return false;
   return !!(c.has_proposed && c.has_completed_all_evaluations);
 }
 
@@ -87,7 +88,7 @@ export function isDeadlinePassed(c: SortableChallenge): boolean {
  * status の更新が遅れても、deadline が過ぎていれば期限切れとして表示
  */
 export function isContributorExpired(c: SortableChallenge): boolean {
-  return c.status === 'closed' || isDeadlinePassed(c);
+  return c.status === 'closed' || c.status === 'completed' || isDeadlinePassed(c);
 }
 
 /**
@@ -95,7 +96,12 @@ export function isContributorExpired(c: SortableChallenge): boolean {
  * status の更新が遅れても、deadline が過ぎていれば期限切れとして表示
  */
 export function isProposerExpiredOrFailed(c: SortableChallenge): boolean {
-  return c.status === 'closed' || isDeadlinePassed(c) || isProposerFailed(c);
+  return (
+    c.status === 'closed' ||
+    c.status === 'completed' ||
+    isDeadlinePassed(c) ||
+    isProposerFailed(c)
+  );
 }
 
 /**

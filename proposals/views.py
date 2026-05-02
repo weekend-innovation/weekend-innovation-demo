@@ -549,6 +549,8 @@ class ProposalAdoptView(generics.UpdateAPIView):
             raise permissions.PermissionDenied("投稿者のみ採用を設定できます。")
         if proposal.challenge.contributor != user:
             raise permissions.PermissionDenied("自分の課題の解決案のみ採用できます。")
+        if proposal.challenge.status == 'completed':
+            raise permissions.PermissionDenied("採用を確定済みの課題では採用の変更ができません。")
         if proposal.challenge.get_current_phase() != 'closed':
             raise permissions.PermissionDenied("期限切れの課題のみ採用を設定できます。")
         return proposal

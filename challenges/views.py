@@ -3,8 +3,10 @@ from datetime import timedelta
 from rest_framework import generics, permissions, status, serializers
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from django.db import transaction
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
+from proposals.models import Proposal
 from mvp_project.limits import MAX_SELECTION_PARTICIPANTS
 
 from .models import Challenge, MAX_TOTAL_DAYS, MIN_TOTAL_DAYS
@@ -418,3 +420,64 @@ def calculate_proposal_reward(request):
         'base_reward_per_person': BASE_REWARD_PER_PERSON,  # 基礎報酬額（円）
         'payment_rate': PROPOSER_PAYMENT_RATE  # 支払い率
     })
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def finalize_adoption(request, pk):
+    """
+    期限切れの課題で採用候補の集合を確定し、challenge.status を completed にする。
+    proposal_ids で採用にする提案IDのみ true、それ以外は false に統一する。
+    """
+    challenge = get_object_or_404(Challenge, pk=pk)
+    user = request.user
+    if not getattr(user, 'user_type', None) == 'contributor':
+        raise permissions.PermissionDenied('投稿者のみ採用を確定できます。')
+    if challenge.contributor_id != getattr(user, 'id', None):
+        raise permissions.PermissionDenied('自分の課題のみ確定できます。')
+
+    if challenge.status == 'completed':
+        return Response(
+            {'detail': 'すでに採用を確定済みです。変更はできません。'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    if challenge.get_current_phase() != 'closed':
+        return Response(
+            {'detail': '期限切れの課題でのみ採用を確定できます。'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    raw_ids = request.data.get('proposal_ids')
+    if raw_ids is None:
+        raw_ids = []
+    if not isinstance(raw_ids, list):
+        return Response(
+            {'detail': 'proposal_ids はリストで指定してください。'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        id_set = {int(x) for x in raw_ids}
+    except (TypeError, ValueError):
+        return Response(
+            {'detail': 'proposal_ids は整数のリストにしてください。'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    valid_ids = set(
+        Proposal.objects.filter(challenge=challenge).values_list('id', flat=True)
+    )
+    if not id_set.issubset(valid_ids):
+        return Response(
+            {'detail': 'この課題に存在しない解決案IDが含まれています。'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    with transaction.atomic():
+        for prop in Proposal.objects.filter(challenge=challenge).select_for_update():
+            prop.is_adopted = prop.id in id_set
+            prop.save(update_fields=['is_adopted'])
+        challenge.status = 'completed'
+        challenge.save(update_fields=['status', 'updated_at'])
+
+    serializer = ChallengeSerializer(challenge, context={'request': request})
+    return Response(serializer.data, status=status.HTTP_200_OK)

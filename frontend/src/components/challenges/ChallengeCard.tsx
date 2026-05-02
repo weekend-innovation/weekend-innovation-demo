@@ -21,7 +21,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
   const expiredOrFailed = userType === 'proposer' && isProposerExpiredOrFailed(challenge);
   const allPhasesDone = userType === 'proposer' && isAllPhasesCompleted(challenge);
   const canViewResults = userType === 'proposer' && canProposerViewResults(challenge);
-  const contributorExpired = userType === 'contributor' && isContributorExpired(challenge);
+  const contributorAdoptionFinalized =
+    userType === 'contributor' && challenge.status === 'completed';
+  const contributorPastDeadlineUnfinalized =
+    userType === 'contributor' &&
+    !contributorAdoptionFinalized &&
+    isContributorExpired(challenge);
 
   // 提案者用: 現在のフェーズの期限ラベルと値を取得（ソート順が分かるように）
   const getCurrentPhaseDeadlineInfo = (): { label: string; value: string } | null => {
@@ -48,19 +53,20 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     return `${year}年${month}月${day}日 ${hours}:${minutes}`;
   };
 
-  const cardStyle = userType === 'proposer'
-    ? expiredOrFailed
-      ? canViewResults
-        ? 'bg-teal-50 border border-teal-300'  // 期限切れだが結果閲覧可能
-        : 'bg-red-50 border border-red-300 opacity-60'  // 期限切れで結果閲覧不可
-      : allPhasesDone
-      ? 'bg-teal-50 border border-teal-300'
-      : 'bg-white border border-gray-200'
-    : contributorExpired
-    ? 'bg-teal-50 border border-teal-300'
-    : challenge.status === 'completed'
-    ? 'bg-blue-50 border border-blue-300 opacity-75'
-    : 'bg-white border border-gray-200';
+  const cardStyle =
+    contributorAdoptionFinalized
+      ? 'bg-gray-100 border border-gray-400 opacity-92 text-gray-800'
+      : userType === 'proposer'
+      ? expiredOrFailed
+        ? canViewResults
+          ? 'bg-teal-50 border border-teal-300'
+          : 'bg-red-50 border border-red-300 opacity-60'
+        : allPhasesDone
+        ? 'bg-teal-50 border border-teal-300'
+        : 'bg-white border border-gray-200'
+      : contributorPastDeadlineUnfinalized
+      ? 'bg-amber-50 border border-amber-200'
+      : 'bg-white border border-gray-200';
 
   return (
     <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-w-0 ${cardStyle}`}>
@@ -92,21 +98,34 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
               {challenge.phase_display}
             </span>
           )}
-          {userType === 'contributor' && contributorExpired && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-teal-700 bg-teal-100">
-              完了
+          {userType === 'contributor' && contributorAdoptionFinalized && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-gray-700 bg-gray-200 border border-gray-400">
+              終了・採用確定済み
             </span>
           )}
-          {userType === 'contributor' && !contributorExpired && challenge.phase_display && (
-            <span className={`px-3 py-1 text-sm rounded-full font-medium ${
-              challenge.current_phase === 'proposal' ? 'text-green-600 bg-green-100' :
-              challenge.current_phase === 'edit' ? 'text-yellow-600 bg-yellow-100' :
-              challenge.current_phase === 'evaluation' ? 'text-orange-600 bg-orange-100' :
-              'text-gray-600 bg-gray-100'
-            }`}>
-              {challenge.phase_display}
+          {userType === 'contributor' && contributorPastDeadlineUnfinalized && (
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-amber-800 bg-amber-100 border border-amber-300">
+              締切後（採用未確定）
             </span>
           )}
+          {userType === 'contributor' &&
+            !contributorAdoptionFinalized &&
+            !contributorPastDeadlineUnfinalized &&
+            challenge.phase_display && (
+              <span
+                className={`px-3 py-1 text-sm rounded-full font-medium ${
+                  challenge.current_phase === 'proposal'
+                    ? 'text-green-600 bg-green-100'
+                    : challenge.current_phase === 'edit'
+                      ? 'text-yellow-600 bg-yellow-100'
+                      : challenge.current_phase === 'evaluation'
+                        ? 'text-orange-600 bg-orange-100'
+                        : 'text-gray-600 bg-gray-100'
+                }`}
+              >
+                {challenge.phase_display}
+              </span>
+            )}
           {isProposed && !expiredOrFailed && !allPhasesDone && (
             <span className="px-3 py-1 text-sm rounded-full bg-blue-600 text-white font-medium">
               提案済み

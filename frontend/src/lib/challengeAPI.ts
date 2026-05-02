@@ -218,6 +218,17 @@ export async function updateChallengeStatus(
   });
 }
 
+/** 投稿者のみ。採用候補を確定し、課題 status を completed にする（取り消し不可） */
+export async function finalizeAdoption(
+  challengeId: number,
+  proposalIds: number[]
+): Promise<ChallengeDetailResponse> {
+  return apiCall<ChallengeDetailResponse>(`/${challengeId}/finalize-adoption/`, {
+    method: 'POST',
+    body: JSON.stringify({ proposal_ids: proposalIds }),
+  });
+}
+
 // 課題検索
 export async function searchChallenges(
   query: string,

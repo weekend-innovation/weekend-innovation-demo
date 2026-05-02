@@ -18,4 +18,6 @@ urlpatterns = [
     
     # 提案報酬計算
     path('calculate-reward/', views.calculate_proposal_reward, name='calculate-proposal-reward'),
+
+    path('<int:pk>/finalize-adoption/', views.finalize_adoption, name='challenge-finalize-adoption'),
 ]

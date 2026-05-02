@@ -68,7 +68,7 @@ const QaPage = () => {
     () =>
       questions.filter(
         (q) =>
-          q.asked_by_username === user?.username &&
+          q.asked_by === user?.id &&
           (q.status === 'pending' || !q.answer_text?.trim())
       ),
     [questions, user?.username]
@@ -158,14 +158,10 @@ const QaPage = () => {
             <div className="space-y-6">
               {publicAnswered.map((q) => (
                 <div key={q.id} className="border border-gray-200 rounded-lg p-4">
-                  <p className="text-xs text-gray-500 mb-2">
-                    質問者: {q.asked_by_username} / 投稿日: {new Date(q.created_at).toLocaleString('ja-JP')}
-                  </p>
                   <p className="font-medium text-gray-900 whitespace-pre-wrap">{q.question_text}</p>
                   <div className="mt-3 pt-3 border-t border-gray-100">
-                    <p className="text-xs text-gray-500 mb-2">
-                      回答: {q.answered_by_username || '管理者'} / 回答日:{' '}
-                      {q.answered_at ? new Date(q.answered_at).toLocaleString('ja-JP') : '-'}
+                    <p className="text-xs text-gray-600 mb-2">
+                      {q.answered_by_username || '管理者'}による回答
                     </p>
                     <p className="text-gray-800 whitespace-pre-wrap">{q.answer_text}</p>
                   </div>

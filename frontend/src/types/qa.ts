@@ -2,7 +2,7 @@ export type QaStatus = 'pending' | 'answered' | 'hidden';
 
 export interface QaQuestion {
   id: number;
-  asked_by: number;
+  asked_by: number | null;
   asked_by_username: string;
   question_text: string;
   answer_text: string;
@@ -11,7 +11,8 @@ export interface QaQuestion {
   answered_at: string | null;
   status: QaStatus;
   is_public: boolean;
-  created_at: string;
+  /** 公開済みQ&AのAPI応答では null になることがある */
+  created_at: string | null;
   updated_at: string;
 }
 

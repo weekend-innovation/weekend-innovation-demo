@@ -95,6 +95,8 @@ interface ChallengeAnalysisSummaryProps {
   /** 採用リスト確定を親で処理する場合 */
   onConfirmAdoptionFromList?: () => void;
   confirmingAdoption?: boolean;
+  /** 採用確定後はリスト操作・メモ編集を出さない */
+  adoptionFinalized?: boolean;
 }
 
 const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
@@ -107,7 +109,8 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
   sharedSetAdoptionList,
   sharedMemos,
   sharedSetMemos,
-  onOpenAddToAdoptionListModal
+  onOpenAddToAdoptionListModal,
+  adoptionFinalized = false,
 }) => {
   // 選択された解決案のID
   const [selectedProposalId, setSelectedProposalId] = useState<number | null>(null);
@@ -332,6 +335,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
               </div>
             )}
             <div className="p-2 flex gap-3 items-start">
+              {!adoptionFinalized && (
               <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
                 {considerationSet.has(selectedProposal.id) ? (
                   <button type="button" onClick={() => removeFromAdoptionList(selectedProposal.id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
@@ -346,8 +350,9 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                   メモ{(memos[selectedProposal.id] ?? '').trim() ? ' ✓' : ''}
                 </button>
               </div>
+              )}
               <div className="flex-1 min-w-0 space-y-2">
-                {memoOpenId === selectedProposal.id && (
+                {!adoptionFinalized && memoOpenId === selectedProposal.id && (
                   <div className="p-2 bg-gray-50 rounded border border-gray-200">
                     <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
                     <textarea value={memos[selectedProposal.id] ?? ''} onChange={e => setMemo(selectedProposal.id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
@@ -621,6 +626,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       className="border border-t-0 rounded-b-lg p-2 flex gap-3 items-start"
                       style={{ borderColor: borderColor }}
                     >
+                      {!adoptionFinalized && (
                       <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(proposalId) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(proposalId)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
@@ -635,8 +641,9 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                           メモ{(memos[proposalId] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
+                      )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {memoOpenId === proposalId && (
+                        {!adoptionFinalized && memoOpenId === proposalId && (
                           <div className="p-2 bg-gray-50 rounded border border-gray-200">
                             <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
                             <textarea value={memos[proposalId] ?? ''} onChange={e => setMemo(proposalId, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
@@ -692,6 +699,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       className="border border-t-0 rounded-b-lg p-2 flex gap-3 items-start"
                       style={{ borderColor: borderColor }}
                     >
+                      {!adoptionFinalized && (
                       <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(topData.proposal_id) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(topData.proposal_id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
@@ -706,8 +714,9 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                           メモ{(memos[topData.proposal_id] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
+                      )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {memoOpenId === topData.proposal_id && (
+                        {!adoptionFinalized && memoOpenId === topData.proposal_id && (
                           <div className="p-2 bg-gray-50 rounded border border-gray-200">
                             <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
                             <textarea value={memos[topData.proposal_id] ?? ''} onChange={e => setMemo(topData.proposal_id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
@@ -763,6 +772,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       className="border border-t-0 rounded-b-lg p-2 flex gap-3 items-start"
                       style={{ borderColor: borderColor }}
                     >
+                      {!adoptionFinalized && (
                       <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(topData.proposal_id) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(topData.proposal_id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
@@ -777,8 +787,9 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                           メモ{(memos[topData.proposal_id] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
+                      )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {memoOpenId === topData.proposal_id && (
+                        {!adoptionFinalized && memoOpenId === topData.proposal_id && (
                           <div className="p-2 bg-gray-50 rounded border border-gray-200">
                             <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
                             <textarea value={memos[topData.proposal_id] ?? ''} onChange={e => setMemo(topData.proposal_id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />

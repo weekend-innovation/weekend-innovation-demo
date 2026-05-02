@@ -9,7 +9,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type { Challenge } from '../../../types/challenge';
 import type { ProposalListItem } from '../../../types/proposal';
-import { getChallenge, deleteChallenge } from '../../../lib/challengeAPI';
+import { getChallenge, deleteChallenge, finalizeAdoption } from '../../../lib/challengeAPI';
 import { getProposalsByChallenge, getUserProposalForChallenge, setProposalAdopted } from '../../../lib/proposalAPI';
 import { getChallengeAnalysis, getMyProposalInsight, type ChallengeAnalysisData, type ProposalInsight } from '../../../lib/analyticsAPI';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -69,6 +69,7 @@ const ChallengeDetailPage: React.FC = () => {
   const [addToAdoptionListMemoInput, setAddToAdoptionListMemoInput] = useState('');
   const [memoOpenIdList, setMemoOpenIdList] = useState<number | null>(null);
   const [confirmingAdoption, setConfirmingAdoption] = useState(false);
+  const [adoptionFinalizeModalOpen, setAdoptionFinalizeModalOpen] = useState(false);
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_PREFIX + 'consideration', JSON.stringify([...adoptionList]));
@@ -87,20 +88,55 @@ const ChallengeDetailPage: React.FC = () => {
     setAddToAdoptionListModalId(null);
     setAddToAdoptionListMemoInput('');
   };
-  const confirmAdoptionFromList = () => {
+  const openAdoptionFinalizeConfirm = () => {
+    if (adoptionList.size === 0) return;
+    setAdoptionFinalizeModalOpen(true);
+  };
+
+  const reloadProposalsForChallenge = async () => {
+    const cid = parseInt(challengeId, 10);
+    const proposalsData = await getProposalsByChallenge(cid);
+    let allProposals = proposalsData.results;
+    let nextUrl = proposalsData.next;
+    while (nextUrl) {
+      const token = localStorage.getItem('access_token');
+      const response = await fetch(nextUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      const nextData = await response.json();
+      allProposals = [...allProposals, ...nextData.results];
+      nextUrl = nextData.next;
+    }
+    setProposals(allProposals);
+  };
+
+  const executeFinalizeAdoption = async () => {
     if (adoptionList.size === 0) return;
     setConfirmingAdoption(true);
-    Promise.all([...adoptionList].map(pid => Promise.resolve(handleAdoptToggle(pid, true))))
-      .then(() => {
-        setAdoptionList(new Set());
-        alert('採用を確定しました。');
-      })
-      .catch(() => alert('採用の確定に失敗しました。'))
-      .finally(() => setConfirmingAdoption(false));
+    try {
+      const updated = await finalizeAdoption(parseInt(challengeId, 10), [...adoptionList]);
+      setChallenge(updated);
+      await reloadProposalsForChallenge();
+      setAdoptionList(new Set());
+      setAdoptionFinalizeModalOpen(false);
+      alert('採用を確定しました。この操作は取り消せません。');
+    } catch (e) {
+      console.error('採用確定エラー:', e);
+      alert(e instanceof Error ? e.message : '採用の確定に失敗しました。');
+    } finally {
+      setConfirmingAdoption(false);
+    }
   };
 
   // 採用トグル（投稿者向け・分析・一覧の両方で使用）
   const handleAdoptToggle = async (proposalId: number, isAdopted: boolean) => {
+    if (challenge?.status === 'completed') {
+      alert('採用はすでに確定済みのため変更できません。');
+      return;
+    }
     try {
       await setProposalAdopted(proposalId, isAdopted);
       setProposals(prev => prev.map(p =>
@@ -116,7 +152,7 @@ const ChallengeDetailPage: React.FC = () => {
 
   // 投稿者向け分析データの取得
   const fetchAnalysisData = async () => {
-    if (!challenge || challenge.status !== 'closed') return;
+    if (!challenge || (challenge.status !== 'closed' && challenge.status !== 'completed')) return;
     
     try {
       setAnalysisLoading(true);
@@ -132,7 +168,12 @@ const ChallengeDetailPage: React.FC = () => {
 
   // 提案者向け分析データの取得（提案＋評価完了した場合のみ）
   const fetchMyInsightData = async () => {
-    if (!challenge || challenge.status !== 'closed' || !userProposal || !challenge.has_completed_all_evaluations) {
+    if (
+      !challenge ||
+      (challenge.status !== 'closed' && challenge.status !== 'completed') ||
+      !userProposal ||
+      !challenge.has_completed_all_evaluations
+    ) {
       return;
     }
     
@@ -271,7 +312,7 @@ const ChallengeDetailPage: React.FC = () => {
 
   // 分析データの取得（課題データ取得後）
   useEffect(() => {
-    if (challenge && challenge.status === 'closed') {
+    if (challenge && (challenge.status === 'closed' || challenge.status === 'completed')) {
       if (user?.user_type === 'contributor') {
         // 投稿者向け分析
         fetchAnalysisData();
@@ -374,7 +415,12 @@ const ChallengeDetailPage: React.FC = () => {
   const challengeForProposer = { ...challenge, has_proposed: !!userProposal };
   const expiredOrFailed = user?.user_type === 'proposer' && isProposerExpiredOrFailed(challengeForProposer);
   const allPhasesDone = user?.user_type === 'proposer' && isAllPhasesCompleted(challengeForProposer);
-  const contributorClosed = user?.user_type === 'contributor' && (challenge.current_phase === 'closed' || isExpired(challenge.deadline));
+  const adoptionFinalized = challenge.status === 'completed';
+  const contributorPastDeadline =
+    user?.user_type === 'contributor' &&
+    (challenge.current_phase === 'closed' || isExpired(challenge.deadline));
+  const contributorAdoptionPending = contributorPastDeadline && !adoptionFinalized;
+  const canManageAdoptionList = contributorAdoptionPending;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 w-full">
@@ -434,7 +480,8 @@ const ChallengeDetailPage: React.FC = () => {
             {/* 期限とフェーズ表示 */}
             <div>
               <div className={`rounded-lg p-3 text-center ${
-                contributorClosed ? 'bg-teal-50' :
+                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-100 border border-gray-400' :
+                contributorAdoptionPending ? 'bg-amber-50 border border-amber-200' :
                 expiredOrFailed ? 'bg-red-50' :
                 allPhasesDone ? 'bg-teal-50' :
                 challenge.current_phase === 'proposal' ? 'bg-green-50' :
@@ -443,7 +490,8 @@ const ChallengeDetailPage: React.FC = () => {
                 'bg-red-50'
               }`}>
                 <p className={`text-sm font-medium mb-1 ${
-                  contributorClosed ? 'text-teal-600' :
+                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-700' :
+                  contributorAdoptionPending ? 'text-amber-800' :
                   expiredOrFailed ? 'text-red-600' :
                   allPhasesDone ? 'text-teal-600' :
                   challenge.current_phase === 'proposal' ? 'text-green-600' :
@@ -452,7 +500,8 @@ const ChallengeDetailPage: React.FC = () => {
                   'text-red-600'
                 }`}>期限・状況</p>
                 <p className={`text-lg font-bold mb-1 ${
-                  contributorClosed ? 'text-teal-900' :
+                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-900' :
+                  contributorAdoptionPending ? 'text-amber-900' :
                   expiredOrFailed ? 'text-red-900' :
                   allPhasesDone ? 'text-teal-900' :
                   challenge.current_phase === 'proposal' ? 'text-green-900' :
@@ -460,7 +509,8 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge.current_phase === 'evaluation' ? 'text-orange-900' :
                   'text-red-900'
                 }`}>
-                  {contributorClosed ? '完了' :
+                  {user?.user_type === 'contributor' && adoptionFinalized ? '終了・採用確定済み' :
+                   contributorAdoptionPending ? '締切後（採用の確定が可能）' :
                    expiredOrFailed ? '期限切れ' :
                    allPhasesDone ? '全フェーズ達成' :
                    challenge.phase_display || (isExpired(challenge.deadline) ? '期限切れ' : '募集中')}
@@ -647,7 +697,7 @@ const ChallengeDetailPage: React.FC = () => {
               </h2>
               
               {/* 期限切れ課題の場合のみトグルスイッチを表示（提案者は評価完了済みのみ） */}
-              {challenge?.status === 'closed' && ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) || (user?.user_type === 'contributor' && analysis)) && (
+              {(challenge?.status === 'closed' || challenge?.status === 'completed') && ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) || (user?.user_type === 'contributor' && analysis)) && (
                 <AnalysisToggleSwitch
                   showAnalysis={showAnalysis}
                   onToggle={setShowAnalysis}
@@ -675,7 +725,7 @@ const ChallengeDetailPage: React.FC = () => {
             ) : (
               <div className="space-y-4">
                 {/* 提案者向け：期限切れ課題で自分の提案分析を表示（提案＋評価完了した場合のみ） */}
-                {user?.user_type === 'proposer' && challenge?.status === 'closed' && challenge?.has_completed_all_evaluations && analysis && myInsight ? (
+                {user?.user_type === 'proposer' && (challenge?.status === 'closed' || challenge?.status === 'completed') && challenge?.has_completed_all_evaluations && analysis && myInsight ? (
                     <>
                     {/* 分析結果または解決案の表示 */}
                     {showAnalysis ? (
@@ -749,7 +799,7 @@ const ChallengeDetailPage: React.FC = () => {
                     });
                     const otherProposals = proposals.filter(p => p.proposer_name !== user?.username)
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-                    const proposerClosedWithoutEval = user?.user_type === 'proposer' && challenge?.status === 'closed' && userProposal && !challenge?.has_completed_all_evaluations;
+                    const proposerClosedWithoutEval = user?.user_type === 'proposer' && (challenge?.status === 'closed' || challenge?.status === 'completed') && userProposal && !challenge?.has_completed_all_evaluations;
                     
                     return (
                       <>
@@ -770,12 +820,12 @@ const ChallengeDetailPage: React.FC = () => {
                             <ProposalCard
                               key={myProposal.id}
                               proposal={myProposal}
-                              showActions={challenge?.status !== 'closed'}
+                              showActions={challenge?.status !== 'closed' && challenge?.status !== 'completed'}
                               showStatus={false}
                               showComments={true}
-                              readOnlyComments={challenge?.status === 'closed'}
+                              readOnlyComments={challenge?.status === 'closed' || challenge?.status === 'completed'}
                               showChallengeInfo={false}
-                              showUserAttributes={challenge?.status === 'closed'}
+                              showUserAttributes={challenge?.status === 'closed' || challenge?.status === 'completed'}
                               currentPhase={challenge?.current_phase}
                               onComments={(proposal) => {
                                 // 提案リスト内の該当提案の未読コメント数を更新
@@ -802,12 +852,12 @@ const ChallengeDetailPage: React.FC = () => {
                               <ProposalCard
                                 key={proposal.id}
                                 proposal={proposal}
-                                showActions={challenge?.status !== 'closed'}
+                                showActions={challenge?.status !== 'closed' && challenge?.status !== 'completed'}
                                 showStatus={false}
                                 showComments={true}
-                                readOnlyComments={challenge?.status === 'closed'}
+                                readOnlyComments={challenge?.status === 'closed' || challenge?.status === 'completed'}
                                 showChallengeInfo={false}
-                                showUserAttributes={challenge?.status === 'closed'}
+                                showUserAttributes={challenge?.status === 'closed' || challenge?.status === 'completed'}
                                 currentPhase={challenge?.current_phase}
                                 onComments={(proposal) => {
                                   // 提案リスト内の該当提案の未読コメント数を更新
@@ -826,9 +876,19 @@ const ChallengeDetailPage: React.FC = () => {
                     );
                   })()
                 ) : (
-                  // 投稿者ユーザーの場合：期限切れ課題では分析機能を表示
-                  challenge?.status === 'closed' ? (
+                  // 投稿者ユーザーの場合：期限切れ／採用確定後も分析・一覧を表示
+                  challenge?.status === 'closed' || challenge?.status === 'completed' ? (
                     <>
+                      {adoptionFinalized && (
+                        <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded-lg">
+                          <p className="text-gray-800 font-medium">
+                            採用を確定済みです。採用内容の変更はできません。
+                          </p>
+                          <p className="text-sm text-gray-600 mt-1">
+                            デモのため、この操作は取り消せない想定です。本番では別途契約・通知フローを想定してください。
+                          </p>
+                        </div>
+                      )}
                       {/* 分析結果または解決案一覧の表示 */}
                       {showAnalysis ? (
                         <ChallengeAnalysisSummary
@@ -843,8 +903,9 @@ const ChallengeDetailPage: React.FC = () => {
                           sharedMemos={adoptionListMemos}
                           sharedSetMemos={setAdoptionListMemos}
                           onOpenAddToAdoptionListModal={(id) => { setAddToAdoptionListModalId(id); setAddToAdoptionListMemoInput(adoptionListMemos[id] ?? ''); }}
-                          onConfirmAdoptionFromList={confirmAdoptionFromList}
+                          onConfirmAdoptionFromList={openAdoptionFinalizeConfirm}
                           confirmingAdoption={confirmingAdoption}
+                          adoptionFinalized={adoptionFinalized}
                         />
                       ) : (
                         (() => {
@@ -862,26 +923,59 @@ const ChallengeDetailPage: React.FC = () => {
                           );
                           return (
                             <div className="space-y-4">
-                              <p className="text-sm text-gray-600 mb-2">
-                                気になる解決案を「採用リスト」でかごに入れ、メモを付けてから「採用を確定する」で採用できます。
-                              </p>
+                              {canManageAdoptionList ? (
+                                <p className="text-sm text-gray-600 mb-2">
+                                  気になる解決案を「採用リスト」でかごに入れ、メモを付けてから「採用を確定する」で採用できます。確定前に注意事項の確認が開きます。
+                                </p>
+                              ) : adoptionFinalized ? (
+                                <p className="text-sm text-gray-600 mb-2">
+                                  採用は確定済みです（採用マークは閲覧のみ）。
+                                </p>
+                              ) : null}
                               {paginatedProposals.map((proposal) => {
                                 const inList = adoptionList.has(proposal.id);
                                 const memoText = adoptionListMemos[proposal.id] ?? '';
                                 const memoOpen = memoOpenIdList === proposal.id;
+                                if (!canManageAdoptionList) {
+                                  return (
+                                    <ProposalCard
+                                      key={proposal.id}
+                                      proposal={proposal}
+                                      showActions={false}
+                                      showStatus={false}
+                                      showComments={true}
+                                      readOnlyComments={true}
+                                      showChallengeInfo={false}
+                                      showUserAttributes={true}
+                                    />
+                                  );
+                                }
                                 return (
                                   <div key={proposal.id} className="flex gap-3 items-start">
                                     <div className="flex flex-col gap-1.5 flex-shrink-0 pt-2 w-[6rem]">
                                       <button
                                         type="button"
-                                        onClick={() => inList ? setAdoptionList(prev => { const n = new Set(prev); n.delete(proposal.id); return n; }) : (() => { setAddToAdoptionListModalId(proposal.id); setAddToAdoptionListMemoInput(memoText); })()}
+                                        onClick={() =>
+                                          inList
+                                            ? setAdoptionList((prev) => {
+                                                const n = new Set(prev);
+                                                n.delete(proposal.id);
+                                                return n;
+                                              })
+                                            : (() => {
+                                                setAddToAdoptionListModalId(proposal.id);
+                                                setAddToAdoptionListMemoInput(memoText);
+                                              })()
+                                        }
                                         className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center ${inList ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}`}
                                       >
                                         {inList ? '外す' : '採用リスト'}
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() => setMemoOpenIdList(prev => prev === proposal.id ? null : proposal.id)}
+                                        onClick={() =>
+                                          setMemoOpenIdList((prev) => (prev === proposal.id ? null : proposal.id))
+                                        }
                                         className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center border ${memoText ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                                       >
                                         メモ{memoText ? ' ✓' : ''}
@@ -890,11 +984,22 @@ const ChallengeDetailPage: React.FC = () => {
                                         <div className="flex flex-col gap-1 mt-1 p-2 border border-gray-200 rounded bg-white">
                                           <textarea
                                             value={memoText}
-                                            onChange={e => setAdoptionListMemos(prev => ({ ...prev, [proposal.id]: e.target.value }))}
+                                            onChange={(e) =>
+                                              setAdoptionListMemos((prev) => ({
+                                                ...prev,
+                                                [proposal.id]: e.target.value,
+                                              }))
+                                            }
                                             className="w-64 text-sm border border-gray-300 rounded p-2 min-h-[60px]"
                                             placeholder="メモを入力"
                                           />
-                                          <button type="button" onClick={() => setMemoOpenIdList(null)} className="text-xs text-gray-600 hover:text-gray-800">閉じる</button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setMemoOpenIdList(null)}
+                                            className="text-xs text-gray-600 hover:text-gray-800"
+                                          >
+                                            閉じる
+                                          </button>
                                         </div>
                                       )}
                                     </div>
@@ -943,8 +1048,8 @@ const ChallengeDetailPage: React.FC = () => {
                           );
                         })()
                       )}
-                      {/* 採用リスト（トグルに依存せず、常に最下部に1つだけ表示） */}
-                      {adoptionList.size > 0 && (
+                      {/* 採用リスト（採用確定前のみ・トグルに依存せず最下部に1つ） */}
+                      {canManageAdoptionList && adoptionList.size > 0 && (
                         <div className="mt-6 p-5 bg-amber-50/80 border border-amber-200 rounded-xl shadow-sm">
                           <h3 className="text-base font-semibold text-amber-900 mb-1">🛒 採用リスト（{adoptionList.size}件）</h3>
                           <p className="text-xs text-amber-800 mb-4">確定すると採用となります。</p>
@@ -975,9 +1080,54 @@ const ChallengeDetailPage: React.FC = () => {
                               ) : null;
                             })}
                           </ul>
-                          <button type="button" disabled={confirmingAdoption} onClick={confirmAdoptionFromList} className="px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors">
+                          <button
+                            type="button"
+                            disabled={confirmingAdoption}
+                            onClick={openAdoptionFinalizeConfirm}
+                            className="px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                          >
                             {confirmingAdoption ? '確定中…' : '採用を確定する'}
                           </button>
+                        </div>
+                      )}
+                      {adoptionFinalizeModalOpen && (
+                        <div
+                          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 px-4"
+                          onClick={() => !confirmingAdoption && setAdoptionFinalizeModalOpen(false)}
+                        >
+                          <div
+                            className="bg-white rounded-lg shadow-xl p-6 max-w-lg w-full border border-amber-200"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">採用を確定しますか？</h3>
+                            <div className="mb-4 space-y-3 text-sm text-gray-700">
+                              <p className="p-3 rounded-md bg-amber-50 border border-amber-300 text-amber-900">
+                                デモ版の注意：確定後は採用の取り消し・やり直しはできません（本番では契約・ワークフローを想定）。
+                              </p>
+                              <p>
+                                採用リストの <span className="font-semibold">{adoptionList.size} 件</span>
+                                を採用として記録し、この課題を「終了・採用確定済み」にします。リストに入れていない解決案は採用されていない状態にそろえられます。
+                              </p>
+                            </div>
+                            <div className="flex gap-2 justify-end flex-wrap">
+                              <button
+                                type="button"
+                                disabled={confirmingAdoption}
+                                onClick={() => setAdoptionFinalizeModalOpen(false)}
+                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                              >
+                                キャンセル
+                              </button>
+                              <button
+                                type="button"
+                                disabled={confirmingAdoption}
+                                onClick={() => void executeFinalizeAdoption()}
+                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                              >
+                                {confirmingAdoption ? '確定中…' : '内容を確認したうえで確定する'}
+                              </button>
+                            </div>
+                          </div>
                         </div>
                       )}
                       {/* 採用リストに追加モーダル（分析・一覧のどちらから開いた場合も表示） */}
@@ -1054,7 +1204,8 @@ const ChallengeDetailPage: React.FC = () => {
               <p className="text-red-700 font-medium text-center">
                 {challenge.current_phase === 'edit' && '⛔ 編集期間中は新規提案できません。'}
                 {challenge.current_phase === 'evaluation' && '⛔ 評価期間中は新規提案できません。'}
-                {challenge.current_phase === 'closed' && '⛔ この課題は期限切れのため、解決案を提案できません。'}
+                {(challenge.current_phase === 'closed' || challenge.status === 'completed') &&
+                  '⛔ この課題は期限切れまたは終了のため、解決案を提案できません。'}
               </p>
             )}
           </div>

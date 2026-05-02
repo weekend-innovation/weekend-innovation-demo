@@ -39,6 +39,23 @@ class QuestionSerializer(serializers.ModelSerializer):
             return "Weekend Innovation 運営"
         return None
 
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        request = self.context.get("request")
+        if not request or not getattr(request.user, "is_authenticated", False):
+            return data
+        # 運営（staff）は管理用に全項目をそのまま返す
+        if request.user.is_staff:
+            return data
+        # 公開済みQ&A は質問者名・日時を返さない（遠慮・対応時間の評価を避ける）
+        if instance.status == Question.STATUS_ANSWERED and instance.is_public:
+            data["asked_by_username"] = ""
+            data["created_at"] = None
+            data["answered_at"] = None
+            if instance.asked_by_id != request.user.id:
+                data["asked_by"] = None
+        return data
+
 
 class QuestionCreateSerializer(serializers.ModelSerializer):
     class Meta:
