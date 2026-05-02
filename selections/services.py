@@ -173,13 +173,13 @@ class SelectionService:
                     len(available_pool),
                 )
 
-            random.shuffle(available_pool)
+            # 未使用行から等確率・非復元で1件ずつ選ぶ（DBの name 順や形容詞の並びに依存しない）
             assigned_reserved_ids = set(used_ids)
 
             for user in users:
                 cands = [n for n in available_pool if n.id not in assigned_reserved_ids]
                 if cands:
-                    pick = cands[0]
+                    pick = random.choice(cands)
                     anonymous_name = pick
                     assigned_reserved_ids.add(pick.id)
                 else:

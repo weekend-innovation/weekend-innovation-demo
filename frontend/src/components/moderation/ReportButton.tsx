@@ -32,6 +32,9 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
   const [errorMessage, setErrorMessage] = useState('');
   const [isReported, setIsReported] = useState(false);
   const [contentTypeId, setContentTypeId] = useState<number | null>(null);
+  /** ContentType id 取得の成否（未設定のまま disabled にすると「通報済み」に見えるため分離） */
+  const [contentTypeReady, setContentTypeReady] = useState(false);
+  const [contentTypeError, setContentTypeError] = useState(false);
 
   const sizeClasses = {
     sm: 'px-2 py-1 text-xs',
@@ -41,13 +44,18 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
 
   useEffect(() => {
     const initReportStatus = async () => {
+      setContentTypeReady(false);
+      setContentTypeError(false);
+      setContentTypeId(null);
       try {
         const resolvedTypeId = await getContentType(contentTypeModel);
         setContentTypeId(resolvedTypeId);
         const reported = await checkIfReported(resolvedTypeId, objectId);
         setIsReported(reported);
+        setContentTypeReady(true);
       } catch (error) {
         console.error('報告初期化エラー:', error);
+        setContentTypeError(true);
       }
     };
 
@@ -113,13 +121,23 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
     setSuccessMessage('');
   };
 
-  const isDisabled = isReported || !contentTypeId;
+  /** 通報済み・読み込み中・ContentType 取得失敗時は押下不可 */
+  const isDisabled = !contentTypeReady || contentTypeError || isReported;
+
+  const reportedStyle = `${sizeClasses[size]} ${className
+    .replace(/bg-red-\d+/, 'bg-white')
+    .replace(/hover:bg-red-\d+/, '')
+    .replace(/text-white/, 'text-gray-400')} !cursor-not-allowed opacity-60 border-2 border-red-600`;
+
+  const loadingStyle = `${sizeClasses[size]} bg-gray-100 text-gray-500 border border-gray-300 opacity-80 cursor-wait`;
+
+  const errorStyle = `${sizeClasses[size]} bg-amber-50 text-amber-900 border border-amber-300 cursor-not-allowed`;
 
   return (
     <>
       <button
         onClick={(e) => {
-          if (isDisabled) {
+          if (isReported || contentTypeError || !contentTypeReady) {
             e.preventDefault();
             e.stopPropagation();
             return;
@@ -128,23 +146,28 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
         }}
         disabled={isDisabled}
         className={
-          isDisabled
-            ? `${sizeClasses[size]} ${className
-                .replace(/bg-red-\d+/, 'bg-white')
-                .replace(/hover:bg-red-\d+/, '')
-                .replace(/text-white/, 'text-gray-400')} !cursor-not-allowed opacity-60 border-2 border-red-600`
-            : `${sizeClasses[size]} ${className}`.trim()
+          isReported
+            ? reportedStyle
+            : contentTypeError
+              ? errorStyle
+              : !contentTypeReady
+                ? loadingStyle
+                : `${sizeClasses[size]} ${className}`.trim()
         }
-        style={isDisabled ? { cursor: 'not-allowed' } : undefined}
+        style={
+          isReported || contentTypeError || !contentTypeReady ? { cursor: 'not-allowed' } : undefined
+        }
         title={
           isReported
             ? '報告済み'
-            : !contentTypeId
-              ? '通報情報を読み込み中です'
-              : `${contentTypeName}を通報する`
+            : contentTypeError
+              ? '通報の準備に失敗しました（再読み込みしてください）'
+              : !contentTypeReady
+                ? '通報情報を読み込み中です'
+                : `${contentTypeName}を通報する`
         }
       >
-        通報
+        {contentTypeError ? '通報（設定エラー）' : !contentTypeReady ? '通報…' : '通報'}
       </button>
 
       {isModalOpen && (

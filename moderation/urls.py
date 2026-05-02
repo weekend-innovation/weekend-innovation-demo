@@ -12,6 +12,7 @@ urlpatterns = [
     path('reports/<int:pk>/', views.ReportDetailView.as_view(), name='report-detail'),
     path('reports/create/', views.create_report, name='create-report'),
     path('reports/check/', views.check_if_reported, name='check-if-reported'),
+    path('content-types/', views.content_type_lookup, name='content-type-lookup'),
     
     # ユーザー利用停止関連
     path('suspensions/', views.UserSuspensionListCreateView.as_view(), name='suspension-list-create'),

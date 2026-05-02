@@ -25,6 +25,21 @@ logger = logging.getLogger(__name__)
 User = get_user_model()
 
 
+@api_view(["GET"])
+@permission_classes([permissions.IsAuthenticated])
+def content_type_lookup(request):
+    """Django ContentType の id を app_label + model で返す（通報フォーム用。model は小文字クラス名）。"""
+    model = (request.query_params.get("model") or "").strip().lower()
+    app_label = (request.query_params.get("app_label") or "proposals").strip().lower()
+    if not model:
+        return Response({"error": "query parameter model is required"}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        ct = ContentType.objects.get(app_label=app_label, model=model)
+        return Response({"id": ct.id, "app_label": ct.app_label, "model": ct.model})
+    except ContentType.DoesNotExist:
+        return Response({"error": "ContentType not found"}, status=status.HTTP_404_NOT_FOUND)
+
+
 class ReportListCreateView(generics.ListCreateAPIView):
     """報告一覧・作成ビュー"""
     
@@ -355,11 +370,13 @@ def check_if_reported(request):
         )
     
     try:
+        object_id_int = int(object_id)
+        content_type_int = int(content_type_id)
         is_reported = Report.objects.filter(
             reporter=request.user,
-            content_type_id=content_type_id,
-            object_id=object_id,
-            status__in=['pending', 'under_review']
+            content_type_id=content_type_int,
+            object_id=object_id_int,
+            status__in=['pending', 'under_review'],
         ).exists()
         
         return Response({'is_reported': is_reported})

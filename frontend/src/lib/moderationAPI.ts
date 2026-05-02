@@ -119,27 +119,29 @@ export const getUserSuspensionStatus = async (): Promise<{
   return response.json();
 };
 
-// コンテンツタイプを取得する関数（汎用的）
-export const getContentType = async (model: string): Promise<number> => {
-  const response = await fetch(`${API_BASE_URL}/contenttypes/`, {
+// コンテンツタイプを取得する関数（バックエンドの ContentType 参照用）
+export const getContentType = async (
+  model: string,
+  appLabel: string = 'proposals'
+): Promise<number> => {
+  const params = new URLSearchParams({
+    model: model.toLowerCase(),
+    app_label: appLabel.toLowerCase(),
+  });
+  const response = await fetch(`${API_BASE_URL}/moderation/content-types/?${params.toString()}`, {
     method: 'GET',
     headers: getAuthHeaders(),
   });
 
   if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const err = await response.json().catch(() => ({}));
+    throw new Error(
+      (err as { error?: string }).error || `ContentType の取得に失敗しました (HTTP ${response.status})`
+    );
   }
 
-  const contentTypes = await response.json();
-  const contentType = (contentTypes as { id: number; model: string }[]).find(
-    (ct) => ct.model === model
-  );
-  
-  if (!contentType) {
-    throw new Error(`Content type not found for model: ${model}`);
-  }
-
-  return contentType.id;
+  const data = (await response.json()) as { id: number };
+  return data.id;
 };
 
 // コメントを報告する関数
