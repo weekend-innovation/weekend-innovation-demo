@@ -66,9 +66,14 @@ class Proposal(models.Model):
         verbose_name_plural = 'Proposals'
     
     def __str__(self):
-        if self.is_anonymous and self.anonymous_name:
-            return f"{self.title} (by {self.anonymous_name.name})"
-        return f"{self.title} (by {self.proposer.username})"
+        text = (self.conclusion or '').strip()
+        excerpt = text[:60] + ('…' if len(text) > 60 else '') if text else f'#{self.pk}'
+        author = (
+            self.anonymous_name.name
+            if self.is_anonymous and self.anonymous_name
+            else self.proposer.username
+        )
+        return f'{excerpt} (by {author})'
     
     def get_display_name(self, request_user=None):
         """表示用の名前を返す"""
