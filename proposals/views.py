@@ -67,7 +67,7 @@ class ProposalListCreateView(generics.ListCreateAPIView):
                 phase_messages = {
                     'edit': '編集期間中は新規提案できません。',
                     'evaluation': '評価期間中は新規提案できません。',
-                    'closed': '期限切れのため提案できません。'
+                    'closed': 'この課題の期間が満了しているため、提案できません。'
                 }
                 raise permissions.PermissionDenied(
                     phase_messages.get(current_phase, '現在は提案できません。')
@@ -192,7 +192,7 @@ class ProposalDetailView(generics.RetrieveUpdateDestroyAPIView):
                     phase_messages = {
                         'proposal': '提案期間中は編集できません。',
                         'evaluation': '評価期間中は編集できません。',
-                        'closed': '期限切れのため編集できません。'
+                        'closed': 'この課題の期間が満了しているため、編集できません。'
                     }
                     raise permissions.PermissionDenied(
                         phase_messages.get(current_phase, '現在は編集できません。')
@@ -311,12 +311,12 @@ class ProposalCommentListCreateView(generics.ListCreateAPIView):
         user = self.request.user
         challenge = proposal.challenge
         
-        # 提案期間・編集期間でコメント可能（評価期間・期限切れは不可）
+        # 提案期間・編集期間でコメント可能（評価期間および全体満了後は不可）
         current_phase = challenge.get_current_phase()
         if current_phase not in ('proposal', 'edit'):
             phase_messages = {
                 'evaluation': '評価期間中はコメントできません。',
-                'closed': '期限切れのためコメントできません。'
+                'closed': 'この課題の期間が満了しているため、コメントできません。'
             }
             raise permissions.PermissionDenied(
                 phase_messages.get(current_phase, '現在はコメントできません。')
@@ -376,7 +376,7 @@ class ProposalEvaluationCreateView(generics.CreateAPIView):
             phase_messages = {
                 'proposal': '提案期間中は評価できません。評価期間をお待ちください。',
                 'edit': '編集期間中は評価できません。評価期間をお待ちください。',
-                'closed': '期限切れのため評価できません。'
+                'closed': 'この課題の期間が満了しているため、評価できません。'
             }
             raise permissions.PermissionDenied(
                 phase_messages.get(current_phase, '現在は評価できません。')
@@ -535,7 +535,7 @@ class ProposalReferenceCreateView(generics.CreateAPIView):
 
 class ProposalAdoptView(generics.UpdateAPIView):
     """
-    解決案採用API（投稿者のみ、期限切れ課題）
+    解決案採用API（投稿者のみ、全体の期間が満了しフェーズが closed の課題）
     PATCH /proposals/<pk>/adopt/ { "is_adopted": true/false }
     """
     permission_classes = [permissions.IsAuthenticated]
@@ -552,7 +552,9 @@ class ProposalAdoptView(generics.UpdateAPIView):
         if proposal.challenge.status == 'completed':
             raise permissions.PermissionDenied("採用を確定済みの課題では採用の変更ができません。")
         if proposal.challenge.get_current_phase() != 'closed':
-            raise permissions.PermissionDenied("期限切れの課題のみ採用を設定できます。")
+            raise permissions.PermissionDenied(
+                "課題の期間が満了している場合のみ（フェーズ終了後）採用を設定できます。"
+            )
         return proposal
 
     def patch(self, request, *args, **kwargs):

@@ -67,7 +67,7 @@ const ContributorDashboard: React.FC = () => {
   const totalChallenges = challenges?.length || 0;
   const openChallenges = challenges?.filter(c => !isContributorExpired(c)).length || 0;
 
-  // 最近の課題（募集中は期限が近い順・同一期限は投稿の新しい順、期限切れは直近終了順・同日内は投稿の新しい順）
+  // 最近の課題（一覧と同様に deadline と作成日時で並べ替え）
   const recentChallenges = React.useMemo(() => {
     if (!challenges || challenges.length === 0) return [];
     

@@ -1,8 +1,6 @@
 /**
  * 課題カードコンポーネント
  * 課題一覧表示用のカード形式UI
- * 提案者: 期限切れ扱い（未提案・未評価含む）＝期限切れバッジ、全フェーズ達成＝別バッジ
- * 投稿者: 期限切れ課題＝完了バッジ
  */
 import React from 'react';
 import type { ChallengeCardProps } from '../../types/challenge';
@@ -100,12 +98,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
           )}
           {userType === 'contributor' && contributorAdoptionFinalized && (
             <span className="px-3 py-1 text-sm rounded-lg font-medium text-gray-600 bg-gray-200 border border-gray-400">
-              終了
+              完了
             </span>
           )}
           {userType === 'contributor' && contributorPastDeadlineUnfinalized && (
             <span className="px-3 py-1 text-sm rounded-lg font-medium text-amber-800 bg-amber-100 border border-amber-300">
-              締切（採用未確定）
+              期間満了（採用未確定）
             </span>
           )}
           {userType === 'contributor' &&

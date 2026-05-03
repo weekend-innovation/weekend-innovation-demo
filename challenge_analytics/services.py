@@ -553,7 +553,7 @@ class ChallengeAnalyzer:
 
 
 def analyze_challenge_on_deadline(challenge_id: int):
-    """期限切れ時に自動分析を実行"""
+    """課題の募集期限の満了時に自動分析を実行"""
     try:
         analyzer = ChallengeAnalyzer(challenge_id)
         return analyzer.analyze_challenge()

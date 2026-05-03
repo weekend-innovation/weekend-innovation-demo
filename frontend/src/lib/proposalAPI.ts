@@ -235,7 +235,7 @@ export async function createProposalReference(
   });
 }
 
-// 解決案採用の設定（投稿者のみ、期限切れ課題）
+// 解決案採用設定（投稿者のみ・募集終了後）
 export async function setProposalAdopted(
   proposalId: number,
   isAdopted: boolean

@@ -86,17 +86,49 @@ const ProposePage: React.FC = () => {
     );
   }
 
-  // 期限切れの場合の表示（status='closed'）
+  // completed：新規提案不可（黄色枠）
+  if (challenge && challenge.status === 'completed') {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <h2 className="text-lg font-medium text-yellow-800 mb-2">
+              この課題は完了しています
+            </h2>
+            <p className="text-yellow-700 mb-4">
+              この課題の期間が満了しているため、解決案を提案することはできません。
+            </p>
+            <div className="flex gap-4">
+              <Link
+                href={`/challenges/${challengeId}`}
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
+              >
+                課題詳細に戻る
+              </Link>
+              <Link
+                href="/challenges"
+                className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 transition-colors duration-200"
+              >
+                課題一覧に戻る
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // status=closed：新規提案不可
   if (challenge && challenge.status === 'closed') {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
             <h2 className="text-lg font-medium text-red-900 mb-2">
-              この課題は期限切れです
+              この課題の期間が満了しています
             </h2>
             <p className="text-red-800 mb-4">
-              期限が過ぎているため、解決案を提案することはできません。
+              この課題の期間が満了しているため、解決案を提案することはできません。
             </p>
             <div className="flex gap-4">
               <Link
@@ -196,30 +228,6 @@ const ProposePage: React.FC = () => {
               className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
             >
               課題一覧に戻る
-            </Link>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 課題が募集中でない場合
-  if (challenge.status !== 'open') {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-            <h2 className="text-lg font-medium text-yellow-800 mb-2">
-              この課題は募集中ではありません
-            </h2>
-            <p className="text-yellow-700 mb-4">
-              現在、この課題は{challenge.status === 'closed' ? '締切' : '完了'}しています。
-            </p>
-            <Link
-              href="/challenges"
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200"
-            >
-              他の課題を見る
             </Link>
           </div>
         </div>

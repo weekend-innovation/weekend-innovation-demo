@@ -32,6 +32,6 @@ urlpatterns = [
     # 提案参考
     path('<int:proposal_id>/reference/', views.ProposalReferenceCreateView.as_view(), name='proposal-reference-create'),
     
-    # 解決案採用（投稿者のみ、期限切れ課題）
+    # 解決案採用（投稿者のみ、全体の期間が満了した課題）
     path('<int:pk>/adopt/', views.ProposalAdoptView.as_view(), name='proposal-adopt'),
 ]

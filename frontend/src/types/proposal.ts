@@ -65,7 +65,7 @@ export interface ProposalListItem {
   updated_at: string;
   unread_comment_count?: number;
   total_comment_count?: number;
-  // ユーザー属性（期限切れ課題の解決案一覧用）
+  // ユーザー属性（募集終了後の解決案一覧向け）
   nationality?: string | null;
   gender?: string | null;
   age?: number | null;
@@ -217,9 +217,9 @@ export interface ProposalCardProps {
   showEditDelete?: boolean;
   showStatus?: boolean;
   showComments?: boolean;
-  readOnlyComments?: boolean; // 期限切れ課題用：コメント閲覧のみ（投稿・返信・通報不可）
+  readOnlyComments?: boolean; // 募集終了後：コメント閲覧のみ
   showChallengeInfo?: boolean;
-  showUserAttributes?: boolean; // 期限切れ課題用：ユーザー属性（国旗、性別、年齢）を表示
+  showUserAttributes?: boolean; // 募集終了後に属性を表示
   useServerDataOnly?: boolean; // 分析サマリー用：localStorageの編集データを無視し、サーバーデータのみ表示
   challengeId?: number;
   currentPhase?: 'proposal' | 'edit' | 'evaluation' | 'closed'; // 課題の現在のフェーズ

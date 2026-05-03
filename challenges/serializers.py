@@ -272,6 +272,6 @@ class ChallengeListSerializer(serializers.ModelSerializer):
             # 投稿者の場合は現在のフェーズで優先度を決定
             phase = obj.get_current_phase()
             if phase == 'closed':
-                return 5  # 期限切れは低優先度
+                return 5  # closed／満了は低優先度
             else:
                 return 1  # アクティブな課題は高優先度

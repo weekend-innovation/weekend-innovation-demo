@@ -306,7 +306,7 @@ class Challenge(models.Model):
         # 評価期間中
         elif now <= self.evaluation_deadline:
             return 'evaluation'
-        # 期限切れ
+        # 全フェーズの期間経過後（ワークフロー上 closed／全体の「満了」へ）
         else:
             return 'closed'
     
@@ -323,7 +323,7 @@ class Challenge(models.Model):
             'proposal': '提案期間中',
             'edit': '編集期間中',
             'evaluation': '評価期間中',
-            'closed': '期限切れ'
+            'closed': '満了'
         }
         return phase_map.get(phase, '不明')
     
@@ -355,9 +355,9 @@ class Challenge(models.Model):
         phase = self.get_current_phase()
         has_proposed = self.has_user_proposed(user)
         
-        # 提案していない場合、提案期間以外は全て期限切れ扱い
+        # 提案していない場合、提案期間以外は全て参加不可の低優先度扱い
         if not has_proposed and phase != 'proposal':
-            return 5  # 期限切れ（未提案）
+            return 5  # 提案期終了後など（未提案）
         
         # 評価完了状態をチェック
         has_completed_evaluations = False
@@ -381,6 +381,6 @@ class Challenge(models.Model):
         elif phase == 'evaluation' and has_completed_evaluations:
             return 4  # 評価期間中で評価完了（提案済み）
         elif phase == 'closed':
-            return 5  # 期限切れ
+            return 5  # 満了（closed）
         else:
             return 6  # その他

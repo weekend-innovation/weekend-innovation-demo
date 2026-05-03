@@ -137,7 +137,7 @@ const ProposerDashboard: React.FC = () => {
   
   // 評価の多い提案（上位5件）
 
-  // 募集中の課題（課題一覧と同じ: 期限切れ扱いでないもの＝次のフェーズまで近い順、期限切れ＝直近終了順）
+  // 募集中リストのソート（課題一覧と同じロジック）
   const openChallenges = React.useMemo(() => {
     if (!challenges || challenges.length === 0) return [];
     

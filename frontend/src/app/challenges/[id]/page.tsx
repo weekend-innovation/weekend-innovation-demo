@@ -375,7 +375,6 @@ const ChallengeDetailPage: React.FC = () => {
     return `${year}年${month}月${day}日 ${hours}:${minutes}`;
   };
 
-  // 課題が期限切れかどうかを判定
   const isExpired = (deadline: string) => {
     return new Date(deadline) < new Date();
   };
@@ -482,7 +481,7 @@ const ChallengeDetailPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            {/* 期限とフェーズ表示 */}
+            {/* 期限・状況 */}
             <div>
               <div className={`rounded-lg p-3 text-center ${
                 user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-100 border border-gray-400' :
@@ -514,11 +513,11 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge.current_phase === 'evaluation' ? 'font-bold text-orange-900' :
                   'font-bold text-red-900'
                 }`}>
-                  {user?.user_type === 'contributor' && adoptionFinalized ? '終了' :
-                   contributorAdoptionPending ? '締切（採用未確定）' :
+                  {user?.user_type === 'contributor' && adoptionFinalized ? '完了' :
+                   contributorAdoptionPending ? '期間満了（採用未確定）' :
                    expiredOrFailed ? '期限切れ' :
                    allPhasesDone ? '全フェーズ達成' :
-                   challenge.phase_display || (isExpired(challenge.deadline) ? '期限切れ' : '募集中')}
+                   challenge.phase_display || (isExpired(challenge.deadline) ? '満了' : '募集中')}
                 </p>
                 {/* 評価完了バッジ（全フェーズ達成時は表示しない） */}
                 {challenge.has_completed_all_evaluations && !allPhasesDone && !expiredOrFailed && (
@@ -660,7 +659,7 @@ const ChallengeDetailPage: React.FC = () => {
             </div>
           </div>
 
-          {/* 投稿者のみ編集・削除ボタンを表示（期限切れの課題では編集ボタンを非表示） */}
+          {/* 投稿者のみ編集・削除（deadline 過ぎていれば編集不可） */}
           {user?.user_type === 'contributor' && (
             <div className="flex justify-end gap-4 pt-4 border-t border-gray-200 mt-4">
               {!isExpired(challenge.deadline) && (
@@ -701,7 +700,7 @@ const ChallengeDetailPage: React.FC = () => {
                 解決案 ({proposals.length}件)
               </h2>
               
-              {/* 期限切れ課題の場合のみトグルを表示。投稿者は分析が無くても一覧・採用へ切替可能。提案者は評価完了＋分析取得済みのみ。 */}
+              {/* closed／completed のときトグル（提案者は評価完了かつ分析ありのときのみ） */}
               {(challenge?.status === 'closed' || challenge?.status === 'completed') &&
                 ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) ||
                   user?.user_type === 'contributor') && (
@@ -731,7 +730,7 @@ const ChallengeDetailPage: React.FC = () => {
               </div>
             ) : (
               <div className="space-y-4">
-                {/* 提案者向け：期限切れ課題で自分の提案分析を表示（提案＋評価完了した場合のみ） */}
+                {/* 提案者向け：自分の提案の分析ビュー */}
                 {user?.user_type === 'proposer' && (challenge?.status === 'closed' || challenge?.status === 'completed') && challenge?.has_completed_all_evaluations && analysis && myInsight ? (
                     <>
                     {/* 分析結果または解決案の表示 */}
@@ -810,7 +809,7 @@ const ChallengeDetailPage: React.FC = () => {
                     
                     return (
                       <>
-                        {/* 期限切れで評価未完了の提案者向けメッセージ */}
+                        {/* 評価未完了のときの案内 */}
                         {proposerClosedWithoutEval && (
                           <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                             <p className="text-amber-800 font-medium">
@@ -883,12 +882,12 @@ const ChallengeDetailPage: React.FC = () => {
                     );
                   })()
                 ) : (
-                  // 投稿者ユーザーの場合：期限切れ／採用確定後も分析・一覧を表示
+                  // 投稿者：closed／completed でも一覧・分析を表示
                   challenge?.status === 'closed' || challenge?.status === 'completed' ? (
                     <>
                       {adoptionFinalized && (
                         <div className="mb-4 p-4 bg-amber-50 border border-amber-400 rounded-lg">
-                          <p className="text-amber-900 font-medium">
+                          <p className="text-amber-900 font-medium text-center">
                             採用を確定済みです。採用内容の変更はできません。
                           </p>
                         </div>
@@ -1090,7 +1089,7 @@ const ChallengeDetailPage: React.FC = () => {
                               </p>
                               <p>
                                 採用リストの <span className="font-semibold">{adoptionList.size} 件</span>
-                                を採用として記録し、課題の状態を「終了」とします。
+                                を採用として記録し、課題の状態を「完了」とします。
                               </p>
                             </div>
                             <div className="flex gap-2 justify-end flex-wrap">
@@ -1214,7 +1213,7 @@ const ChallengeDetailPage: React.FC = () => {
                 {challenge.current_phase === 'edit' && '⛔ 編集期間中は新規提案できません。'}
                 {challenge.current_phase === 'evaluation' && '⛔ 評価期間中は新規提案できません。'}
                 {(challenge.current_phase === 'closed' || challenge.status === 'completed') &&
-                  '⛔ この課題は期限切れまたは終了のため、解決案を提案できません。'}
+                  '⛔ この課題の期間が満了しているため、解決案を提案できません。'}
               </p>
             )}
           </div>

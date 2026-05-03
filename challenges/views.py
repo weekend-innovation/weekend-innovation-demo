@@ -33,7 +33,7 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
         from proposals.models import Proposal
         from selections.models import UserEvaluationCompletion
         
-        # 期限切れ課題を自動的にclosedに更新
+        # 全体 deadline 超過で status=open を closed に自動更新（満了扱い）
         now = timezone.now()
         Challenge.objects.filter(
             status='open',
@@ -56,7 +56,7 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
                         Q(evaluation_deadline__gte=now, edit_deadline__lt=now),
                         then=Value(1)
                     ),
-                    # 期限切れ
+                    # 評価期間を過ぎ満了扱い（Contributor 並び順の低優先度）
                     default=Value(2),
                     output_field=IntegerField(),
                 )
@@ -92,7 +92,7 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
             # 2. 編集期間中（提案済み）
             # 3. 評価期間中で評価未完了（提案済み）
             # 4. 評価期間中で評価完了（提案済み）
-            # 5. 期限切れ（提案済み or 未提案）
+            # 5. closed／満了の列（提案済み or 未提案）
             # 同じ優先度内では期限が近い順
             queryset = queryset.annotate(
                 user_has_proposed=Exists(has_proposed),
@@ -127,7 +127,7 @@ class ChallengeListCreateView(generics.ListCreateAPIView):
                         user_has_completed_evaluations=True,
                         then=Value(4)
                     ),
-                    # 5. 期限切れ or 未提案で提案期間過ぎた
+                    # 5. closed／満了 or 提案期終了による未提案
                     default=Value(5),
                     output_field=IntegerField(),
                 )
@@ -205,7 +205,7 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
         """ユーザータイプに応じてクエリセットを返す"""
         from django.utils import timezone
         
-        # 期限切れ課題を自動的にclosedに更新
+        # 全体 deadline 超過で status=open を closed に自動更新（満了扱い）
         now = timezone.now()
         Challenge.objects.filter(
             status='open',
@@ -218,7 +218,7 @@ class ChallengeDetailView(generics.RetrieveUpdateDestroyAPIView):
             # 投稿者: 自分の課題のみ
             return Challenge.objects.filter(contributor=user)
         elif user.user_type == 'proposer':
-            # 提案者: 選出された課題のみ閲覧可能（期限切れを含む）
+            # 提案者: 選出された課題のみ閲覧可能（全体満了後を含む）
             from selections.models import Selection
             selected_challenges = Selection.objects.filter(
                 selected_users=user,
@@ -426,7 +426,7 @@ def calculate_proposal_reward(request):
 @permission_classes([permissions.IsAuthenticated])
 def finalize_adoption(request, pk):
     """
-    期限切れの課題で採用候補の集合を確定し、challenge.status を completed にする。
+    課題の期間が満了している状態（フェーズ closed）でのみ採用候補の集合を確定し、challenge.status を completed にする。
     proposal_ids で採用にする提案IDのみ true、それ以外は false に統一する。
     """
     challenge = get_object_or_404(Challenge, pk=pk)
@@ -443,7 +443,7 @@ def finalize_adoption(request, pk):
         )
     if challenge.get_current_phase() != 'closed':
         return Response(
-            {'detail': '期限切れの課題でのみ採用を確定できます。'},
+            {'detail': '課題の期間が満了している場合のみ採用を確定できます。'},
             status=status.HTTP_400_BAD_REQUEST,
         )
 

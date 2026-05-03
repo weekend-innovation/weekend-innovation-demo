@@ -336,7 +336,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
           <div className="flex items-center gap-4 text-sm text-gray-600">
             <div className="flex items-center gap-2">
               <span>提案者: {proposal.proposer_name}</span>
-              {/* ユーザー属性表示（期限切れ課題の解決案一覧用） */}
+              {/* ユーザー属性（募集終了後の一覧向け） */}
               {showUserAttributes && (proposal.nationality || proposal.gender || proposal.age) && (
                 <div className="flex items-center gap-2">
                   {proposal.nationality && (

@@ -11,7 +11,7 @@ from .services import analyze_challenge_on_deadline
 
 @receiver(post_save, sender=Challenge)
 def auto_analyze_on_challenge_close(sender, instance, **kwargs):
-    """課題が期限切れになった際に自動分析を実行"""
+    """課題が全体として満了（closed／deadline）になった際に自動分析を実行"""
     
     # 課題のステータスがclosedに変更された場合
     if instance.status == 'closed':

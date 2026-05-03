@@ -93,7 +93,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
                   選出された提案者が、その課題に対する解決案（結論・理由）を提出します。
                 </p>
                 <p className="text-gray-600 text-xs indent-4">
-                  なお、提案者の属性情報（国籍・性別・年齢）は期限が満了するまで公開されず、代わりの名前（Lion、Tigerなど）が割り当てられます。これにより、偏見のない公平な議論と評価を実現します。
+                  なお、提案者の属性情報（国籍・性別・年齢）は、課題の募集期限の満了までは公開されず、代わりの名前（Lion、Tigerなど）が割り当てられます。これにより、偏見のない公平な議論と評価を実現します。
                 </p>
               </div>
 
@@ -140,7 +140,7 @@ const ServiceDescriptionModal: React.FC<ServiceDescriptionModalProps> = ({ isOpe
                   <h4 className="font-semibold text-gray-900 text-sm">AI分析</h4>
                 </div>
                 <p className="text-gray-600 text-xs mb-1 indent-4">
-                  投稿者が設定した期限が満了すると、AIによって全ての解決案を整理し、その結果を要約します。
+                  投稿者が設定した募集期限の満了後に、AIによって全ての解決案を整理し、その結果を要約します。
                 </p>
               </div>
 

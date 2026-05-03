@@ -128,7 +128,7 @@ const ProposerAnalysisSummary: React.FC<ProposerAnalysisSummaryProps> = ({
       <div className="bg-white rounded-lg shadow-md p-6">
         <div className="text-center text-gray-500">
           <p>分析結果がまだ生成されていません。</p>
-          <p className="text-sm mt-2">課題が期限切れになると、自動的に分析が行われます。</p>
+          <p className="text-sm mt-2">課題の期間が満了すると、自動的に分析が行われます。</p>
         </div>
       </div>
     );

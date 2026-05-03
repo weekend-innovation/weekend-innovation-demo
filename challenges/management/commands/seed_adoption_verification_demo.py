@@ -4,7 +4,7 @@
 - 投稿者: weekend-innovation-3（--contributor-username で変更可）
 - 既存の提案者プールからランダムに30名を選出（--count、--seed）
 - 解決案30件 + 全員が他者の解決案を評価済み（UserEvaluationCompletion 反映）
-- 各期限を過去にし、課題 status=closed（採用確定前の「期限切れ」状態）
+- 各期限を過去にし、課題 status=closed（採用確定前の「満了」状態）
 
 削除用: purge_adoption_verification_demo（タイトル接頭辞 DEMO_TITLE_PREFIX と一致する課題のみ）。
 DEMO_TITLE_PREFIX は purge コマンドと同期すること。
@@ -179,7 +179,7 @@ PROPOSAL_TEMPLATES: list[tuple[str, str]] = [
 
 
 class Command(BaseCommand):
-    help = "weekend-innovation-3 向け・採用確認用の期限切れ課題（30名・評価済み）を作成"
+    help = "weekend-innovation-3 向け・採用確認用の全体満了状態の課題（30名・評価済み）を作成"
 
     def add_arguments(self, parser):
         parser.add_argument(
@@ -207,7 +207,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-analysis",
             action="store_true",
-            help="期限切れ課題のクラスタリング/分析生成をスキップ",
+                    help="全体満了後に相当する状態のクラスタリング/分析生成をスキップ",
         )
 
     def handle(self, *args, **options):

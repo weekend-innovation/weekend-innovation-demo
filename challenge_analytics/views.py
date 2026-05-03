@@ -33,13 +33,13 @@ class ChallengeAnalysisDetailView(generics.RetrieveAPIView):
             if challenge.contributor != user:
                 raise permissions.PermissionDenied("この分析結果にアクセスする権限がありません。")
         
-        # 提案者の場合：自分が提案した課題のみ、かつ期限切れの課題のみ
+        # 提案者の場合：自分が提案した課題のみ、かつ全体満了（closed／completed）のもののみ
         elif user.user_type == 'proposer':
             from proposals.models import Proposal
             
-            # 期限切れまたは終了済みの課題のみ（採用確定後は completed）
+            # closed：満了（採用未確定等）／completed：採用確定済みのいずれかで閲覧可
             if challenge.status not in ('closed', 'completed'):
-                raise permissions.PermissionDenied("この課題はまだ期限切れではありません。")
+                raise permissions.PermissionDenied("この課題ではまだ期間が満了していません。")
             
             # 自分の提案が存在するかチェック
             has_proposal = Proposal.objects.filter(
@@ -57,7 +57,7 @@ class ChallengeAnalysisDetailView(generics.RetrieveAPIView):
             defaults={'status': 'pending'}
         )
         
-        # 分析が未完了の場合は実行（締切後・終了済み）
+        # 分析が未完了の場合は実行（締切後・完了済み）
         if analysis.status in ['pending', 'failed'] and challenge.status in ('closed', 'completed'):
             try:
                 analyzer = ChallengeAnalyzer(challenge_id)
@@ -230,7 +230,7 @@ def get_proposal_clustering(request, challenge_id):
     # 評価・期限が済んだ課題のみ（締切後および採用確定済みまで閲覧用に利用）
     if challenge.status not in ('closed', 'completed'):
         return Response(
-            {'error': 'この機能は期限切れまたは終了済みの課題のみ利用できます。'},
+            {'error': 'この機能は、期間満了の課題（採用未確定／採用確定済みを含む）のみ利用できます。'},
             status=status.HTTP_400_BAD_REQUEST
         )
     

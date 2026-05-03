@@ -112,7 +112,7 @@ class ProposalListSerializer(serializers.ModelSerializer):
     anonymous_name_info = AnonymousNameSerializer(source='anonymous_name', read_only=True)
     unread_comment_count = serializers.SerializerMethodField()
     total_comment_count = serializers.SerializerMethodField()
-    # ユーザー属性（期限切れ課題の解決案一覧用）
+    # ユーザー属性（全体満了後の解決案一覧用）
     nationality = serializers.SerializerMethodField()
     gender = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
@@ -126,10 +126,10 @@ class ProposalListSerializer(serializers.ModelSerializer):
         return obj.get_display_name(request_user)
     
     def get_nationality(self, obj):
-        """提案者の国籍を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        """提案者の国籍を返す（全体期限経過済みかつ選出ユーザーの場合のみ）"""
         challenge = obj.challenge
         
-        # 期限切れかどうかを確認
+        # 募集期限（deadline）が経過済みか
         from django.utils import timezone
         if challenge.deadline >= timezone.now():
             return None
@@ -150,10 +150,10 @@ class ProposalListSerializer(serializers.ModelSerializer):
         return None
     
     def get_gender(self, obj):
-        """提案者の性別を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        """提案者の性別を返す（全体期限経過済みかつ選出ユーザーの場合のみ）"""
         challenge = obj.challenge
         
-        # 期限切れかどうかを確認
+        # 募集期限（deadline）が経過済みか
         from django.utils import timezone
         if challenge.deadline >= timezone.now():
             return None
@@ -174,10 +174,10 @@ class ProposalListSerializer(serializers.ModelSerializer):
         return None
     
     def get_age(self, obj):
-        """提案者の年齢を返す（期限切れ課題かつ選出ユーザーの場合のみ）"""
+        """提案者の年齢を返す（全体期限経過済みかつ選出ユーザーの場合のみ）"""
         challenge = obj.challenge
         
-        # 期限切れかどうかを確認
+        # 募集期限（deadline）が経過済みか
         from django.utils import timezone
         if challenge.deadline >= timezone.now():
             return None

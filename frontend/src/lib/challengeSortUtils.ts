@@ -1,12 +1,8 @@
 /**
- * 課題一覧のソート用ユーティリティ
- * 期限切れ: 直近に終了した順・同日内は投稿の新しい順
- * 募集中（投稿者）: 期限が近い順・同一期限は投稿の新しい順
- * 募集中（提案者）: 優先度なし。次のフェーズまで近い順・同条件は投稿の新しい順
- *
- * 期限切れ扱い: 実際の期限切れ（status=closed）のほか、
- * 提案期間で提案しなかった／評価期間で評価しなかった場合も同等とする。
- * 全フェーズ達成（提案済み・評価完了、期限前）は期限切れとは別バッジ。
+ * 課題一覧のソート・状態判定
+ * - 募集終了後に相当するリスト: deadline の新しい順、同日は作成の新しい順
+ * - 募集中・投稿者: deadline が近い順
+ * - 募集中・提案者: やるべきアクション順、次フェーズ終了まで近い順
  */
 
 export interface SortableChallenge {
@@ -21,17 +17,17 @@ export interface SortableChallenge {
   has_completed_all_evaluations?: boolean;
 }
 
-/** 期限切れ: 直近に終了した順（期限の新しい順）、同一期限は投稿の新しい順 */
+/** 募集終了が直近の課題ほど先頭（同一 deadline は作成の新しい順） */
 export function sortExpiredChallenges<T extends SortableChallenge>(challenges: T[]): T[] {
   return [...challenges].sort((a, b) => {
     const da = new Date(a.deadline).getTime();
     const db = new Date(b.deadline).getTime();
-    if (db !== da) return db - da; // 期限の新しい順
+    if (db !== da) return db - da; // 全体期限の新しい順
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // 同一期限は投稿の新しい順
   });
 }
 
-/** 募集中（投稿者）: 期限が近い順、同一期限は投稿の新しい順 */
+/** 募集中（投稿者）: 全体期限が近い順、同一期限は投稿の新しい順 */
 export function sortActiveContributorChallenges<T extends SortableChallenge>(challenges: T[]): T[] {
   return [...challenges].sort((a, b) => {
     const da = new Date(a.deadline).getTime();
@@ -52,9 +48,9 @@ function msUntilNextPhase(c: SortableChallenge): number {
 }
 
 /**
- * 提案者について「期限切れ同等」か（フェーズ未達）
- * - 提案期間で提案しなかった
- * - 評価期間で評価しなかった（編集期間の編集は任意のため対象外）
+ * 提案者について「満了扱いと同等の失格」か（※関数名は isProposerFailed）
+ * - 提案期間が終了したのに未提案
+ * - 評価期間が終了したのに評価未完了（編集期間の編集は任意のため対象外）
  */
 export function isProposerFailed(c: SortableChallenge): boolean {
   const now = Date.now();
@@ -65,10 +61,7 @@ export function isProposerFailed(c: SortableChallenge): boolean {
   return false;
 }
 
-/**
- * 提案者について「全フェーズ達成」か（提案済み・評価完了、まだ期限前）
- * 期限に達したら期限切れになる。
- */
+/** 提案済みかつ評価完了か（フェーズ／status が closed・completed のときは false） */
 export function isAllPhasesCompleted(c: SortableChallenge): boolean {
   if (c.current_phase === 'closed' || c.status === 'closed' || c.status === 'completed')
     return false;
@@ -76,24 +69,21 @@ export function isAllPhasesCompleted(c: SortableChallenge): boolean {
 }
 
 /**
- * 期限が過ぎているか（status未更新のフォールバック用）
+ * 全体の deadline が過ぎているか（status 未更新のフォールバック用）
  */
 export function isDeadlinePassed(c: SortableChallenge): boolean {
   if (!c.deadline) return false;
   return new Date(c.deadline).getTime() < Date.now();
 }
 
-/**
- * 投稿者について「期限切れ扱い」か（status または deadline ベース）
- * status の更新が遅れても、deadline が過ぎていれば期限切れとして表示
- */
+/** 投稿者視点で募集が終了扱いか（status または deadline 超過） */
 export function isContributorExpired(c: SortableChallenge): boolean {
   return c.status === 'closed' || c.status === 'completed' || isDeadlinePassed(c);
 }
 
 /**
- * 提案者について「期限切れ扱い」か（実際の期限切れ or フェーズ未達）
- * status の更新が遅れても、deadline が過ぎていれば期限切れとして表示
+ * 提案者について「満了扱い」か（全体の満了 or 上記フェーズ終了による失格）
+ * status の更新が遅れても、deadline が過ぎていれば満了として扱う
  */
 export function isProposerExpiredOrFailed(c: SortableChallenge): boolean {
   return (
@@ -104,10 +94,7 @@ export function isProposerExpiredOrFailed(c: SortableChallenge): boolean {
   );
 }
 
-/**
- * 提案者について、期限切れ課題で結果画面を閲覧できるか
- * （提案済みかつ評価完了であり、期限切れである場合に true）
- */
+/** 提案者が自分の評価完了後ストーリーを閲覧できるか（終了状態かつ参加済み評価完了） */
 export function canProposerViewResults(c: SortableChallenge): boolean {
   return isProposerExpiredOrFailed(c) && !!(c.has_proposed && c.has_completed_all_evaluations);
 }
