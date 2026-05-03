@@ -55,7 +55,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
   const cardStyle =
     contributorAdoptionFinalized
-      ? 'bg-gray-200 border-2 border-gray-500 shadow-inner text-gray-900'
+      ? 'bg-gray-100 border border-gray-400 opacity-95 text-gray-600'
       : userType === 'proposer'
       ? expiredOrFailed
         ? canViewResults
@@ -74,22 +74,22 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
       <div className="mb-4">
         <div className="flex justify-end mb-2 gap-2 flex-wrap">
           {userType === 'proposer' && expiredOrFailed && !canViewResults && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-red-600 bg-red-100">
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-red-600 bg-red-100">
               期限切れ
             </span>
           )}
           {userType === 'proposer' && canViewResults && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-blue-600 bg-blue-100">
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-blue-600 bg-blue-100">
               完了
             </span>
           )}
           {userType === 'proposer' && allPhasesDone && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-teal-700 bg-teal-100">
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-teal-700 bg-teal-100">
               全フェーズ達成
             </span>
           )}
           {userType === 'proposer' && !expiredOrFailed && !allPhasesDone && challenge.phase_display && (
-            <span className={`px-3 py-1 text-sm rounded-full font-medium ${
+            <span className={`px-3 py-1 text-sm rounded-lg font-medium ${
               challenge.current_phase === 'proposal' ? 'text-green-600 bg-green-100' :
               challenge.current_phase === 'edit' ? 'text-yellow-600 bg-yellow-100' :
               challenge.current_phase === 'evaluation' ? 'text-orange-600 bg-orange-100' :
@@ -99,12 +99,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
             </span>
           )}
           {userType === 'contributor' && contributorAdoptionFinalized && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-gray-900 bg-gray-300 border border-gray-600">
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-gray-600 bg-gray-200 border border-gray-400">
               終了
             </span>
           )}
           {userType === 'contributor' && contributorPastDeadlineUnfinalized && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-amber-800 bg-amber-100 border border-amber-300">
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-amber-800 bg-amber-100 border border-amber-300">
               締切（採用未確定）
             </span>
           )}
@@ -113,7 +113,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
             !contributorPastDeadlineUnfinalized &&
             challenge.phase_display && (
               <span
-                className={`px-3 py-1 text-sm rounded-full font-medium ${
+                className={`px-3 py-1 text-sm rounded-lg font-medium ${
                   challenge.current_phase === 'proposal'
                     ? 'text-green-600 bg-green-100'
                     : challenge.current_phase === 'edit'
@@ -127,22 +127,26 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
               </span>
             )}
           {isProposed && !expiredOrFailed && !allPhasesDone && (
-            <span className="px-3 py-1 text-sm rounded-full bg-blue-600 text-white font-medium">
+            <span className="px-3 py-1 text-sm rounded-lg bg-blue-600 text-white font-medium">
               提案済み
             </span>
           )}
           {challenge.has_completed_all_evaluations && !allPhasesDone && !expiredOrFailed && (
-            <span className="px-3 py-1 text-sm rounded-full bg-purple-600 text-white font-medium">
+            <span className="px-3 py-1 text-sm rounded-lg bg-purple-600 text-white font-medium">
               ✓ 全評価完了
             </span>
           )}
         </div>
         <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
-          <h3 className="text-xl font-bold text-gray-900 flex-1 min-w-0 pr-2 break-words">
+          <h3 className={`text-xl flex-1 min-w-0 pr-2 break-words ${
+            contributorAdoptionFinalized ? 'font-semibold text-gray-500' : 'font-bold text-gray-900'
+          }`}>
             {challenge.title}
           </h3>
           <div className="text-right flex-shrink-0">
-            <div className="flex items-center gap-4 text-sm text-gray-600 flex-wrap justify-end">
+            <div className={`flex items-center gap-4 text-sm flex-wrap justify-end ${
+              contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-600'
+            }`}>
               <span>投稿者: {challenge.contributor_name}</span>
               <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
             </div>
@@ -152,7 +156,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
       {/* 説明文 */}
       <div className="mb-4">
-        <p className="text-gray-700 leading-relaxed">
+        <p className={`leading-relaxed ${contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-700'}`}>
           {challenge.description}
         </p>
       </div>
@@ -173,8 +177,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         </div>
       </div>
       {/* 詳細情報 */}
-      <div className="bg-gray-50 rounded-lg p-3 mb-4 min-w-0">
-        <div className="flex justify-between items-center gap-4 text-sm text-gray-600 flex-wrap">
+      <div className={`rounded-lg p-3 mb-4 min-w-0 ${contributorAdoptionFinalized ? 'bg-gray-100/80' : 'bg-gray-50'}`}>
+        <div className={`flex justify-between items-center gap-4 text-sm flex-wrap ${contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-600'}`}>
           <span className="font-medium">選出人数: {challenge.required_participants}人</span>
           <span className="font-medium">
             {(() => {

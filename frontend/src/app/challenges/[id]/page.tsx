@@ -485,7 +485,7 @@ const ChallengeDetailPage: React.FC = () => {
             {/* 期限とフェーズ表示 */}
             <div>
               <div className={`rounded-lg p-3 text-center ${
-                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-200 border border-gray-500' :
+                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-100 border border-gray-400' :
                 contributorAdoptionPending ? 'bg-amber-50 border border-amber-200' :
                 expiredOrFailed ? 'bg-red-50' :
                 allPhasesDone ? 'bg-teal-50' :
@@ -495,7 +495,7 @@ const ChallengeDetailPage: React.FC = () => {
                 'bg-red-50'
               }`}>
                 <p className={`text-sm font-medium mb-1 ${
-                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-700' :
+                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-500' :
                   contributorAdoptionPending ? 'text-amber-800' :
                   expiredOrFailed ? 'text-red-600' :
                   allPhasesDone ? 'text-teal-600' :
@@ -504,15 +504,15 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge.current_phase === 'evaluation' ? 'text-orange-600' :
                   'text-red-600'
                 }`}>期限・状況</p>
-                <p className={`text-lg font-bold mb-1 ${
-                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-900' :
-                  contributorAdoptionPending ? 'text-amber-900' :
-                  expiredOrFailed ? 'text-red-900' :
-                  allPhasesDone ? 'text-teal-900' :
-                  challenge.current_phase === 'proposal' ? 'text-green-900' :
-                  challenge.current_phase === 'edit' ? 'text-yellow-900' :
-                  challenge.current_phase === 'evaluation' ? 'text-orange-900' :
-                  'text-red-900'
+                <p className={`text-lg mb-1 ${
+                  user?.user_type === 'contributor' && adoptionFinalized ? 'font-semibold text-gray-600' :
+                  contributorAdoptionPending ? 'font-bold text-amber-900' :
+                  expiredOrFailed ? 'font-bold text-red-900' :
+                  allPhasesDone ? 'font-bold text-teal-900' :
+                  challenge.current_phase === 'proposal' ? 'font-bold text-green-900' :
+                  challenge.current_phase === 'edit' ? 'font-bold text-yellow-900' :
+                  challenge.current_phase === 'evaluation' ? 'font-bold text-orange-900' :
+                  'font-bold text-red-900'
                 }`}>
                   {user?.user_type === 'contributor' && adoptionFinalized ? '終了' :
                    contributorAdoptionPending ? '締切（採用未確定）' :
@@ -887,12 +887,9 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge?.status === 'closed' || challenge?.status === 'completed' ? (
                     <>
                       {adoptionFinalized && (
-                        <div className="mb-4 p-4 bg-gray-200 border border-gray-400 rounded-lg">
-                          <p className="text-gray-900 font-medium">
+                        <div className="mb-4 p-4 bg-amber-50 border border-amber-400 rounded-lg">
+                          <p className="text-amber-900 font-medium">
                             採用を確定済みです。採用内容の変更はできません。
-                          </p>
-                          <p className="text-sm text-gray-700 mt-1">
-                            確定後の取り消しはできません。
                           </p>
                         </div>
                       )}

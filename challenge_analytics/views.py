@@ -37,8 +37,8 @@ class ChallengeAnalysisDetailView(generics.RetrieveAPIView):
         elif user.user_type == 'proposer':
             from proposals.models import Proposal
             
-            # 期限切れチェック
-            if challenge.status != 'closed':
+            # 期限切れまたは終了済みの課題のみ（採用確定後は completed）
+            if challenge.status not in ('closed', 'completed'):
                 raise permissions.PermissionDenied("この課題はまだ期限切れではありません。")
             
             # 自分の提案が存在するかチェック
@@ -57,8 +57,8 @@ class ChallengeAnalysisDetailView(generics.RetrieveAPIView):
             defaults={'status': 'pending'}
         )
         
-        # 分析が未完了の場合は実行（期限切れ課題のみ）
-        if analysis.status in ['pending', 'failed'] and challenge.status == 'closed':
+        # 分析が未完了の場合は実行（締切後・終了済み）
+        if analysis.status in ['pending', 'failed'] and challenge.status in ('closed', 'completed'):
             try:
                 analyzer = ChallengeAnalyzer(challenge_id)
                 analysis = analyzer.analyze_challenge()
@@ -227,10 +227,10 @@ def get_proposal_clustering(request, challenge_id):
             status=status.HTTP_403_FORBIDDEN
         )
     
-    # 期限切れの課題のみ
-    if challenge.status != 'closed':
+    # 評価・期限が済んだ課題のみ（締切後および採用確定済みまで閲覧用に利用）
+    if challenge.status not in ('closed', 'completed'):
         return Response(
-            {'error': 'この機能は期限切れの課題のみ利用できます。'},
+            {'error': 'この機能は期限切れまたは終了済みの課題のみ利用できます。'},
             status=status.HTTP_400_BAD_REQUEST
         )
     
