@@ -3,7 +3,8 @@
  */
 import { tokenManager } from './api';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+/** 他モジュールと同様、ベースに `/api` まで含める（重複で /api/api にならないようにする） */
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 // 分析結果の型定義
 export interface CommonTheme {
@@ -86,7 +87,7 @@ export const getChallengeAnalysis = async (challengeId: number): Promise<Challen
       throw new Error('認証トークンがありません');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/analytics/challenges/${challengeId}/analysis/`, {
+    const response = await fetch(`${API_BASE_URL}/analytics/challenges/${challengeId}/analysis/`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -119,7 +120,7 @@ export const getAnalysisStatus = async (challengeId: number): Promise<AnalysisSt
       throw new Error('認証トークンがありません');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/analytics/challenges/${challengeId}/analysis/status/`, {
+    const response = await fetch(`${API_BASE_URL}/analytics/challenges/${challengeId}/analysis/status/`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -149,7 +150,7 @@ export const triggerAnalysis = async (challengeId: number): Promise<ChallengeAna
       throw new Error('認証トークンがありません');
     }
 
-    const response = await fetch(`${API_BASE_URL}/api/analytics/challenges/${challengeId}/analyze/`, {
+    const response = await fetch(`${API_BASE_URL}/analytics/challenges/${challengeId}/analyze/`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,

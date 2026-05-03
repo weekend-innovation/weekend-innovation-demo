@@ -67,7 +67,8 @@ const ChallengeDetailPage: React.FC = () => {
   });
   const [addToAdoptionListModalId, setAddToAdoptionListModalId] = useState<number | null>(null);
   const [addToAdoptionListMemoInput, setAddToAdoptionListMemoInput] = useState('');
-  const [memoOpenIdList, setMemoOpenIdList] = useState<number | null>(null);
+  const [memoEditModalProposalId, setMemoEditModalProposalId] = useState<number | null>(null);
+  const [memoEditModalInput, setMemoEditModalInput] = useState('');
   const [confirmingAdoption, setConfirmingAdoption] = useState(false);
   const [adoptionFinalizeModalOpen, setAdoptionFinalizeModalOpen] = useState(false);
   useEffect(() => {
@@ -87,6 +88,12 @@ const ChallengeDetailPage: React.FC = () => {
     if (addToAdoptionListMemoInput.trim()) setAdoptionListMemos(prev => ({ ...prev, [addToAdoptionListModalId]: addToAdoptionListMemoInput.trim() }));
     setAddToAdoptionListModalId(null);
     setAddToAdoptionListMemoInput('');
+  };
+  const saveMemoFromModal = () => {
+    if (memoEditModalProposalId == null) return;
+    setAdoptionListMemos((prev) => ({ ...prev, [memoEditModalProposalId]: memoEditModalInput }));
+    setMemoEditModalProposalId(null);
+    setMemoEditModalInput('');
   };
   const openAdoptionFinalizeConfirm = () => {
     if (adoptionList.size === 0) return;
@@ -937,7 +944,6 @@ const ChallengeDetailPage: React.FC = () => {
                               {paginatedProposals.map((proposal) => {
                                 const inList = adoptionList.has(proposal.id);
                                 const memoText = adoptionListMemos[proposal.id] ?? '';
-                                const memoOpen = memoOpenIdList === proposal.id;
                                 if (!canManageAdoptionList) {
                                   return (
                                     <ProposalCard
@@ -969,41 +975,20 @@ const ChallengeDetailPage: React.FC = () => {
                                                 setAddToAdoptionListMemoInput(memoText);
                                               })()
                                         }
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center ${inList ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                        className={`cursor-pointer px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center ${inList ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}`}
                                       >
                                         {inList ? '外す' : '採用リスト'}
                                       </button>
                                       <button
                                         type="button"
-                                        onClick={() =>
-                                          setMemoOpenIdList((prev) => (prev === proposal.id ? null : proposal.id))
-                                        }
-                                        className={`px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center border ${memoText ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                                        onClick={() => {
+                                          setMemoEditModalProposalId(proposal.id);
+                                          setMemoEditModalInput(adoptionListMemos[proposal.id] ?? '');
+                                        }}
+                                        className={`cursor-pointer px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center border ${memoText ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                                       >
                                         メモ{memoText ? ' ✓' : ''}
                                       </button>
-                                      {memoOpen && (
-                                        <div className="flex flex-col gap-1 mt-1 p-2 border border-gray-200 rounded bg-white">
-                                          <textarea
-                                            value={memoText}
-                                            onChange={(e) =>
-                                              setAdoptionListMemos((prev) => ({
-                                                ...prev,
-                                                [proposal.id]: e.target.value,
-                                              }))
-                                            }
-                                            className="w-64 text-sm border border-gray-300 rounded p-2 min-h-[60px]"
-                                            placeholder="メモを入力"
-                                          />
-                                          <button
-                                            type="button"
-                                            onClick={() => setMemoOpenIdList(null)}
-                                            className="text-xs text-gray-600 hover:text-gray-800"
-                                          >
-                                            閉じる
-                                          </button>
-                                        </div>
-                                      )}
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <ProposalCard
@@ -1026,7 +1011,7 @@ const ChallengeDetailPage: React.FC = () => {
                                     type="button"
                                     onClick={() => setSolutionListPage(p => Math.max(1, p - 1))}
                                     disabled={currentPage <= 1}
-                                    className="px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    className="cursor-pointer px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                   >
                                     前へ
                                   </button>
@@ -1040,7 +1025,7 @@ const ChallengeDetailPage: React.FC = () => {
                                     type="button"
                                     onClick={() => setSolutionListPage(p => Math.min(totalPages, p + 1))}
                                     disabled={currentPage >= totalPages}
-                                    className="px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
+                                    className="cursor-pointer px-3 py-1.5 rounded border border-gray-300 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50"
                                   >
                                     次へ
                                   </button>
@@ -1053,8 +1038,17 @@ const ChallengeDetailPage: React.FC = () => {
                       {/* 採用リスト（採用確定前のみ・トグルに依存せず最下部に1つ） */}
                       {canManageAdoptionList && adoptionList.size > 0 && (
                         <div className="mt-6 p-5 bg-amber-50/80 border border-amber-200 rounded-xl shadow-sm">
-                          <h3 className="text-base font-semibold text-amber-900 mb-1">🛒 採用リスト（{adoptionList.size}件）</h3>
-                          <p className="text-xs text-amber-800 mb-4">確定すると採用となります。</p>
+                          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+                            <h3 className="text-base font-semibold text-amber-900">🛒 採用リスト（{adoptionList.size}件）</h3>
+                            <button
+                              type="button"
+                              disabled={confirmingAdoption}
+                              onClick={openAdoptionFinalizeConfirm}
+                              className="cursor-pointer shrink-0 px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {confirmingAdoption ? '確定中…' : '採用を確定する'}
+                            </button>
+                          </div>
                           <ul className="space-y-4 mb-5">
                             {[...adoptionList].map((pid) => {
                               const p = proposals.find(pr => pr.id === pid);
@@ -1074,7 +1068,7 @@ const ChallengeDetailPage: React.FC = () => {
                                   </div>
                                   {/* 削除ボタンは横に独立 */}
                                   <div className="flex items-center flex-shrink-0">
-                                    <button type="button" onClick={() => setAdoptionList(prev => { const n = new Set(prev); n.delete(pid); return n; })} className="text-red-600 hover:text-red-800 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded border border-red-200 transition-colors">
+                                    <button type="button" onClick={() => setAdoptionList(prev => { const n = new Set(prev); n.delete(pid); return n; })} className="cursor-pointer text-red-600 hover:text-red-800 hover:bg-red-50 text-sm font-medium px-4 py-2 rounded border border-red-200 transition-colors">
                                       削除
                                     </button>
                                   </div>
@@ -1082,14 +1076,6 @@ const ChallengeDetailPage: React.FC = () => {
                               ) : null;
                             })}
                           </ul>
-                          <button
-                            type="button"
-                            disabled={confirmingAdoption}
-                            onClick={openAdoptionFinalizeConfirm}
-                            className="px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-                          >
-                            {confirmingAdoption ? '確定中…' : '採用を確定する'}
-                          </button>
                         </div>
                       )}
                       {adoptionFinalizeModalOpen && (
@@ -1116,7 +1102,7 @@ const ChallengeDetailPage: React.FC = () => {
                                 type="button"
                                 disabled={confirmingAdoption}
                                 onClick={() => setAdoptionFinalizeModalOpen(false)}
-                                className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                                className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
                               >
                                 キャンセル
                               </button>
@@ -1124,7 +1110,7 @@ const ChallengeDetailPage: React.FC = () => {
                                 type="button"
                                 disabled={confirmingAdoption}
                                 onClick={() => void executeFinalizeAdoption()}
-                                className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
+                                className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
                               >
                                 {confirmingAdoption ? '確定中…' : '内容を確認したうえで確定する'}
                               </button>
@@ -1145,8 +1131,40 @@ const ChallengeDetailPage: React.FC = () => {
                               placeholder="例：実装しやすく、合意も得られていたため"
                             />
                             <div className="flex gap-2 justify-end">
-                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
-                              <button type="button" onClick={confirmAddToAdoptionList} className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
+                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
+                              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      {memoEditModalProposalId != null && (
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setMemoEditModalProposalId(null); setMemoEditModalInput(''); }}>
+                          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-2">メモ</h3>
+                            <p className="text-sm text-gray-600 mb-3">
+                              採用判断のときの備忘録として入力できます。この解決案は一覧の「メモ ✓」で後から確認できます。
+                            </p>
+                            <textarea
+                              value={memoEditModalInput}
+                              onChange={(e) => setMemoEditModalInput(e.target.value)}
+                              className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[100px] mb-4 focus:outline-none focus:ring-2 focus:ring-green-500/40"
+                              placeholder="例：ROIが明確で、地域パートナーとの整合がよかった"
+                              autoFocus
+                            />
+                            <div className="flex gap-2 justify-end">
+                              <button
+                                type="button"
+                                className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg"
+                                onClick={() => {
+                                  setMemoEditModalProposalId(null);
+                                  setMemoEditModalInput('');
+                                }}
+                              >
+                                キャンセル
+                              </button>
+                              <button type="button" onClick={saveMemoFromModal} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
+                                保存
+                              </button>
                             </div>
                           </div>
                         </div>

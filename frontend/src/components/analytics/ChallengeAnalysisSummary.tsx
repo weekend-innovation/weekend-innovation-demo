@@ -147,7 +147,8 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
 
   const [addToAdoptionListModalProposalId, setAddToAdoptionListModalProposalId] = useState<number | null>(null);
   const [addToAdoptionListMemoInput, setAddToAdoptionListMemoInput] = useState('');
-  const [memoOpenId, setMemoOpenId] = useState<number | null>(null);
+  const [memoEditModalProposalId, setMemoEditModalProposalId] = useState<number | null>(null);
+  const [memoEditModalInput, setMemoEditModalInput] = useState('');
 
   useEffect(() => {
     if (sharedAdoptionList != null) return;
@@ -176,6 +177,19 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
     if (addToAdoptionListMemoInput.trim()) setMemos(prev => ({ ...prev, [addToAdoptionListModalProposalId]: addToAdoptionListMemoInput.trim() }));
     setAddToAdoptionListModalProposalId(null);
     setAddToAdoptionListMemoInput('');
+  };
+  const openMemoModal = (proposalId: number) => {
+    setMemoEditModalProposalId(proposalId);
+    setMemoEditModalInput(memos[proposalId] ?? '');
+  };
+  const closeMemoModal = () => {
+    setMemoEditModalProposalId(null);
+    setMemoEditModalInput('');
+  };
+  const confirmMemoModalSave = () => {
+    if (memoEditModalProposalId == null) return;
+    setMemo(memoEditModalProposalId, memoEditModalInput);
+    closeMemoModal();
   };
   const removeFromAdoptionList = (proposalId: number) => {
     setConsiderationSet(prev => { const next = new Set(prev); next.delete(proposalId); return next; });
@@ -328,7 +342,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
           <div className="border-2 border-blue-500 rounded-lg animate-pulse-once">
             <div className="bg-gray-100 px-4 py-2 rounded-t-lg flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-900">選択中の解決案</h3>
-              <button onClick={() => setSelectedProposalId(null)} className="text-gray-700 hover:text-gray-900 text-sm font-medium">✕ 閉じる</button>
+              <button type="button" onClick={() => setSelectedProposalId(null)} className="cursor-pointer text-gray-700 hover:text-gray-900 text-sm font-medium">✕ 閉じる</button>
             </div>
             {clusteringData && clusterSize > 0 && (
               <div className="px-4 py-3 bg-blue-50 border-b border-blue-100 text-sm text-gray-700 space-y-2">
@@ -349,18 +363,12 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                     採用リスト
                   </button>
                 )}
-                <button type="button" onClick={() => setMemoOpenId(memoOpenId === selectedProposal.id ? null : selectedProposal.id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[selectedProposal.id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                <button type="button" onClick={() => openMemoModal(selectedProposal.id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[selectedProposal.id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
                   メモ{(memos[selectedProposal.id] ?? '').trim() ? ' ✓' : ''}
                 </button>
               </div>
               )}
               <div className="flex-1 min-w-0 space-y-2">
-                {!adoptionFinalized && memoOpenId === selectedProposal.id && (
-                  <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                    <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
-                    <textarea value={memos[selectedProposal.id] ?? ''} onChange={e => setMemo(selectedProposal.id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
-                  </div>
-                )}
                 <ProposalCard
                 key={selectedProposal.id}
                 proposal={{
@@ -640,18 +648,12 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                             採用リスト
                           </button>
                         )}
-                        <button type="button" onClick={() => setMemoOpenId(memoOpenId === proposalId ? null : proposalId)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[proposalId] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                        <button type="button" onClick={() => openMemoModal(proposalId)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[proposalId] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
                           メモ{(memos[proposalId] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
                       )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {!adoptionFinalized && memoOpenId === proposalId && (
-                          <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                            <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
-                            <textarea value={memos[proposalId] ?? ''} onChange={e => setMemo(proposalId, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
-                          </div>
-                        )}
                         <ProposalCard
                           proposal={{ ...proposal, nationality: attrs.nationality ?? proposal.nationality, gender: attrs.gender ?? proposal.gender, age: attrs.age ?? proposal.age }}
                           showActions={false}
@@ -713,18 +715,12 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                             採用リスト
                           </button>
                         )}
-                        <button type="button" onClick={() => setMemoOpenId(memoOpenId === topData.proposal_id ? null : topData.proposal_id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[topData.proposal_id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                        <button type="button" onClick={() => openMemoModal(topData.proposal_id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[topData.proposal_id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
                           メモ{(memos[topData.proposal_id] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
                       )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {!adoptionFinalized && memoOpenId === topData.proposal_id && (
-                          <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                            <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
-                            <textarea value={memos[topData.proposal_id] ?? ''} onChange={e => setMemo(topData.proposal_id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
-                          </div>
-                        )}
                         <ProposalCard
                           proposal={{ ...proposal, nationality: topData.nationality ?? proposal.nationality, gender: topData.gender ?? proposal.gender, age: topData.age ?? proposal.age }}
                           showActions={false}
@@ -786,18 +782,12 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                             採用リスト
                           </button>
                         )}
-                        <button type="button" onClick={() => setMemoOpenId(memoOpenId === topData.proposal_id ? null : topData.proposal_id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[topData.proposal_id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                        <button type="button" onClick={() => openMemoModal(topData.proposal_id)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${(memos[topData.proposal_id] ?? '').trim() ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
                           メモ{(memos[topData.proposal_id] ?? '').trim() ? ' ✓' : ''}
                         </button>
                       </div>
                       )}
                       <div className="flex-1 min-w-0 space-y-2">
-                        {!adoptionFinalized && memoOpenId === topData.proposal_id && (
-                          <div className="p-2 bg-gray-50 rounded border border-gray-200">
-                            <label className="text-xs font-medium text-gray-600 block mb-1">メモ（後で参照できます）</label>
-                            <textarea value={memos[topData.proposal_id] ?? ''} onChange={e => setMemo(topData.proposal_id, e.target.value)} onBlur={() => setMemoOpenId(null)} className="w-full text-sm border border-gray-300 rounded p-2 min-h-[60px]" placeholder="自由にメモを入力" />
-                          </div>
-                        )}
                         <ProposalCard
                           proposal={{ ...proposal, nationality: topData.nationality ?? proposal.nationality, gender: topData.gender ?? proposal.gender, age: topData.age ?? proposal.age }}
                           showActions={false}
@@ -838,10 +828,36 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
 
       </div>
 
+      {memoEditModalProposalId != null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => closeMemoModal()}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">メモ</h3>
+            <p className="text-sm text-gray-600 mb-3">
+              採用判断のときの備忘録として入力できます。リスト表示の「メモ ✓」からいつでも開けます。
+            </p>
+            <textarea
+              value={memoEditModalInput}
+              onChange={(e) => setMemoEditModalInput(e.target.value)}
+              className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[100px] mb-4 focus:outline-none focus:ring-2 focus:ring-green-500/40"
+              placeholder="例：ROIが明確で、地域パートナーとの整合がよかった"
+              autoFocus
+            />
+            <div className="flex gap-2 justify-end">
+              <button type="button" className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg" onClick={() => closeMemoModal()}>
+                キャンセル
+              </button>
+              <button type="button" onClick={() => confirmMemoModalSave()} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
+                保存
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 採用リストモーダル（親がモーダルを表示する場合は表示しない） */}
       {!onOpenAddToAdoptionListModal && addToAdoptionListModalProposalId != null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAddToAdoptionListModalProposalId(null); setAddToAdoptionListMemoInput(''); }}>
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setAddToAdoptionListModalProposalId(null); setAddToAdoptionListMemoInput(''); }}>
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">採用リストに追加</h3>
             <p className="text-sm text-gray-600 mb-3">メモを入力してから追加できます。後で「なぜこの案を選んだか」を説明する際に参照できます。</p>
             <textarea
@@ -851,10 +867,10 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
               placeholder="例：実装しやすく、合意も得られていたため"
             />
             <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); setAddToAdoptionListMemoInput(''); }} className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); setAddToAdoptionListMemoInput(''); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
                 キャンセル
               </button>
-              <button type="button" onClick={confirmAddToAdoptionList} className="px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
+              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
                 追加
               </button>
             </div>
