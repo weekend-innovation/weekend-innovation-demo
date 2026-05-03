@@ -960,7 +960,7 @@ const ChallengeDetailPage: React.FC = () => {
                                 }
                                 return (
                                   <div key={proposal.id} className="flex gap-3 items-start">
-                                    <div className="flex flex-col gap-1.5 flex-shrink-0 pt-2 w-[6rem]">
+                                    <div className="flex flex-col gap-1.5 flex-shrink-0 pt-2 ml-2 w-[6rem]">
                                       <button
                                         type="button"
                                         onClick={() =>
@@ -1050,7 +1050,7 @@ const ChallengeDetailPage: React.FC = () => {
                                       <p className="text-xs font-medium text-pink-800 mb-1">【結論】</p>
                                       <p className="text-sm text-gray-800 leading-relaxed">{(p.conclusion || `提案#${pid}`).slice(0, 200)}{(p.conclusion?.length ?? 0) > 200 ? '…' : ''}</p>
                                     </div>
-                                    <div className="rounded-lg p-3 bg-gray-100 border border-gray-200">
+                                    <div className="rounded-lg p-3 bg-gray-100 border border-gray-200 ml-3 sm:ml-4">
                                       <p className="text-xs font-medium text-gray-700 mb-1">メモ</p>
                                       <p className="text-sm text-gray-700">{memo.trim() ? `${memo.slice(0, 120)}${memo.length > 120 ? '…' : ''}` : '—'}</p>
                                     </div>
@@ -1120,12 +1120,11 @@ const ChallengeDetailPage: React.FC = () => {
                       {/* 採用リストに追加モーダル（分析・一覧のどちらから開いた場合も表示） */}
                       {addToAdoptionListModalId != null && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setAddToAdoptionListModalId(null); }}>
-                          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
-                            <h3 className="text-lg font-semibold text-gray-900 mb-2">採用リストに追加</h3>
-                            <p className="text-sm text-gray-600 mb-4">この解決案を採用リストに追加します。メモは一覧の「メモ」から入力できます。</p>
-                            <div className="flex gap-2 justify-end">
-                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
-                              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
+                          <div className="bg-white rounded-lg shadow-xl p-7 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
+                            <h3 className="text-lg font-semibold text-gray-900 mb-6">採用リストに追加</h3>
+                            <div className="flex gap-3 justify-end">
+                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
+                              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
                             </div>
                           </div>
                         </div>

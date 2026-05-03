@@ -145,11 +145,8 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
   const memos = sharedMemos ?? internalMemos;
   const setMemos = sharedSetMemos ?? setInternalMemos;
 
-  /** 解決案 ID 用（一覧・散布図の選択と一致） */
+  /** 解決案 ID 用（一覧・「最も～」・散布図で共有。同一解決案ならメモも採用リスト状態も一致） */
   const proposalMemoKey = (id: number) => String(Number(id));
-  /** 「最も～」枠ごとに分離（同一提案が複数枠に出てもメモは独立） */
-  const spotlightMemoKey = (slot: 'originality' | 'insightfulness' | 'impact', proposalId: number) =>
-    `spot:${slot}:${Number(proposalId)}`;
   const readMemo = (key: string) => (memos[key] ?? '').trim();
 
   const [addToAdoptionListModalProposalId, setAddToAdoptionListModalProposalId] = useState<number | null>(null);
@@ -357,7 +354,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
             )}
             <div className="p-2 flex gap-3 items-start">
               {!adoptionFinalized && (
-              <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
+              <div className="flex-shrink-0 pt-2 ml-2 flex flex-col gap-2 w-[6rem]">
                 {considerationSet.has(selectedProposal.id) ? (
                   <button type="button" onClick={() => removeFromAdoptionList(selectedProposal.id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
                     外す
@@ -613,7 +610,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                 const gender = coord?.gender ?? analysis.top_proposals?.originality?.gender;
                 const age = coord?.age ?? analysis.top_proposals?.originality?.age;
                 const attrs = { nationality, gender, age, is_selected: isSelected };
-                const origMemoKey = spotlightMemoKey('originality', proposalId);
+                const memoKey = proposalMemoKey(proposalId);
                 return (
                   <div key={`spotlight-originality-${proposalId}`}>
                     <div
@@ -643,7 +640,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       style={{ borderColor: borderColor }}
                     >
                       {!adoptionFinalized && (
-                      <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
+                      <div className="flex-shrink-0 pt-2 ml-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(proposalId) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(proposalId)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
                             外す
@@ -653,8 +650,8 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                             採用リスト
                           </button>
                         )}
-                        <button type="button" onClick={() => openMemoByKey(origMemoKey)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${readMemo(origMemoKey) ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
-                          メモ{readMemo(origMemoKey) ? ' ✓' : ''}
+                        <button type="button" onClick={() => openMemoByKey(memoKey)} className={`w-full px-3 py-1.5 rounded-lg text-sm font-medium border cursor-pointer ${readMemo(memoKey) ? 'border-green-500 bg-green-50 text-green-800' : 'border-gray-300 bg-white hover:bg-gray-50 text-gray-700'}`}>
+                          メモ{readMemo(memoKey) ? ' ✓' : ''}
                         </button>
                       </div>
                       )}
@@ -683,7 +680,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                 const bgColor = getClusterLightColor(cluster);
                 const borderColor = getClusterBorderColor(cluster);
                 const attrs = { nationality: topData.nationality, gender: topData.gender, age: topData.age, is_selected: topData.is_selected };
-                const insMemoKey = spotlightMemoKey('insightfulness', Number(topData.proposal_id));
+                const insMemoKey = proposalMemoKey(Number(topData.proposal_id));
                 return proposal && (
                   <div key={`spotlight-insightfulness-${topData.proposal_id}`}>
                     <div
@@ -711,7 +708,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       style={{ borderColor: borderColor }}
                     >
                       {!adoptionFinalized && (
-                      <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
+                      <div className="flex-shrink-0 pt-2 ml-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(topData.proposal_id) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(topData.proposal_id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
                             外す
@@ -751,7 +748,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                 const bgColor = getClusterLightColor(cluster);
                 const borderColor = getClusterBorderColor(cluster);
                 const attrs = { nationality: topData.nationality, gender: topData.gender, age: topData.age, is_selected: topData.is_selected };
-                const impMemoKey = spotlightMemoKey('impact', Number(topData.proposal_id));
+                const impMemoKey = proposalMemoKey(Number(topData.proposal_id));
                 return proposal && (
                   <div key={`spotlight-impact-${topData.proposal_id}`}>
                     <div
@@ -779,7 +776,7 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
                       style={{ borderColor: borderColor }}
                     >
                       {!adoptionFinalized && (
-                      <div className="flex-shrink-0 pt-2 flex flex-col gap-2 w-[6rem]">
+                      <div className="flex-shrink-0 pt-2 ml-2 flex flex-col gap-2 w-[6rem]">
                         {considerationSet.has(topData.proposal_id) ? (
                           <button type="button" onClick={() => removeFromAdoptionList(topData.proposal_id)} className="w-full px-3 py-1.5 rounded-lg text-sm font-medium border border-gray-300 bg-white hover:bg-gray-50 text-gray-700 cursor-pointer">
                             外す
@@ -864,14 +861,13 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
       {/* 採用リストモーダル（親がモーダルを表示する場合は表示しない） */}
       {!onOpenAddToAdoptionListModal && addToAdoptionListModalProposalId != null && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setAddToAdoptionListModalProposalId(null); }}>
-          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">採用リストに追加</h3>
-            <p className="text-sm text-gray-600 mb-4">この解決案を採用リストに追加します。メモは「メモ」ボタンから入力できます。</p>
-            <div className="flex gap-2 justify-end">
-              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+          <div className="bg-white rounded-lg shadow-xl p-7 max-w-md w-full mx-4 border border-gray-200" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-gray-900 mb-6">採用リストに追加</h3>
+            <div className="flex gap-3 justify-end">
+              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
                 キャンセル
               </button>
-              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
+              <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
                 追加
               </button>
             </div>
