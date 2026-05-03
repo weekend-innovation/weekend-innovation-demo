@@ -514,8 +514,8 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge.current_phase === 'evaluation' ? 'text-orange-900' :
                   'text-red-900'
                 }`}>
-                  {user?.user_type === 'contributor' && adoptionFinalized ? '終了・採用確定済み' :
-                   contributorAdoptionPending ? '締切後（採用の確定が可能）' :
+                  {user?.user_type === 'contributor' && adoptionFinalized ? '終了' :
+                   contributorAdoptionPending ? '締切（採用未確定）' :
                    expiredOrFailed ? '期限切れ' :
                    allPhasesDone ? '全フェーズ達成' :
                    challenge.phase_display || (isExpired(challenge.deadline) ? '期限切れ' : '募集中')}
@@ -934,7 +934,7 @@ const ChallengeDetailPage: React.FC = () => {
                             <div className="space-y-4">
                               {canManageAdoptionList ? (
                                 <p className="text-sm text-gray-600 mb-2">
-                                  気になる解決案を「採用リスト」でかごに入れ、メモを付けてから「採用を確定する」で採用できます。確定前に注意事項の確認が開きます。
+                                  「採用リスト」に解決案を追加し、必要に応じて「メモ」で備忘を記録したうえで、「採用を確定する」から採用を確定できます。確定前に確認画面が開きます。
                                 </p>
                               ) : adoptionFinalized ? (
                                 <p className="text-sm text-gray-600 mb-2">
@@ -1051,7 +1051,7 @@ const ChallengeDetailPage: React.FC = () => {
                                       <p className="text-sm text-gray-800 leading-relaxed">{(p.conclusion || `提案#${pid}`).slice(0, 200)}{(p.conclusion?.length ?? 0) > 200 ? '…' : ''}</p>
                                     </div>
                                     <div className="rounded-lg p-3 bg-gray-100 border border-gray-200 ml-3 sm:ml-4">
-                                      <p className="text-xs font-medium text-gray-700 mb-1">メモ</p>
+                                      <p className="text-xs font-medium text-gray-700 mb-1">メモ：</p>
                                       <p className="text-sm text-gray-700">{memo.trim() ? `${memo.slice(0, 120)}${memo.length > 120 ? '…' : ''}` : '—'}</p>
                                     </div>
                                   </div>
@@ -1093,7 +1093,7 @@ const ChallengeDetailPage: React.FC = () => {
                               </p>
                               <p>
                                 採用リストの <span className="font-semibold">{adoptionList.size} 件</span>
-                                を採用として記録し、この課題を「終了・採用確定済み」にします。リストに入れていない解決案は採用されていない状態にそろえられます。
+                                を採用として記録し、課題の状態を「終了」とします。リストに入れていない解決案は採用されていない状態にそろえられます。
                               </p>
                             </div>
                             <div className="flex gap-2 justify-end flex-wrap">

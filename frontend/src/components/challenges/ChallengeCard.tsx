@@ -100,12 +100,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
           )}
           {userType === 'contributor' && contributorAdoptionFinalized && (
             <span className="px-3 py-1 text-sm rounded-full font-medium text-gray-700 bg-gray-200 border border-gray-400">
-              終了・採用確定済み
+              終了
             </span>
           )}
           {userType === 'contributor' && contributorPastDeadlineUnfinalized && (
             <span className="px-3 py-1 text-sm rounded-full font-medium text-amber-800 bg-amber-100 border border-amber-300">
-              締切後（採用未確定）
+              締切（採用未確定）
             </span>
           )}
           {userType === 'contributor' &&
