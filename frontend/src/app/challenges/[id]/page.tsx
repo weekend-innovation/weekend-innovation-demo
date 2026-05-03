@@ -696,8 +696,10 @@ const ChallengeDetailPage: React.FC = () => {
                 解決案 ({proposals.length}件)
               </h2>
               
-              {/* 期限切れ課題の場合のみトグルスイッチを表示（提案者は評価完了済みのみ） */}
-              {(challenge?.status === 'closed' || challenge?.status === 'completed') && ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) || (user?.user_type === 'contributor' && analysis)) && (
+              {/* 期限切れ課題の場合のみトグルを表示。投稿者は分析が無くても一覧・採用へ切替可能。提案者は評価完了＋分析取得済みのみ。 */}
+              {(challenge?.status === 'closed' || challenge?.status === 'completed') &&
+                ((user?.user_type === 'proposer' && analysis && myInsight && challenge?.has_completed_all_evaluations) ||
+                  user?.user_type === 'contributor') && (
                 <AnalysisToggleSwitch
                   showAnalysis={showAnalysis}
                   onToggle={setShowAnalysis}

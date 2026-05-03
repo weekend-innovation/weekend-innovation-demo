@@ -241,8 +241,11 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
   if (!analysis) {
     return (
       <div className="bg-white rounded-lg shadow-md p-6">
-        <div className="text-center text-gray-500">
+        <div className="text-center text-gray-500 space-y-2">
           <p>分析結果がありません。</p>
+          <p className="text-sm text-gray-600">
+            上部のスイッチで「解決案一覧」に切り替えると、解決案と採用リストを利用できます。
+          </p>
         </div>
       </div>
     );
