@@ -58,15 +58,14 @@ const ChallengeDetailPage: React.FC = () => {
       return raw ? new Set(JSON.parse(raw)) : new Set();
     } catch { return new Set(); }
   });
-  const [adoptionListMemos, setAdoptionListMemos] = useState<Record<number, string>>(() => {
+  const [adoptionListMemos, setAdoptionListMemos] = useState<Record<string, string>>(() => {
     if (typeof window === 'undefined') return {};
     try {
       const raw = localStorage.getItem(STORAGE_PREFIX + 'memos');
-      return raw ? JSON.parse(raw) : {};
+      return raw ? (JSON.parse(raw) as Record<string, string>) : {};
     } catch { return {}; }
   });
   const [addToAdoptionListModalId, setAddToAdoptionListModalId] = useState<number | null>(null);
-  const [addToAdoptionListMemoInput, setAddToAdoptionListMemoInput] = useState('');
   const [memoEditModalProposalId, setMemoEditModalProposalId] = useState<number | null>(null);
   const [memoEditModalInput, setMemoEditModalInput] = useState('');
   const [confirmingAdoption, setConfirmingAdoption] = useState(false);
@@ -84,14 +83,13 @@ const ChallengeDetailPage: React.FC = () => {
 
   const confirmAddToAdoptionList = () => {
     if (addToAdoptionListModalId == null) return;
-    setAdoptionList(prev => new Set([...prev, addToAdoptionListModalId]));
-    if (addToAdoptionListMemoInput.trim()) setAdoptionListMemos(prev => ({ ...prev, [addToAdoptionListModalId]: addToAdoptionListMemoInput.trim() }));
+    setAdoptionList((prev) => new Set([...prev, addToAdoptionListModalId]));
     setAddToAdoptionListModalId(null);
-    setAddToAdoptionListMemoInput('');
   };
   const saveMemoFromModal = () => {
     if (memoEditModalProposalId == null) return;
-    setAdoptionListMemos((prev) => ({ ...prev, [memoEditModalProposalId]: memoEditModalInput }));
+    const key = String(memoEditModalProposalId);
+    setAdoptionListMemos((prev) => ({ ...prev, [key]: memoEditModalInput }));
     setMemoEditModalProposalId(null);
     setMemoEditModalInput('');
   };
@@ -911,7 +909,9 @@ const ChallengeDetailPage: React.FC = () => {
                           sharedSetAdoptionList={setAdoptionList}
                           sharedMemos={adoptionListMemos}
                           sharedSetMemos={setAdoptionListMemos}
-                          onOpenAddToAdoptionListModal={(id) => { setAddToAdoptionListModalId(id); setAddToAdoptionListMemoInput(adoptionListMemos[id] ?? ''); }}
+                          onOpenAddToAdoptionListModal={(id) => {
+                            setAddToAdoptionListModalId(id);
+                          }}
                           onConfirmAdoptionFromList={openAdoptionFinalizeConfirm}
                           confirmingAdoption={confirmingAdoption}
                           adoptionFinalized={adoptionFinalized}
@@ -943,7 +943,7 @@ const ChallengeDetailPage: React.FC = () => {
                               ) : null}
                               {paginatedProposals.map((proposal) => {
                                 const inList = adoptionList.has(proposal.id);
-                                const memoText = adoptionListMemos[proposal.id] ?? '';
+                                const memoText = adoptionListMemos[String(proposal.id)] ?? '';
                                 if (!canManageAdoptionList) {
                                   return (
                                     <ProposalCard
@@ -972,7 +972,6 @@ const ChallengeDetailPage: React.FC = () => {
                                               })
                                             : (() => {
                                                 setAddToAdoptionListModalId(proposal.id);
-                                                setAddToAdoptionListMemoInput(memoText);
                                               })()
                                         }
                                         className={`cursor-pointer px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center ${inList ? 'bg-gray-200 text-gray-700 hover:bg-gray-300' : 'bg-green-600 text-white hover:bg-green-700'}`}
@@ -983,7 +982,7 @@ const ChallengeDetailPage: React.FC = () => {
                                         type="button"
                                         onClick={() => {
                                           setMemoEditModalProposalId(proposal.id);
-                                          setMemoEditModalInput(adoptionListMemos[proposal.id] ?? '');
+                                          setMemoEditModalInput(adoptionListMemos[String(proposal.id)] ?? '');
                                         }}
                                         className={`cursor-pointer px-3 py-1.5 rounded-lg text-sm font-medium w-full text-center border ${memoText ? 'bg-emerald-50 border-emerald-300 text-emerald-800' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                                       >
@@ -1038,21 +1037,11 @@ const ChallengeDetailPage: React.FC = () => {
                       {/* 採用リスト（採用確定前のみ・トグルに依存せず最下部に1つ） */}
                       {canManageAdoptionList && adoptionList.size > 0 && (
                         <div className="mt-6 p-5 bg-amber-50/80 border border-amber-200 rounded-xl shadow-sm">
-                          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
-                            <h3 className="text-base font-semibold text-amber-900">🛒 採用リスト（{adoptionList.size}件）</h3>
-                            <button
-                              type="button"
-                              disabled={confirmingAdoption}
-                              onClick={openAdoptionFinalizeConfirm}
-                              className="cursor-pointer shrink-0 px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
-                            >
-                              {confirmingAdoption ? '確定中…' : '採用を確定する'}
-                            </button>
-                          </div>
+                          <h3 className="text-base font-semibold text-amber-900 mb-4">🛒 採用リスト（{adoptionList.size}件）</h3>
                           <ul className="space-y-4 mb-5">
                             {[...adoptionList].map((pid) => {
                               const p = proposals.find(pr => pr.id === pid);
-                              const memo = adoptionListMemos[pid] ?? '';
+                              const memo = adoptionListMemos[String(pid)] ?? '';
                               return p ? (
                                 <li key={pid} className="flex items-stretch gap-3 rounded-lg border border-amber-200 bg-white p-3 shadow-sm">
                                   {/* 結論・メモを縦に並べたブロック（結論=ピンク、メモ=灰） */}
@@ -1076,6 +1065,16 @@ const ChallengeDetailPage: React.FC = () => {
                               ) : null;
                             })}
                           </ul>
+                          <div className="flex justify-end pt-1">
+                            <button
+                              type="button"
+                              disabled={confirmingAdoption}
+                              onClick={openAdoptionFinalizeConfirm}
+                              className="cursor-pointer px-5 py-2.5 rounded-lg text-sm font-medium bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                            >
+                              {confirmingAdoption ? '確定中…' : '採用を確定する'}
+                            </button>
+                          </div>
                         </div>
                       )}
                       {adoptionFinalizeModalOpen && (
@@ -1120,18 +1119,12 @@ const ChallengeDetailPage: React.FC = () => {
                       )}
                       {/* 採用リストに追加モーダル（分析・一覧のどちらから開いた場合も表示） */}
                       {addToAdoptionListModalId != null && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }}>
-                          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4" onClick={e => e.stopPropagation()}>
+                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setAddToAdoptionListModalId(null); }}>
+                          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">採用リストに追加</h3>
-                            <p className="text-sm text-gray-600 mb-3">メモを入力してから追加できます。後で「なぜこの案を選んだか」を説明する際に参照できます。</p>
-                            <textarea
-                              value={addToAdoptionListMemoInput}
-                              onChange={e => setAddToAdoptionListMemoInput(e.target.value)}
-                              className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[80px] mb-4"
-                              placeholder="例：実装しやすく、合意も得られていたため"
-                            />
+                            <p className="text-sm text-gray-600 mb-4">この解決案を採用リストに追加します。メモは一覧の「メモ」から入力できます。</p>
                             <div className="flex gap-2 justify-end">
-                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); setAddToAdoptionListMemoInput(''); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
+                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); }} className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
                               <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
                             </div>
                           </div>
@@ -1142,13 +1135,13 @@ const ChallengeDetailPage: React.FC = () => {
                           <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">メモ</h3>
                             <p className="text-sm text-gray-600 mb-3">
-                              採用判断のときの備忘録として入力できます。この解決案は一覧の「メモ ✓」で後から確認できます。
+                              採用判断のときの備忘録として入力できます。一覧の「メモ ✓」で後から確認できます。
                             </p>
                             <textarea
                               value={memoEditModalInput}
                               onChange={(e) => setMemoEditModalInput(e.target.value)}
                               className="w-full text-sm border border-gray-300 rounded-lg p-3 min-h-[100px] mb-4 focus:outline-none focus:ring-2 focus:ring-green-500/40"
-                              placeholder="例：ROIが明確で、地域パートナーとの整合がよかった"
+                              placeholder=""
                               autoFocus
                             />
                             <div className="flex gap-2 justify-end">
