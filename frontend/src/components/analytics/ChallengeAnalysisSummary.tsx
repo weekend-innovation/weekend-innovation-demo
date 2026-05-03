@@ -864,11 +864,11 @@ const ChallengeAnalysisSummary: React.FC<ChallengeAnalysisSummaryProps> = ({
           <div className="bg-white rounded-lg shadow-xl p-7 max-w-md w-full mx-4 border border-gray-200" onClick={e => e.stopPropagation()}>
             <h3 className="text-lg font-semibold text-gray-900 mb-6">採用リストに追加</h3>
             <div className="flex gap-3 justify-end">
-              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
-                キャンセル
-              </button>
               <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">
                 追加
+              </button>
+              <button type="button" onClick={() => { setAddToAdoptionListModalProposalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">
+                キャンセル
               </button>
             </div>
           </div>

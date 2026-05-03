@@ -485,7 +485,7 @@ const ChallengeDetailPage: React.FC = () => {
             {/* 期限とフェーズ表示 */}
             <div>
               <div className={`rounded-lg p-3 text-center ${
-                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-100 border border-gray-400' :
+                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-200 border border-gray-500' :
                 contributorAdoptionPending ? 'bg-amber-50 border border-amber-200' :
                 expiredOrFailed ? 'bg-red-50' :
                 allPhasesDone ? 'bg-teal-50' :
@@ -887,12 +887,12 @@ const ChallengeDetailPage: React.FC = () => {
                   challenge?.status === 'closed' || challenge?.status === 'completed' ? (
                     <>
                       {adoptionFinalized && (
-                        <div className="mb-4 p-4 bg-gray-100 border border-gray-300 rounded-lg">
-                          <p className="text-gray-800 font-medium">
+                        <div className="mb-4 p-4 bg-gray-200 border border-gray-400 rounded-lg">
+                          <p className="text-gray-900 font-medium">
                             採用を確定済みです。採用内容の変更はできません。
                           </p>
-                          <p className="text-sm text-gray-600 mt-1">
-                            デモのため、この操作は取り消せない想定です。本番では別途契約・通知フローを想定してください。
+                          <p className="text-sm text-gray-700 mt-1">
+                            確定後の取り消しはできません。
                           </p>
                         </div>
                       )}
@@ -1089,22 +1089,14 @@ const ChallengeDetailPage: React.FC = () => {
                             <h3 className="text-lg font-semibold text-gray-900 mb-2">採用を確定しますか？</h3>
                             <div className="mb-4 space-y-3 text-sm text-gray-700">
                               <p className="p-3 rounded-md bg-amber-50 border border-amber-300 text-amber-900">
-                                デモ版の注意：確定後は採用の取り消し・やり直しはできません（本番では契約・ワークフローを想定）。
+                                確定後は採用の取り消し・やり直しはできません。
                               </p>
                               <p>
                                 採用リストの <span className="font-semibold">{adoptionList.size} 件</span>
-                                を採用として記録し、課題の状態を「終了」とします。リストに入れていない解決案は採用されていない状態にそろえられます。
+                                を採用として記録し、課題の状態を「終了」とします。
                               </p>
                             </div>
                             <div className="flex gap-2 justify-end flex-wrap">
-                              <button
-                                type="button"
-                                disabled={confirmingAdoption}
-                                onClick={() => setAdoptionFinalizeModalOpen(false)}
-                                className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
-                              >
-                                キャンセル
-                              </button>
                               <button
                                 type="button"
                                 disabled={confirmingAdoption}
@@ -1112,6 +1104,14 @@ const ChallengeDetailPage: React.FC = () => {
                                 className="cursor-pointer px-4 py-2 text-sm font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg disabled:opacity-50"
                               >
                                 {confirmingAdoption ? '確定中…' : '内容を確認したうえで確定する'}
+                              </button>
+                              <button
+                                type="button"
+                                disabled={confirmingAdoption}
+                                onClick={() => setAdoptionFinalizeModalOpen(false)}
+                                className="cursor-pointer px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50"
+                              >
+                                キャンセル
                               </button>
                             </div>
                           </div>
@@ -1123,8 +1123,8 @@ const ChallengeDetailPage: React.FC = () => {
                           <div className="bg-white rounded-lg shadow-xl p-7 max-w-md w-full mx-4 border border-gray-200" onClick={(e) => e.stopPropagation()}>
                             <h3 className="text-lg font-semibold text-gray-900 mb-6">採用リストに追加</h3>
                             <div className="flex gap-3 justify-end">
-                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
                               <button type="button" onClick={confirmAddToAdoptionList} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-white bg-green-600 hover:bg-green-700 rounded-lg">追加</button>
+                              <button type="button" onClick={() => { setAddToAdoptionListModalId(null); }} className="cursor-pointer min-w-[7rem] px-5 py-3 text-base font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg">キャンセル</button>
                             </div>
                           </div>
                         </div>

@@ -55,7 +55,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
   const cardStyle =
     contributorAdoptionFinalized
-      ? 'bg-gray-100 border border-gray-400 opacity-92 text-gray-800'
+      ? 'bg-gray-200 border-2 border-gray-500 shadow-inner text-gray-900'
       : userType === 'proposer'
       ? expiredOrFailed
         ? canViewResults
@@ -99,7 +99,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
             </span>
           )}
           {userType === 'contributor' && contributorAdoptionFinalized && (
-            <span className="px-3 py-1 text-sm rounded-full font-medium text-gray-700 bg-gray-200 border border-gray-400">
+            <span className="px-3 py-1 text-sm rounded-full font-medium text-gray-900 bg-gray-300 border border-gray-600">
               終了
             </span>
           )}
