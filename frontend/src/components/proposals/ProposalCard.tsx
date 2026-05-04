@@ -38,6 +38,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   onComments
 }) => {
   const { user } = useAuth();
+  const effectivePhase =
+    currentPhase ?? proposal.challenge_current_phase ?? undefined;
+  const isOwnProposal =
+    proposal.is_mine === true ||
+    (proposal.is_mine === undefined &&
+      user?.user_type === 'proposer' &&
+      user?.username === proposal.proposer_name);
+  const challengeClosedLike =
+    proposal.challenge_status === 'closed' ||
+    proposal.challenge_status === 'completed';
+  const commentsReadOnly = readOnlyComments || challengeClosedLike;
+
   const [showCommentsSection, setShowCommentsSection] = useState(false);
   const [comments, setComments] = useState<ProposalComment[]>([]);
   const [userEvaluation, setUserEvaluation] = useState<ProposalEvaluation | null>(null);
@@ -69,11 +81,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       if (savedProposal) {
         try {
           const editedData = JSON.parse(savedProposal);
-          setProposalState(prev => ({
-            ...prev,
+          setProposalState({
+            ...proposal,
             conclusion: editedData.conclusion,
             reasoning: editedData.reasoning
-          }));
+          });
         } catch (error) {
           console.error('Failed to parse edited proposal:', error);
           setProposalState(proposal);
@@ -82,7 +94,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
         setProposalState(proposal);
       }
     }
-  }, [proposal, proposal.id, useServerDataOnly]);
+  }, [proposal.id, proposal.conclusion, proposal.reasoning, useServerDataOnly]);
 
   // 参考ログが変更されたらlocalStorageに保存
   useEffect(() => {
@@ -92,10 +104,11 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   }, [referenceLogs, proposal.id]);
 
   // 評価権限の確認（自分の解決案は評価不可、かつ読み取り専用モードでは不可、かつ評価期間のみ）
-  const canEvaluate = !readOnlyComments && 
-                      user?.user_type === 'proposer' && 
-                      user.username !== proposal.proposer_name &&
-                      currentPhase === 'evaluation';
+  const canEvaluate =
+    !commentsReadOnly &&
+    user?.user_type === 'proposer' &&
+    !isOwnProposal &&
+    effectivePhase === 'evaluation';
   
   // 評価データを取得
   useEffect(() => {
@@ -114,21 +127,28 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
   }, [proposal.id, canEvaluate]);
   
   // コメント権限の確認（読み取り専用モードでは不可、かつ提案期間・編集期間）
-  const canComment = !readOnlyComments && 
-                     user?.user_type === 'proposer' && 
-                     user.username !== proposal.proposer_name &&
-                     (currentPhase === 'proposal' || currentPhase === 'edit');
-  
+  const canComment =
+    !commentsReadOnly &&
+    user?.user_type === 'proposer' &&
+    !isOwnProposal &&
+    (effectivePhase === 'proposal' || effectivePhase === 'edit');
+
   // 返信権限の確認（提案者のみ、読み取り専用モードでは不可、かつ提案期間・編集期間）
-  const canReply = !readOnlyComments && 
-                   user?.username === proposal.proposer_name &&
-                   (currentPhase === 'proposal' || currentPhase === 'edit');
-  
+  const canReply =
+    !commentsReadOnly &&
+    isOwnProposal &&
+    user?.user_type === 'proposer' &&
+    (effectivePhase === 'proposal' || effectivePhase === 'edit');
+
   // 参考権限の確認（自分の解決案の場合のみ、かつ編集期間のみ）
-  const canReference = user?.username === proposal.proposer_name && currentPhase === 'edit';
-  
+  const canReference =
+    isOwnProposal &&
+    user?.user_type === 'proposer' &&
+    effectivePhase === 'edit' &&
+    !commentsReadOnly;
+
   // 通報権限の確認（提案者ユーザーかつ自分の解決案以外）
-  const canReport = user?.user_type === 'proposer' && user?.username !== proposal.proposer_name;
+  const canReport = user?.user_type === 'proposer' && !isOwnProposal;
 
   // 評価ハンドラー
   const handleEvaluate = async (proposalId: number, evaluation: 'yes' | 'maybe' | 'no', insightLevel?: '1' | '2' | '3' | '4' | '5') => {
@@ -197,21 +217,12 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
     }
   };
 
-  // 参考ハンドラー（解決案編集機能）
-  const handleReference = (commentId: number) => {
-    if (!canReference) return;
-    
-    // コメントを参考にして解決案を編集する機能
-    alert(`コメントID ${commentId} を参考に解決案を編集します。\nこの機能では、コメントの内容を参考にして解決案の結論や理由を改善できます。`);
-    
-    // TODO: 解決案編集ページに遷移する実装
-    // router.push(`/proposals/${proposal.id}/edit?reference=${commentId}`);
-  };
+  // 参考は ProposalCommentList 側で editingCommentId を立てる（ここでは未使用）
 
   // 解決案編集ハンドラー
   const handleEdit = async (proposalId: number, data: { conclusion: string; reasoning: string }) => {
     if (!canReference) return;
-    
+
     setIsEditing(true);
     try {
       const patchData: { conclusion: string; reasoning: string; reference_comment_id?: number } = {
@@ -221,18 +232,18 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       if (editingCommentId) {
         patchData.reference_comment_id = editingCommentId;
       }
-      await patchProposal(proposalId, patchData);
-      
+      const saved = await patchProposal(proposalId, patchData);
+
       const updatedProposal = {
         ...proposalState,
-        conclusion: data.conclusion,
-        reasoning: data.reasoning
+        conclusion: saved.conclusion,
+        reasoning: saved.reasoning
       };
       setProposalState(updatedProposal);
-      
+
       localStorage.setItem(`editedProposal_${proposal.id}`, JSON.stringify({
-        conclusion: data.conclusion,
-        reasoning: data.reasoning
+        conclusion: saved.conclusion,
+        reasoning: saved.reasoning
       }));
       
       const referenceLog: ReferenceLog = {
@@ -471,7 +482,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
       {/* 評価・コメントセクション */}
       {showComments && (
-        <div className={readOnlyComments ? "pt-4 border-t border-gray-200" : ""}>
+        <div className={commentsReadOnly ? "pt-4 border-t border-gray-200" : ""}>
           <div className="space-y-4">
             {canEvaluate && (
               <ProposalEvaluationComponent
@@ -507,7 +518,7 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
             onAddComment={handleAddComment}
             onReply={handleReply}
             onEdit={handleEdit}
-            onReference={handleReference}
+            onReference={() => {}}
             isAddingComment={isAddingComment}
             isReplying={isReplying}
             isEditing={isEditing}

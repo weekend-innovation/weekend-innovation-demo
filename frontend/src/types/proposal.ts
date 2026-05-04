@@ -65,6 +65,12 @@ export interface ProposalListItem {
   updated_at: string;
   unread_comment_count?: number;
   total_comment_count?: number;
+  /** 課題の現在フェーズ（一覧からコメント権限用） */
+  challenge_current_phase?: 'proposal' | 'edit' | 'evaluation' | 'closed';
+  /** 課題の status（一覧から readOnly 判定用） */
+  challenge_status?: 'open' | 'closed' | 'completed';
+  /** ログインユーザーがこの解決案の提案者か */
+  is_mine?: boolean;
   // ユーザー属性（募集終了後の解決案一覧向け）
   nationality?: string | null;
   gender?: string | null;
@@ -89,7 +95,8 @@ export interface UpdateProposalRequest {
 export interface ProposalComment {
   id: number;
   proposal: number;
-  commenter: number;
+  /** コメント投稿者のユーザーID（通報・自分判定用） */
+  commenter?: number;
   commenter_name: string;
   target_section: 'reasoning' | 'inference';
   conclusion: string;
@@ -110,7 +117,8 @@ export interface CreateProposalCommentRequest {
 export interface ProposalCommentReply {
   id: number;
   comment: number;
-  replier: number;
+  /** 返信者のユーザーID */
+  replier?: number;
   replier_name: string;
   content: string;
   is_deleted: boolean;

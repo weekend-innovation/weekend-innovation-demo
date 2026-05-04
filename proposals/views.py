@@ -35,17 +35,14 @@ class ProposalListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         """ユーザータイプに応じてクエリセットを返す"""
         user = self.request.user
-        
+
         if user.user_type == 'proposer':
-            # 提案者: 自分の提案のみ
-            return Proposal.objects.filter(proposer=user)
+            qs = Proposal.objects.filter(proposer=user)
         elif user.user_type == 'contributor':
-            # 投稿者: 自分の課題に対する提案のみ
-            return Proposal.objects.filter(
-                challenge__contributor=user
-            )
-        
-        return Proposal.objects.none()
+            qs = Proposal.objects.filter(challenge__contributor=user)
+        else:
+            return Proposal.objects.none()
+        return qs.select_related('challenge', 'anonymous_name')
     
     def perform_create(self, serializer):
         """提案作成時の処理"""

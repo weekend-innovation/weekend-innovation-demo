@@ -337,6 +337,15 @@ const ProposerDashboard: React.FC = () => {
                       showStatus={false}
                       showComments={true}
                       showChallengeInfo={true}
+                      currentPhase={proposal.challenge_current_phase}
+                      readOnlyComments={
+                        proposal.challenge_status === 'closed' ||
+                        proposal.challenge_status === 'completed'
+                      }
+                      showUserAttributes={
+                        proposal.challenge_status === 'closed' ||
+                        proposal.challenge_status === 'completed'
+                      }
                       onComments={handleComments}
                     />
                   ))}

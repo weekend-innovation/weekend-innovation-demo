@@ -872,9 +872,9 @@ const ChallengeDetailPage: React.FC = () => {
                   (() => {
                     // 自分の解決案と他の解決案を分離
                     // proposer_nameフィールドで判定
-                    const myProposal = proposals.find(p => {
-                      return p.proposer_name === user?.username;
-                    });
+                    const myProposal = proposals.find((p) =>
+                      userProposal ? p.id === userProposal.id : p.proposer_name === user?.username
+                    );
                     const otherProposals = proposals.filter(p => p.proposer_name !== user?.username)
                       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
                     const proposerClosedWithoutEval = user?.user_type === 'proposer' && (challenge?.status === 'closed' || challenge?.status === 'completed') && userProposal && !challenge?.has_completed_all_evaluations;

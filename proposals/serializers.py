@@ -9,6 +9,33 @@ class AnonymousNameSerializer(serializers.ModelSerializer):
         model = AnonymousName
         fields = ['id', 'name', 'category']
 
+
+def challenge_participant_display_name(challenge, user):
+    """
+    課題内で選出された参加者の表示名（ChallengeUserAnonymousName → 無ければ当該課題の自分の提案の匿名名 → username）
+    """
+    if not user or not getattr(user, 'is_authenticated', False):
+        return None
+    from selections.models import ChallengeUserAnonymousName
+
+    try:
+        row = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
+            challenge=challenge, user=user
+        )
+        if row.anonymous_name_id:
+            return row.anonymous_name.name
+    except ChallengeUserAnonymousName.DoesNotExist:
+        pass
+    prop = (
+        challenge.proposals.filter(proposer=user)
+        .select_related('anonymous_name')
+        .first()
+    )
+    if prop and prop.is_anonymous and prop.anonymous_name_id:
+        return prop.anonymous_name.name
+    return user.username
+
+
 class ProposalSerializer(serializers.ModelSerializer):
     """
     提案シリアライザー
@@ -116,7 +143,22 @@ class ProposalListSerializer(serializers.ModelSerializer):
     nationality = serializers.SerializerMethodField()
     gender = serializers.SerializerMethodField()
     age = serializers.SerializerMethodField()
-    
+    challenge_current_phase = serializers.SerializerMethodField()
+    challenge_status = serializers.SerializerMethodField()
+    is_mine = serializers.SerializerMethodField()
+
+    def get_challenge_current_phase(self, obj):
+        return obj.challenge.get_current_phase()
+
+    def get_challenge_status(self, obj):
+        return obj.challenge.status
+
+    def get_is_mine(self, obj):
+        request = self.context.get('request')
+        if not request or not getattr(request.user, 'is_authenticated', False):
+            return False
+        return obj.proposer_id == request.user.id
+
     def get_proposer_name(self, obj):
         """リクエストユーザーを考慮した表示名を返す"""
         request = self.context.get('request')
@@ -225,74 +267,45 @@ class ProposalListSerializer(serializers.ModelSerializer):
             'challenge_id', 'challenge_title', 'proposer_name',
             'anonymous_name_info', 'is_anonymous', 'status', 'is_adopted',
             'rating', 'rating_count', 'created_at', 'updated_at', 'unread_comment_count', 'total_comment_count',
-            'nationality', 'gender', 'age'
+            'nationality', 'gender', 'age',
+            'challenge_current_phase', 'challenge_status', 'is_mine',
         ]
 
 
 class ProposalCommentReplySerializer(serializers.ModelSerializer):
     """コメント返信シリアライザー"""
     replier_name = serializers.SerializerMethodField()
-    
+    replier = serializers.IntegerField(source='replier_id', read_only=True)
+
     def get_replier_name(self, obj):
         """返信者の表示名を返す（課題ごとの匿名名）"""
-        from selections.models import ChallengeUserAnonymousName
-        
-        try:
-            # 課題ごとの返信者の匿名名を取得
-            challenge = obj.comment.proposal.challenge
-            challenge_user_name = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
-                challenge=challenge,
-                user=obj.replier
-            )
-            
-            if challenge_user_name.anonymous_name:
-                return challenge_user_name.anonymous_name.name
-            else:
-                return obj.replier.username
-                
-        except ChallengeUserAnonymousName.DoesNotExist:
-            # 匿名名が割り当てられていない場合はusernameを返す
-            return obj.replier.username
-    
+        challenge = obj.comment.proposal.challenge
+        return challenge_participant_display_name(challenge, obj.replier)
+
     class Meta:
         model = ProposalCommentReply
-        fields = ['id', 'content', 'replier_name', 'created_at']
-        read_only_fields = ['id', 'replier_name', 'created_at']
+        fields = ['id', 'content', 'replier', 'replier_name', 'created_at']
+        read_only_fields = ['id', 'replier', 'replier_name', 'created_at']
 
 
 class ProposalCommentSerializer(serializers.ModelSerializer):
     """提案コメントシリアライザー"""
     commenter_name = serializers.SerializerMethodField()
+    commenter = serializers.IntegerField(source='commenter_id', read_only=True)
     replies = ProposalCommentReplySerializer(many=True, read_only=True)
-    
+
     def get_commenter_name(self, obj):
         """コメント投稿者の表示名を返す（課題ごとの匿名名）"""
-        from selections.models import ChallengeUserAnonymousName
-        
-        try:
-            # 課題ごとのコメント投稿者の匿名名を取得
-            challenge = obj.proposal.challenge
-            challenge_user_name = ChallengeUserAnonymousName.objects.select_related('anonymous_name').get(
-                challenge=challenge,
-                user=obj.commenter
-            )
-            
-            if challenge_user_name.anonymous_name:
-                return challenge_user_name.anonymous_name.name
-            else:
-                return obj.commenter.username
-                
-        except ChallengeUserAnonymousName.DoesNotExist:
-            # 匿名名が割り当てられていない場合はusernameを返す
-            return obj.commenter.username
-    
+        challenge = obj.proposal.challenge
+        return challenge_participant_display_name(challenge, obj.commenter)
+
     class Meta:
         model = ProposalComment
         fields = [
-            'id', 'target_section', 'conclusion', 'reasoning',
+            'id', 'commenter', 'target_section', 'conclusion', 'reasoning',
             'commenter_name', 'created_at', 'replies'
         ]
-        read_only_fields = ['id', 'created_at']
+        read_only_fields = ['id', 'commenter', 'created_at']
 
 
 class ProposalCommentCreateSerializer(serializers.ModelSerializer):

@@ -31,6 +31,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     userType === 'contributor' &&
     !contributorAdoptionFinalized &&
     isContributorExpired(challenge);
+  const mutedCompletedChallenge =
+    contributorAdoptionFinalized || proposerChallengeCompleted;
 
   // 提案者用: 現在のフェーズの期限ラベルと値を取得（ソート順が分かるように）
   const getCurrentPhaseDeadlineInfo = (): { label: string; value: string } | null => {
@@ -150,13 +152,13 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         </div>
         <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
           <h3 className={`text-xl flex-1 min-w-0 pr-2 break-words ${
-            contributorAdoptionFinalized ? 'font-semibold text-gray-500' : 'font-bold text-gray-900'
+            mutedCompletedChallenge ? 'font-semibold text-gray-500' : 'font-bold text-gray-900'
           }`}>
             {challenge.title}
           </h3>
           <div className="text-right flex-shrink-0">
             <div className={`flex items-center gap-4 text-sm flex-wrap justify-end ${
-              contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-600'
+              mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-600'
             }`}>
               <span>投稿者: {challenge.contributor_name}</span>
               <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
@@ -167,7 +169,7 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
       {/* 説明文 */}
       <div className="mb-4">
-        <p className={`leading-relaxed ${contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-700'}`}>
+        <p className={`leading-relaxed ${mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-700'}`}>
           {challenge.description}
         </p>
       </div>
@@ -188,8 +190,8 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         </div>
       </div>
       {/* 詳細情報 */}
-      <div className={`rounded-lg p-3 mb-4 min-w-0 ${contributorAdoptionFinalized ? 'bg-gray-100/80' : 'bg-gray-50'}`}>
-        <div className={`flex justify-between items-center gap-4 text-sm flex-wrap ${contributorAdoptionFinalized ? 'text-gray-500' : 'text-gray-600'}`}>
+      <div className={`rounded-lg p-3 mb-4 min-w-0 ${mutedCompletedChallenge ? 'bg-gray-100/80' : 'bg-gray-50'}`}>
+        <div className={`flex justify-between items-center gap-4 text-sm flex-wrap ${mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-600'}`}>
           <span className="font-medium">選出人数: {challenge.required_participants}人</span>
           <span className="font-medium">
             {(() => {

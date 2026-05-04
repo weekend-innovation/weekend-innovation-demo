@@ -38,6 +38,22 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
   const { user } = useAuth();
   const [replyingCommentId, setReplyingCommentId] = useState<number | null>(null);
 
+  const isCurrentUserComment = (comment: { commenter?: number; commenter_name: string }) => {
+    if (!user) return false;
+    if (comment.commenter != null) {
+      return comment.commenter === Number(user.id);
+    }
+    return comment.commenter_name === user.username;
+  };
+
+  const isCurrentUserReply = (reply: { replier?: number; replier_name: string }) => {
+    if (!user) return false;
+    if (reply.replier != null) {
+      return reply.replier === Number(user.id);
+    }
+    return reply.replier_name === user.username;
+  };
+
   const handleAddComment = (comment: CreateProposalCommentRequest) => {
     onAddComment(comment);
   };
@@ -173,7 +189,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                         参考
                       </button>
                       {/* 自分の解決案に対するコメントの通報ボタン（自分のコメント以外） */}
-                      {comment.commenter_name !== user.username && (
+                      {!isCurrentUserComment(comment) && (
                         <ReportButton
                           contentTypeModel="proposalcomment"
                           objectId={comment.id}
@@ -188,7 +204,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
               )}
               
               {/* 他のユーザーの解決案に対するコメントの通報ボタン（自分のコメント以外） */}
-              {!canReply && canComment && user && comment.commenter_name !== user.username && (
+              {!canReply && canComment && user && !isCurrentUserComment(comment) && (
                 <div className="mt-3 pt-3 border-t border-gray-200">
                   <div className="flex justify-end">
                     <ReportButton
@@ -215,7 +231,7 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                       <p className="text-gray-600 text-sm leading-relaxed">{reply.content}</p>
                       
                       {/* 返信の通報ボタン（自分の返信以外） */}
-                      {user && reply.replier_name !== user.username && (
+                      {user && !isCurrentUserReply(reply) && (
                         <div className="mt-2 pt-2 border-t border-gray-200">
                           <div className="flex justify-end">
                             <ReportButton
