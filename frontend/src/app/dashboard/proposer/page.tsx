@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ProposalListItem } from '../../../types/proposal';
 import type { ChallengeListItem } from '../../../types/challenge';
 import { getProposals } from '../../../lib/proposalAPI';
@@ -18,7 +19,8 @@ import { DemoVersionModal, DashboardDemoVersionTrigger } from '../../../componen
 import { ensurePushSubscription, disablePushSubscription, getPushStatus } from '../../../lib/push';
 
 const ProposerDashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authInitializing } = useAuth();
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -73,15 +75,23 @@ const ProposerDashboard: React.FC = () => {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (authInitializing) return;
+
+    if (isAuthenticated && user?.user_type === 'proposer') {
       void fetchDashboardData();
-    } else {
-      setLoading(false);
+      return;
     }
-  }, [isAuthenticated, user, fetchDashboardData]);
+
+    if (isAuthenticated && user && user.user_type !== 'proposer') {
+      router.replace('/dashboard/contributor');
+      return;
+    }
+
+    router.replace('/auth/login');
+  }, [authInitializing, isAuthenticated, user, fetchDashboardData, router]);
 
   useEffect(() => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated || !user || user.user_type !== 'proposer') return;
     void (async () => {
       const status = await getPushStatus();
       setPushEnabled(status.permission === 'granted' && status.subscribed);
@@ -148,6 +158,21 @@ const ProposerDashboard: React.FC = () => {
     if (expiredChallenges.length > 0) return [expiredChallenges[0]];
     return [];
   }, [challenges]);
+
+  const isProposerSession =
+    !authInitializing && isAuthenticated && user?.user_type === 'proposer';
+
+  if (authInitializing || !isProposerSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-600">読み込み中...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // ローディング表示
   if (loading) {

@@ -13,7 +13,7 @@ import { getChallenge, deleteChallenge, finalizeAdoption } from '../../../lib/ch
 import { getProposalsByChallenge, getUserProposalForChallenge, setProposalAdopted } from '../../../lib/proposalAPI';
 import { getChallengeAnalysis, getMyProposalInsight, type ChallengeAnalysisData, type ProposalInsight } from '../../../lib/analyticsAPI';
 import { useAuth } from '../../../contexts/AuthContext';
-import { isProposerExpiredOrFailed, isAllPhasesCompleted } from '../../../lib/challengeSortUtils';
+import { isProposerExpiredOrFailed, isAllPhasesCompleted, canProposerViewResults } from '../../../lib/challengeSortUtils';
 import ProposalCard from '../../../components/proposals/ProposalCard';
 import ChallengeAnalysisSummary from '../../../components/analytics/ChallengeAnalysisSummary';
 import type { ClusteringResult } from '../../../components/analytics/ProposalClusterMap';
@@ -425,6 +425,111 @@ const ChallengeDetailPage: React.FC = () => {
     (challenge.current_phase === 'closed' || isExpired(challenge.deadline));
   const contributorAdoptionPending = contributorPastDeadline && !adoptionFinalized;
   const canManageAdoptionList = contributorAdoptionPending;
+  const proposerChallengeCompleted =
+    user?.user_type === 'proposer' && adoptionFinalized;
+  const proposerPendingAdoptionAfterParticipation =
+    user?.user_type === 'proposer' &&
+    !adoptionFinalized &&
+    challenge.status === 'closed' &&
+    canProposerViewResults(challengeForProposer);
+
+  const phaseMain =
+    challenge.phase_display || (isExpired(challenge.deadline) ? '満了' : '募集中');
+
+  const phaseStatusVisual = (): {
+    panel: string;
+    caption: string;
+    value: string;
+    main: string;
+  } => {
+    if (challenge.current_phase === 'proposal') {
+      return {
+        panel: 'bg-green-50',
+        caption: 'text-green-600',
+        value: 'font-bold text-green-900',
+        main: phaseMain,
+      };
+    }
+    if (challenge.current_phase === 'edit') {
+      return {
+        panel: 'bg-yellow-50',
+        caption: 'text-yellow-600',
+        value: 'font-bold text-yellow-900',
+        main: phaseMain,
+      };
+    }
+    if (challenge.current_phase === 'evaluation') {
+      return {
+        panel: 'bg-orange-50',
+        caption: 'text-orange-600',
+        value: 'font-bold text-orange-900',
+        main: phaseMain,
+      };
+    }
+    return {
+      panel: 'bg-red-50',
+      caption: 'text-red-600',
+      value: 'font-bold text-red-900',
+      main: phaseMain,
+    };
+  };
+
+  const proposerStatusBox = (() => {
+    if (proposerChallengeCompleted) {
+      return {
+        panel: 'bg-gray-100 border border-gray-400',
+        caption: 'text-gray-500',
+        value: 'font-semibold text-gray-600',
+        main: '完了',
+      };
+    }
+    if (proposerPendingAdoptionAfterParticipation) {
+      return {
+        panel: 'bg-amber-50 border border-amber-200',
+        caption: 'text-amber-800',
+        value: 'font-bold text-amber-900',
+        main: '期間満了（採用未確定）',
+      };
+    }
+    if (expiredOrFailed) {
+      return {
+        panel: 'bg-red-50',
+        caption: 'text-red-600',
+        value: 'font-bold text-red-900',
+        main: '期限切れ',
+      };
+    }
+    if (allPhasesDone) {
+      return {
+        panel: 'bg-teal-50',
+        caption: 'text-teal-600',
+        value: 'font-bold text-teal-900',
+        main: '全フェーズ達成',
+      };
+    }
+    return phaseStatusVisual();
+  })();
+
+  const statusBox =
+    user?.user_type === 'contributor'
+      ? adoptionFinalized
+        ? {
+            panel: 'bg-gray-100 border border-gray-400',
+            caption: 'text-gray-500',
+            value: 'font-semibold text-gray-600',
+            main: '完了',
+          }
+        : contributorAdoptionPending
+          ? {
+              panel: 'bg-amber-50 border border-amber-200',
+              caption: 'text-amber-800',
+              value: 'font-bold text-amber-900',
+              main: '期間満了（採用未確定）',
+            }
+          : phaseStatusVisual()
+      : user?.user_type === 'proposer'
+        ? proposerStatusBox
+        : phaseStatusVisual();
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 w-full">
@@ -483,42 +588,9 @@ const ChallengeDetailPage: React.FC = () => {
             </div>
             {/* 期限・状況 */}
             <div>
-              <div className={`rounded-lg p-3 text-center ${
-                user?.user_type === 'contributor' && adoptionFinalized ? 'bg-gray-100 border border-gray-400' :
-                contributorAdoptionPending ? 'bg-amber-50 border border-amber-200' :
-                expiredOrFailed ? 'bg-red-50' :
-                allPhasesDone ? 'bg-teal-50' :
-                challenge.current_phase === 'proposal' ? 'bg-green-50' :
-                challenge.current_phase === 'edit' ? 'bg-yellow-50' :
-                challenge.current_phase === 'evaluation' ? 'bg-orange-50' :
-                'bg-red-50'
-              }`}>
-                <p className={`text-sm font-medium mb-1 ${
-                  user?.user_type === 'contributor' && adoptionFinalized ? 'text-gray-500' :
-                  contributorAdoptionPending ? 'text-amber-800' :
-                  expiredOrFailed ? 'text-red-600' :
-                  allPhasesDone ? 'text-teal-600' :
-                  challenge.current_phase === 'proposal' ? 'text-green-600' :
-                  challenge.current_phase === 'edit' ? 'text-yellow-600' :
-                  challenge.current_phase === 'evaluation' ? 'text-orange-600' :
-                  'text-red-600'
-                }`}>期限・状況</p>
-                <p className={`text-lg mb-1 ${
-                  user?.user_type === 'contributor' && adoptionFinalized ? 'font-semibold text-gray-600' :
-                  contributorAdoptionPending ? 'font-bold text-amber-900' :
-                  expiredOrFailed ? 'font-bold text-red-900' :
-                  allPhasesDone ? 'font-bold text-teal-900' :
-                  challenge.current_phase === 'proposal' ? 'font-bold text-green-900' :
-                  challenge.current_phase === 'edit' ? 'font-bold text-yellow-900' :
-                  challenge.current_phase === 'evaluation' ? 'font-bold text-orange-900' :
-                  'font-bold text-red-900'
-                }`}>
-                  {user?.user_type === 'contributor' && adoptionFinalized ? '完了' :
-                   contributorAdoptionPending ? '期間満了（採用未確定）' :
-                   expiredOrFailed ? '期限切れ' :
-                   allPhasesDone ? '全フェーズ達成' :
-                   challenge.phase_display || (isExpired(challenge.deadline) ? '満了' : '募集中')}
-                </p>
+              <div className={`rounded-lg p-3 text-center ${statusBox.panel}`}>
+                <p className={`text-sm font-medium mb-1 ${statusBox.caption}`}>期限・状況</p>
+                <p className={`text-lg mb-1 ${statusBox.value}`}>{statusBox.main}</p>
                 {/* 評価完了バッジ（全フェーズ達成時は表示しない） */}
                 {challenge.has_completed_all_evaluations && !allPhasesDone && !expiredOrFailed && (
                   <div className="mt-2 pt-2 border-t border-purple-200">

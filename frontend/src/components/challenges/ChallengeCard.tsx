@@ -19,6 +19,12 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
   const expiredOrFailed = userType === 'proposer' && isProposerExpiredOrFailed(challenge);
   const allPhasesDone = userType === 'proposer' && isAllPhasesCompleted(challenge);
   const canViewResults = userType === 'proposer' && canProposerViewResults(challenge);
+  const proposerChallengeCompleted =
+    userType === 'proposer' && challenge.status === 'completed';
+  const proposerPendingAdoptionAfterParticipation =
+    userType === 'proposer' &&
+    challenge.status === 'closed' &&
+    canViewResults;
   const contributorAdoptionFinalized =
     userType === 'contributor' && challenge.status === 'completed';
   const contributorPastDeadlineUnfinalized =
@@ -55,16 +61,18 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     contributorAdoptionFinalized
       ? 'bg-gray-100 border border-gray-400 opacity-95 text-gray-600'
       : userType === 'proposer'
-      ? expiredOrFailed
-        ? canViewResults
-          ? 'bg-teal-50 border border-teal-300'
-          : 'bg-red-50 border border-red-300 opacity-60'
-        : allPhasesDone
-        ? 'bg-teal-50 border border-teal-300'
-        : 'bg-white border border-gray-200'
+      ? proposerChallengeCompleted
+        ? 'bg-gray-100 border border-gray-400 opacity-95 text-gray-600'
+        : proposerPendingAdoptionAfterParticipation
+          ? 'bg-amber-50 border border-amber-200'
+          : expiredOrFailed
+            ? 'bg-red-50 border border-red-300 opacity-60'
+            : allPhasesDone
+              ? 'bg-teal-50 border border-teal-300'
+              : 'bg-white border border-gray-200'
       : contributorPastDeadlineUnfinalized
-      ? 'bg-amber-50 border border-amber-200'
-      : 'bg-white border border-gray-200';
+        ? 'bg-amber-50 border border-amber-200'
+        : 'bg-white border border-gray-200';
 
   return (
     <div className={`rounded-lg shadow-sm hover:shadow-md transition-shadow duration-200 p-6 min-w-0 ${cardStyle}`}>
@@ -76,9 +84,14 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
               期限切れ
             </span>
           )}
-          {userType === 'proposer' && canViewResults && (
-            <span className="px-3 py-1 text-sm rounded-lg font-medium text-blue-600 bg-blue-100">
+          {userType === 'proposer' && proposerChallengeCompleted && (
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-gray-600 bg-gray-200 border border-gray-400">
               完了
+            </span>
+          )}
+          {userType === 'proposer' && proposerPendingAdoptionAfterParticipation && (
+            <span className="px-3 py-1 text-sm rounded-lg font-medium text-amber-800 bg-amber-100 border border-amber-300">
+              期間満了（採用未確定）
             </span>
           )}
           {userType === 'proposer' && allPhasesDone && (

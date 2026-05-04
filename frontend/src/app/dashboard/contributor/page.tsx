@@ -6,6 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import type { ChallengeListItem } from '../../../types/challenge';
 import type { ProposalListItem } from '../../../types/proposal';
 import { getAllChallenges } from '../../../lib/challengeAPI';
@@ -17,7 +18,8 @@ import ChallengeCard from '../../../components/challenges/ChallengeCard';
 import { DemoVersionModal, DashboardDemoVersionTrigger } from '../../../components/common/DemoVersionNotice';
 
 const ContributorDashboard: React.FC = () => {
-  const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { user, isAuthenticated, isLoading: authInitializing } = useAuth();
   const [challenges, setChallenges] = useState<ChallengeListItem[]>([]);
   const [proposals, setProposals] = useState<ProposalListItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -56,12 +58,20 @@ const ContributorDashboard: React.FC = () => {
   }, [isAuthenticated, user]);
 
   useEffect(() => {
-    if (isAuthenticated && user) {
+    if (authInitializing) return;
+
+    if (isAuthenticated && user?.user_type === 'contributor') {
       void fetchDashboardData();
-    } else {
-      setLoading(false);
+      return;
     }
-  }, [isAuthenticated, user, fetchDashboardData]);
+
+    if (isAuthenticated && user && user.user_type !== 'contributor') {
+      router.replace('/dashboard/proposer');
+      return;
+    }
+
+    router.replace('/auth/login');
+  }, [authInitializing, isAuthenticated, user, fetchDashboardData, router]);
 
   // 統計情報の計算（安全な処理）
   const totalChallenges = challenges?.length || 0;
@@ -82,6 +92,22 @@ const ContributorDashboard: React.FC = () => {
   // 最近の提案（投稿者が投稿した課題に対する提案、最新5件）
   const recentProposals = proposals?.slice(0, 5) || [];
   
+  const isContributorSession =
+    !authInitializing && isAuthenticated && user?.user_type === 'contributor';
+
+  // 認証初期化中・または未ログイン／別ロール（リダイレクト待ち）はデータ取得前のスピナー
+  if (authInitializing || !isContributorSession) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8 w-full">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex justify-center items-center h-64">
+            <div className="text-gray-600">読み込み中...</div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ローディング表示
   if (loading) {
     return (
