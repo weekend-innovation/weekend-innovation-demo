@@ -152,7 +152,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
               ? errorStyle
               : !contentTypeReady
                 ? loadingStyle
-                : `${sizeClasses[size]} ${className}`.trim()
+                : `${sizeClasses[size]} cursor-pointer ${className}`.trim()
         }
         style={
           isReported || contentTypeError || !contentTypeReady ? { cursor: 'not-allowed' } : undefined
@@ -171,16 +171,27 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
       </button>
 
       {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div
+          role="presentation"
+          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 cursor-pointer"
+          onClick={handleCloseModal}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="report-modal-title"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto cursor-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">
+                <h3 id="report-modal-title" className="text-lg font-semibold text-gray-900">
                   {contentTypeName}を通報
                 </h3>
                 <button
+                  type="button"
                   onClick={handleCloseModal}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors rounded p-0.5 cursor-pointer"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -208,7 +219,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
                   <select
                     value={selectedReason}
                     onChange={(e) => setSelectedReason(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent cursor-pointer"
                     required
                   >
                     <option value="">通報理由を選択してください</option>
@@ -246,7 +257,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
                   <button
                     type="button"
                     onClick={handleCloseModal}
-                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200"
+                    className="flex-1 px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed"
                     disabled={isSubmitting}
                   >
                     キャンセル
@@ -254,7 +265,7 @@ export const ReportButton: React.FC<ReportButtonProps> = ({
                   <button
                     type="submit"
                     disabled={isSubmitting || !selectedReason}
-                    className="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors duration-200"
+                    className="flex-1 px-4 py-2 text-white bg-red-600 hover:bg-red-700 disabled:bg-gray-400 disabled:cursor-not-allowed rounded-md transition-colors duration-200 cursor-pointer"
                   >
                     {isSubmitting ? '送信中...' : '通報する'}
                   </button>

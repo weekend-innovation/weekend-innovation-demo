@@ -31,12 +31,15 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     userType === 'contributor' &&
     !contributorAdoptionFinalized &&
     isContributorExpired(challenge);
-  /** 「期限切れ」カードと同系統（全体が薄く関与できない印象） */
-  const passiveDemotedCardStyle =
+  /** 期限切れ（提案者・結果閲覧不可）は赤みの薄さで示す */
+  const passiveExpiredCardStyle =
     'bg-red-50 border border-red-300 opacity-60';
   const isProposerExpiredLockedOut =
     userType === 'proposer' && expiredOrFailed && !canViewResults;
-  const isCompletedDemoted =
+  /** 採用完了など「完了」はグレー系の薄さ（赤は使わない） */
+  const grayCompletedCardStyle =
+    'bg-gray-100 border border-gray-400 opacity-95 text-gray-600';
+  const mutedCompletedChallenge =
     contributorAdoptionFinalized || proposerChallengeCompleted;
 
   // 提案者用: 現在のフェーズの期限ラベルと値を取得（ソート順が分かるように）
@@ -64,13 +67,13 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
     return `${year}年${month}月${day}日 ${hours}:${minutes}`;
   };
 
-  const cardStyle = isCompletedDemoted
-    ? passiveDemotedCardStyle
+  const cardStyle = mutedCompletedChallenge
+    ? grayCompletedCardStyle
     : userType === 'proposer'
       ? proposerPendingAdoptionAfterParticipation
         ? 'bg-amber-50 border border-amber-200'
         : isProposerExpiredLockedOut
-          ? passiveDemotedCardStyle
+          ? passiveExpiredCardStyle
           : allPhasesDone
             ? 'bg-teal-50 border border-teal-300'
             : 'bg-white border border-gray-200'
@@ -153,11 +156,19 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
           )}
         </div>
         <div className="flex items-start justify-between gap-4 mb-3 min-w-0">
-          <h3 className="text-xl flex-1 min-w-0 pr-2 break-words font-bold text-gray-900">
+          <h3
+            className={`text-xl flex-1 min-w-0 pr-2 break-words ${
+              mutedCompletedChallenge ? 'font-semibold text-gray-500' : 'font-bold text-gray-900'
+            }`}
+          >
             {challenge.title}
           </h3>
           <div className="text-right flex-shrink-0">
-            <div className="flex items-center gap-4 text-sm flex-wrap justify-end text-gray-600">
+            <div
+              className={`flex items-center gap-4 text-sm flex-wrap justify-end ${
+                mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-600'
+              }`}
+            >
               <span>投稿者: {challenge.contributor_name}</span>
               <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
             </div>
@@ -167,20 +178,32 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
 
       {/* 説明文 */}
       <div className="mb-4">
-        <p className="leading-relaxed text-gray-700">
+        <p
+          className={`leading-relaxed ${
+            mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-700'
+          }`}
+        >
           {challenge.description}
         </p>
       </div>
 
       {/* 報酬情報（デモ: 金額は伏せてプレースホルダのみ） */}
       <div className="grid grid-cols-2 gap-4 mb-2">
-        <div className="bg-blue-50 rounded-lg p-4 text-center">
+        <div
+          className={`rounded-lg p-4 text-center ${
+            mutedCompletedChallenge ? 'bg-blue-50/70 opacity-90' : 'bg-blue-50'
+          }`}
+        >
           <p className="text-sm text-blue-600 font-medium mb-2">提案報酬</p>
           <p className="text-2xl font-bold text-blue-900">
             <DemoRewardAmountPlaceholder className="text-2xl font-bold text-blue-900" />
           </p>
         </div>
-        <div className="bg-green-50 rounded-lg p-4 text-center">
+        <div
+          className={`rounded-lg p-4 text-center ${
+            mutedCompletedChallenge ? 'bg-green-50/70 opacity-90' : 'bg-green-50'
+          }`}
+        >
           <p className="text-sm text-green-600 font-medium mb-2">採用報酬</p>
           <p className="text-2xl font-bold text-green-900">
             <DemoRewardAmountPlaceholder className="text-2xl font-bold text-green-900" />
@@ -188,8 +211,16 @@ const ChallengeCard: React.FC<ChallengeCardProps> = ({
         </div>
       </div>
       {/* 詳細情報 */}
-      <div className="rounded-lg p-3 mb-4 min-w-0 bg-gray-50">
-        <div className="flex justify-between items-center gap-4 text-sm flex-wrap text-gray-600">
+      <div
+        className={`rounded-lg p-3 mb-4 min-w-0 ${
+          mutedCompletedChallenge ? 'bg-gray-100/80' : 'bg-gray-50'
+        }`}
+      >
+        <div
+          className={`flex justify-between items-center gap-4 text-sm flex-wrap ${
+            mutedCompletedChallenge ? 'text-gray-500' : 'text-gray-600'
+          }`}
+        >
           <span className="font-medium">選出人数: {challenge.required_participants}人</span>
           <span className="font-medium">
             {(() => {

@@ -442,11 +442,12 @@ const ChallengeDetailPage: React.FC = () => {
     value: string;
     main: string;
   } => {
+    /** 提案期間: 採用報酬（bg-green-50）より一段濃めにして期限・状況を区別 */
     if (challenge.current_phase === 'proposal') {
       return {
-        panel: 'bg-green-50',
-        caption: 'text-green-600',
-        value: 'font-bold text-green-900',
+        panel: 'bg-emerald-100 border-2 border-emerald-500/60 shadow-sm',
+        caption: 'text-emerald-800',
+        value: 'font-bold text-emerald-950',
         main: phaseMain,
       };
     }

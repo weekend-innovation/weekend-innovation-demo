@@ -178,6 +178,16 @@ class ReportAdmin(admin.ModelAdmin):
         """クエリセットの最適化"""
         return super().get_queryset(request).select_related("reporter", "moderator", "content_type")
 
+    # @admin.action だけでは一覧に出ない環境があるため明示列挙（通報レコード削除は delete_selected を維持）
+    actions = [
+        "suspend_target_users_30_days",
+        "suspend_target_users_90_days",
+        "suspend_target_users_180_days",
+        "suspend_target_users_365_days",
+        "delete_target_users_from_reports",
+        "delete_selected",
+    ]
+
     @admin.action(description="通報対象ユーザーを約1か月（30日間）利用停止する")
     def suspend_target_users_30_days(self, request, queryset):
         services.apply_suspension_from_reports(
