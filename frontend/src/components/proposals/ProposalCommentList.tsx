@@ -34,7 +34,6 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
 }) => {
   void proposalId;
   void onReference;
-  void canReference;
   const { user } = useAuth();
   const [replyingCommentId, setReplyingCommentId] = useState<number | null>(null);
 
@@ -84,12 +83,12 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
     }
   };
 
-  const handleEdit = (proposalId: number, data: { conclusion: string; reasoning: string }) => {
-    // 解決案編集機能
-    if (setEditingCommentId) {
-      setEditingCommentId(null);
-    }
-    onEdit(proposalId, data);
+  const handleEdit = (
+    proposalId: number,
+    data: { conclusion: string; reasoning: string },
+    referenceCommentId?: number | null
+  ) => {
+    onEdit(proposalId, data, referenceCommentId);
   };
 
   const getTargetSectionLabel = (targetSection: 'reasoning' | 'inference') => {
@@ -167,13 +166,30 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                       isLoading={isReplying}
                     />
                   ) : editingCommentId === comment.id ? (
-                    <ProposalEditForm
-                      proposal={proposalState || proposal}
-                      referenceCommentId={comment.id}
-                      onSubmit={(proposalId, data) => handleEdit(proposalId, data)}
-                      onCancel={handleCancelEdit}
-                      isLoading={isEditing}
-                    />
+                    canReference ? (
+                      <ProposalEditForm
+                        proposal={proposalState || proposal}
+                        referenceCommentId={comment.id}
+                        onSubmit={(proposalId, data) =>
+                          handleEdit(proposalId, data, comment.id)
+                        }
+                        onCancel={handleCancelEdit}
+                        isLoading={isEditing}
+                      />
+                    ) : (
+                      <div className="mt-2 flex flex-col items-end gap-2">
+                        <p className="text-sm text-amber-800 text-right max-w-md">
+                          編集期間のみ「参考」による解決案の保存ができます。提案期間中はコメントへの返信のみ利用できます。
+                        </p>
+                        <button
+                          type="button"
+                          onClick={handleCancelEdit}
+                          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 text-sm font-medium cursor-pointer"
+                        >
+                          閉じる
+                        </button>
+                      </div>
+                    )
                   ) : (
                     <div className="flex justify-end gap-2">
                       <button
@@ -182,12 +198,14 @@ const ProposalCommentList: React.FC<ProposalCommentListProps> = ({
                       >
                         返信
                       </button>
-                      <button
-                        onClick={() => handleReference(comment.id)}
-                        className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
-                      >
-                        参考
-                      </button>
+                      {canReference && (
+                        <button
+                          onClick={() => handleReference(comment.id)}
+                          className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200 text-sm font-medium shadow-sm hover:shadow-md cursor-pointer"
+                        >
+                          参考
+                        </button>
+                      )}
                       {/* 自分の解決案に対するコメントの通報ボタン（自分のコメント以外） */}
                       {!isCurrentUserComment(comment) && (
                         <ReportButton

@@ -281,7 +281,11 @@ export interface ProposalCommentListProps {
   comments: ProposalComment[];
   onAddComment: (comment: CreateProposalCommentRequest) => void;
   onReply: (commentId: number, reply: CreateProposalCommentReplyRequest) => void;
-  onEdit: (proposalId: number, data: { conclusion: string; reasoning: string }) => void;
+  onEdit: (
+    proposalId: number,
+    data: { conclusion: string; reasoning: string },
+    referenceCommentId?: number | null
+  ) => void;
   onReference?: (commentId: number) => void;
   isAddingComment?: boolean;
   isReplying?: boolean;

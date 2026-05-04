@@ -219,8 +219,12 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
 
   // 参考は ProposalCommentList 側で editingCommentId を立てる（ここでは未使用）
 
-  // 解決案編集ハンドラー
-  const handleEdit = async (proposalId: number, data: { conclusion: string; reasoning: string }) => {
+  // 解決案編集ハンドラー（referenceCommentId は一覧から明示渡し。編集期間外は canReference で弾く）
+  const handleEdit = async (
+    proposalId: number,
+    data: { conclusion: string; reasoning: string },
+    referenceCommentId?: number | null
+  ) => {
     if (!canReference) return;
 
     setIsEditing(true);
@@ -229,8 +233,9 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
         conclusion: data.conclusion,
         reasoning: data.reasoning
       };
-      if (editingCommentId) {
-        patchData.reference_comment_id = editingCommentId;
+      const refId = referenceCommentId ?? editingCommentId;
+      if (refId) {
+        patchData.reference_comment_id = refId;
       }
       const saved = await patchProposal(proposalId, patchData);
 
@@ -248,8 +253,8 @@ const ProposalCard: React.FC<ProposalCardProps> = ({
       
       const referenceLog: ReferenceLog = {
         id: `ref_${Date.now()}`,
-        commentId: editingCommentId || 0,
-        commentConclusion: comments.find(c => c.id === editingCommentId)?.conclusion || '',
+        commentId: refId || 0,
+        commentConclusion: comments.find(c => c.id === refId)?.conclusion || '',
         editedAt: new Date().toISOString()
       };
       setReferenceLogs(prev => [...prev, referenceLog]);
