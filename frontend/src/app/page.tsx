@@ -20,6 +20,7 @@ import { DemoVersionModal } from '../components/common/DemoVersionNotice';
 export default function Home() {
   const [isDescriptionOpen, setIsDescriptionOpen] = useState(false);
   const [isDemoVersionOpen, setIsDemoVersionOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-white w-full min-w-0 overflow-x-hidden">
@@ -34,21 +35,18 @@ export default function Home() {
                 <h1 className="text-5xl md:text-7xl font-bold text-black">
                   Weekend Innovation
                 </h1>
-                <a
-                  href="https://note.com/k_kohinata/n/n208bfd8d4450"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <button
+                  type="button"
+                  onClick={() => setIsAboutOpen(true)}
                   className="group absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
-                  title="本サービスの詳細や構想についてはこちら: https://note.com/k_kohinata/n/n208bfd8d4450"
-                  aria-label="本サービスの詳細や構想についてはこちら。クリックすると参照記事を開きます"
+                  title="本サービスの構想や詳細について"
+                  aria-label="本サービスの構想や詳細について"
                 >
                   ?
                   <span className="hidden group-hover:block group-focus:block absolute left-1/2 -translate-x-1/2 top-6 z-20 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-normal text-gray-700 shadow-lg">
-                    本サービスの詳細や構想についてはこちら
-                    <br />
-                    https://note.com/k_kohinata/n/n208bfd8d4450
+                    本サービスの構想や詳細について
                   </span>
-                </a>
+                </button>
               </div>
               {/* CTAボタン群 - 新規登録・ログイン */}
               <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -82,7 +80,7 @@ export default function Home() {
                 <button
                   onClick={() => setIsDescriptionOpen(true)}
                   className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
-                  title="サービスの説明を見る"
+                  title="本サービスについて"
                 >
                   ?
                 </button>
@@ -130,8 +128,8 @@ export default function Home() {
                     type="button"
                     onClick={() => setIsDemoVersionOpen(true)}
                     className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
-                    title="デモ版の報酬説明を見る"
-                    aria-label="デモ版の報酬説明を見る"
+                    title="デモ版について"
+                    aria-label="デモ版について"
                   >
                     ?
                   </button>
@@ -184,6 +182,39 @@ export default function Home() {
         isOpen={isDemoVersionOpen}
         onClose={() => setIsDemoVersionOpen(false)}
       />
+      {isAboutOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
+          onClick={() => setIsAboutOpen(false)}
+        >
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-900">本サービスの構想や詳細について</h3>
+                <button
+                  type="button"
+                  onClick={() => setIsAboutOpen(false)}
+                  className="text-gray-400 hover:text-gray-600 text-2xl leading-none cursor-pointer"
+                  aria-label="閉じる"
+                >
+                  ×
+                </button>
+              </div>
+              <div className="space-y-3 text-gray-700">
+                <p>本サービスの構想や詳細について：</p>
+                <a
+                  href="https://note.com/k_kohinata/n/n208bfd8d4450"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 underline break-all"
+                >
+                  https://note.com/k_kohinata/n/n208bfd8d4450
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
