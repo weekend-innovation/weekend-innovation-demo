@@ -442,12 +442,12 @@ const ChallengeDetailPage: React.FC = () => {
     value: string;
     main: string;
   } => {
-    /** 提案期間: 採用報酬（bg-green-50）より一段濃めにして期限・状況を区別 */
+    /** 提案期間: 採用報酬（bg-green-50）よりわずかに濃くして区別 */
     if (challenge.current_phase === 'proposal') {
       return {
-        panel: 'bg-emerald-100 border-2 border-emerald-500/60 shadow-sm',
-        caption: 'text-emerald-800',
-        value: 'font-bold text-emerald-950',
+        panel: 'bg-green-100 border border-green-300',
+        caption: 'text-green-700',
+        value: 'font-bold text-green-900',
         main: phaseMain,
       };
     }
@@ -1259,7 +1259,7 @@ const ChallengeDetailPage: React.FC = () => {
             )}
 
             {challenge?.status === 'completed' && proposals.some((p) => p.is_adopted) && (
-              <div className="mt-8 border-t border-gray-200 pt-6">
+              <div className="mt-8 rounded-xl border-2 border-emerald-300 bg-emerald-50/60 p-5 shadow-sm">
                 <h3 className="text-lg font-semibold text-gray-900 mb-3">採用された解決案</h3>
                 <p className="text-sm text-gray-600 mb-4">
                   この課題で採用確定された解決案です。

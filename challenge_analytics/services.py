@@ -610,7 +610,12 @@ class ProposalClusteringService:
         max_ratio = 0.5
         max_allowed = max(2, int(n * max_ratio))
         sizes = np.bincount(labels, minlength=n_clusters)
-        while sizes.max() > max_allowed:
+        # タイムアウト回避: 再配分ループに上限を設ける
+        max_iterations = max(10, n * 2)
+        prev_sizes = None
+        for _ in range(max_iterations):
+            if sizes.max() <= max_allowed:
+                break
             large_cid = int(np.argmax(sizes))
             non_empty = np.where(sizes > 0)[0]
             if len(non_empty) < 2:
@@ -635,6 +640,11 @@ class ProposalClusteringService:
             move_idx = large_indices[np.argsort(dist_to_small)[:n_move]]
             labels[move_idx] = small_cid
             sizes = np.bincount(labels, minlength=n_clusters)
+            # 収束しないケース（行き来）を打ち切る
+            sizes_tuple = tuple(int(x) for x in sizes.tolist())
+            if prev_sizes == sizes_tuple:
+                break
+            prev_sizes = sizes_tuple
         return labels
 
     def _lightweight_clustering(self, proposals: List[Proposal]) -> Dict[str, Any]:
