@@ -6,15 +6,15 @@ from .models import Challenge
 @admin.register(Challenge)
 class ChallengeAdmin(admin.ModelAdmin):
     """課題の管理画面設定"""
-    list_display = ('title', 'contributor', 'status', 'reward_amount', 'adoption_reward', 'deadline', 'created_at')
-    list_filter = ('status', 'created_at', 'deadline')
+    list_display = ('title', 'contributor', 'is_contributor_anonymous', 'status', 'reward_amount', 'adoption_reward', 'deadline', 'created_at')
+    list_filter = ('status', 'is_contributor_anonymous', 'created_at', 'deadline')
     search_fields = ('title', 'description', 'contributor__username')
     readonly_fields = ('created_at', 'updated_at')
     ordering = ('-created_at',)
     
     fieldsets = (
         ('基本情報', {
-            'fields': ('title', 'description', 'contributor')
+            'fields': ('title', 'description', 'contributor', 'is_contributor_anonymous')
         }),
         ('報酬・選出情報', {
             'fields': ('reward_amount', 'adoption_reward', 'required_participants')

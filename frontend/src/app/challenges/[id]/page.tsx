@@ -561,7 +561,7 @@ const ChallengeDetailPage: React.FC = () => {
                 {challenge.title}
               </h1>
               <div className="flex flex-col items-end gap-1 text-sm text-gray-600">
-                <span>投稿者: {challenge.contributor_info?.username || '不明'}</span>
+                <span>投稿者: {challenge.contributor_name || challenge.contributor_info?.username || '不明'}</span>
                 <span>投稿日: {new Date(challenge.created_at).toLocaleDateString('ja-JP')}</span>
                 {challenge.updated_at && challenge.updated_at !== challenge.created_at && (
                   <span className="text-xs text-gray-500">編集日時: {new Date(challenge.updated_at).toLocaleDateString('ja-JP')} {new Date(challenge.updated_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}</span>

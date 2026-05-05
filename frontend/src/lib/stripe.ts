@@ -1,13 +1,14 @@
 import { loadStripe } from '@stripe/stripe-js';
 
-// Stripeの公開キー（テスト用）
-const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || 'pk_test_51234567890abcdef'; // 実際のStripeテストキーに置き換えてください
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.trim();
 
-if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY === 'pk_test_51234567890abcdef') {
-  console.warn('⚠️ Stripe公開キーが設定されていません。stripe_setup_guide.mdを参照して実際のキーを設定してください。');
+if (!stripePublishableKey) {
+  console.warn('⚠️ Stripe公開キーが設定されていないため、決済フォームは無効です。');
 }
 
-export const stripePromise = loadStripe(stripePublishableKey);
+export const stripePromise = stripePublishableKey
+  ? loadStripe(stripePublishableKey)
+  : Promise.resolve(null);
 
 // カード要素のオプション
 export const cardElementOptions = {

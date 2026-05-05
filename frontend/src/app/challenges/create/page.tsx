@@ -57,6 +57,7 @@ const CreateChallengePage: React.FC = () => {
         adoption_reward: data.adoption_reward ?? 50,
         required_participants: data.required_participants ?? 50,
         deadline: data.deadline ?? '',
+        is_contributor_anonymous: data.is_contributor_anonymous ?? false,
       };
       const newChallenge = await createChallenge(createData);
       

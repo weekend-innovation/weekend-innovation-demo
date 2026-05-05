@@ -12,7 +12,8 @@ class ChallengeSerializer(serializers.ModelSerializer):
     課題の作成・更新・取得に使用
     """
     # 関連する投稿者の情報を表示用に含める
-    contributor_info = UserSerializer(source='contributor', read_only=True)
+    contributor_info = serializers.SerializerMethodField()
+    contributor_name = serializers.SerializerMethodField()
     # 現在のフェーズ情報
     current_phase = serializers.CharField(source='get_current_phase', read_only=True)
     phase_display = serializers.CharField(read_only=True)
@@ -26,6 +27,8 @@ class ChallengeSerializer(serializers.ModelSerializer):
             'description',
             'contributor',
             'contributor_info',
+            'contributor_name',
+            'is_contributor_anonymous',
             'reward_amount',
             'adoption_reward',
             'required_participants',
@@ -41,6 +44,24 @@ class ChallengeSerializer(serializers.ModelSerializer):
             'has_completed_all_evaluations'
         ]
         read_only_fields = ['id', 'contributor', 'created_at', 'updated_at', 'proposal_deadline', 'edit_deadline', 'evaluation_deadline']
+
+    def _can_view_real_contributor(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        return request.user.id == obj.contributor_id
+
+    def get_contributor_name(self, obj):
+        if obj.is_contributor_anonymous and not self._can_view_real_contributor(obj):
+            return '匿名'
+        return obj.contributor.username
+
+    def get_contributor_info(self, obj):
+        data = UserSerializer(obj.contributor).data
+        if obj.is_contributor_anonymous and not self._can_view_real_contributor(obj):
+            data['username'] = '匿名'
+            data['email'] = ''
+        return data
     
     def get_has_completed_all_evaluations(self, obj):
         """
@@ -119,6 +140,7 @@ class ChallengeCreateSerializer(serializers.ModelSerializer):
             'description',
             'contributor',
             'contributor_info',
+            'is_contributor_anonymous',
             'reward_amount',
             'adoption_reward',
             'required_participants',
@@ -199,7 +221,7 @@ class ChallengeListSerializer(serializers.ModelSerializer):
     課題一覧表示用シリアライザー
     必要最小限の情報のみを含む
     """
-    contributor_name = serializers.CharField(source='contributor.username', read_only=True)
+    contributor_name = serializers.SerializerMethodField()
     current_phase = serializers.CharField(source='get_current_phase', read_only=True)
     phase_display = serializers.CharField(read_only=True)
     has_completed_all_evaluations = serializers.SerializerMethodField()
@@ -212,6 +234,7 @@ class ChallengeListSerializer(serializers.ModelSerializer):
             'id',
             'title',
             'contributor_name',
+            'is_contributor_anonymous',
             'reward_amount',
             'adoption_reward',
             'required_participants',
@@ -227,6 +250,16 @@ class ChallengeListSerializer(serializers.ModelSerializer):
             'has_proposed',
             'priority'
         ]
+
+    def get_contributor_name(self, obj):
+        request = self.context.get('request')
+        if obj.is_contributor_anonymous and (
+            not request or
+            not request.user.is_authenticated or
+            request.user.id != obj.contributor_id
+        ):
+            return '匿名'
+        return obj.contributor.username
     
     def get_has_completed_all_evaluations(self, obj):
         """

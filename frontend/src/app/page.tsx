@@ -39,8 +39,8 @@ export default function Home() {
                   target="_blank"
                   rel="noopener noreferrer"
                   className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
-                  title="サービス理念の記事を開く"
-                  aria-label="サービス理念の記事を開く"
+                  title="本サービスの詳細や構想についてはこちら: https://note.com/k_kohinata/n/n208bfd8d4450"
+                  aria-label="本サービスの詳細や構想についてはこちら。クリックすると参照記事を開きます"
                 >
                   ?
                 </a>
@@ -165,7 +165,7 @@ export default function Home() {
       <footer className="bg-white border-t border-gray-200 py-8">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center text-gray-600">
-            <p>&copy; 2025 Weekend Innovation. All rights reserved.</p>
+            <p>&copy; 2026 Weekend Innovation. All rights reserved.</p>
           </div>
         </div>
       </footer>

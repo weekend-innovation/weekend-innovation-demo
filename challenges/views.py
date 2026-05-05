@@ -324,18 +324,6 @@ class ChallengeStatusUpdateView(generics.UpdateAPIView):
         serializer = self.get_serializer(challenge)
         return Response(serializer.data)
 
-class PublicChallengeListView(generics.ListAPIView):
-    """
-    公開課題一覧API
-    認証不要で全ての募集中課題を表示
-    """
-    permission_classes = [permissions.AllowAny]
-    serializer_class = ChallengeListSerializer
-    
-    def get_queryset(self):
-        """募集中の課題のみ表示"""
-        return Challenge.objects.filter(status='open')
-
 # 基礎報酬額の設定（グローバル定数）
 # この値を変更すると、提案者への個人報酬も自動的に変更される
 BASE_REWARD_PER_PERSON = 10000  # 1万円/人

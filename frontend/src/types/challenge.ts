@@ -14,6 +14,8 @@ export interface Challenge {
   title: string;
   description: string;
   contributor: number;
+  contributor_name?: string;
+  is_contributor_anonymous?: boolean;
   contributor_info?: {
     id: number;
     username: string;
@@ -41,6 +43,7 @@ export interface ChallengeListItem {
   title: string;
   description: string;
   contributor_name: string;
+  is_contributor_anonymous?: boolean;
   reward_amount: number;
   adoption_reward: number;
   required_participants: number;
@@ -65,6 +68,7 @@ export interface CreateChallengeRequest {
   adoption_reward: number;
   required_participants: number;
   deadline: string;
+  is_contributor_anonymous?: boolean;
 }
 
 // 課題更新リクエスト
@@ -76,6 +80,7 @@ export interface UpdateChallengeRequest {
   required_participants?: number;
   deadline?: string;
   status?: ChallengeStatus;
+  is_contributor_anonymous?: boolean;
 }
 
 // 課題ステータス更新リクエスト

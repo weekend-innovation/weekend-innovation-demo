@@ -24,7 +24,8 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
     reward_amount: 0,
     adoption_reward: 50,
     required_participants: 50,
-    deadline: ''
+    deadline: '',
+    is_contributor_anonymous: false
   });
 
   // バリデーションエラー
@@ -40,7 +41,8 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         reward_amount: initialData.reward_amount || 0,
         adoption_reward: initialData.adoption_reward || 50,
         required_participants: participants,
-        deadline: initialData.deadline || ''
+        deadline: initialData.deadline || '',
+        is_contributor_anonymous: initialData.is_contributor_anonymous || false
       });
     } else if (mode === 'create') {
       // 新規作成時は初期値で提案報酬を計算
@@ -153,6 +155,13 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         setErrors(prev => ({ ...prev, [name]: '' }));
       }
     }
+  };
+
+  const handleAnonymousChange = (isAnonymous: boolean) => {
+    setFormData(prev => ({
+      ...prev,
+      is_contributor_anonymous: isAnonymous
+    }));
   };
 
   // バリデーション
@@ -367,6 +376,38 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         </>
       ) : (
         <>
+          {/* 投稿者表示設定 */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              投稿者表示
+            </label>
+            <div className="flex flex-wrap gap-4">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="is_contributor_anonymous"
+                  checked={!formData.is_contributor_anonymous}
+                  onChange={() => handleAnonymousChange(false)}
+                  className="cursor-pointer"
+                />
+                <span className="text-gray-700">公開（デフォルト）</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="is_contributor_anonymous"
+                  checked={!!formData.is_contributor_anonymous}
+                  onChange={() => handleAnonymousChange(true)}
+                  className="cursor-pointer"
+                />
+                <span className="text-gray-700">匿名で投稿する</span>
+              </label>
+            </div>
+            <p className="mt-1 text-sm text-gray-500">
+              匿名を選ぶと、課題上の投稿者ユーザー名は「匿名」と表示されます。
+            </p>
+          </div>
+
           {/* 報酬設定 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>

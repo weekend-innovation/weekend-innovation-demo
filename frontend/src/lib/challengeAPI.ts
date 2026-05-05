@@ -152,17 +152,6 @@ export async function getAllChallenges(
   return allResults;
 }
 
-// 公開課題一覧取得（認証不要）
-export async function getPublicChallenges(): Promise<ChallengeListResponse> {
-  const response = await fetch(`${API_BASE_URL}/public/`);
-  
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-}
-
 // 課題詳細取得
 export async function getChallenge(id: number): Promise<ChallengeDetailResponse> {
   return apiCall<ChallengeDetailResponse>(`/${id}/`);

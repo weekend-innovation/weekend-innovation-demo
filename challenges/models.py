@@ -198,6 +198,10 @@ class Challenge(models.Model):
         related_name='contributed_challenges',
         verbose_name="投稿者"
     )
+    is_contributor_anonymous = models.BooleanField(
+        default=False,
+        verbose_name="投稿者を匿名表示"
+    )
     
     # 報酬・選出情報
     reward_amount = models.DecimalField(
