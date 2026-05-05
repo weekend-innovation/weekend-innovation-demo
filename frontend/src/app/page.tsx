@@ -38,11 +38,16 @@ export default function Home() {
                   href="https://note.com/k_kohinata/n/n208bfd8d4450"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
+                  className="group absolute -top-1 -right-5 w-4 h-4 border border-gray-400 text-gray-600 rounded-full hover:border-gray-600 hover:text-gray-800 transition-colors duration-200 flex items-center justify-center text-xs font-bold cursor-pointer"
                   title="本サービスの詳細や構想についてはこちら: https://note.com/k_kohinata/n/n208bfd8d4450"
                   aria-label="本サービスの詳細や構想についてはこちら。クリックすると参照記事を開きます"
                 >
                   ?
+                  <span className="hidden group-hover:block group-focus:block absolute left-1/2 -translate-x-1/2 top-6 z-20 whitespace-nowrap rounded-md border border-gray-200 bg-white px-3 py-2 text-xs font-normal text-gray-700 shadow-lg">
+                    本サービスの詳細や構想についてはこちら
+                    <br />
+                    https://note.com/k_kohinata/n/n208bfd8d4450
+                  </span>
                 </a>
               </div>
               {/* CTAボタン群 - 新規登録・ログイン */}

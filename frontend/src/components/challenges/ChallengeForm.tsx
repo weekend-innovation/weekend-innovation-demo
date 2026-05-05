@@ -78,7 +78,7 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
   };
 
   // 入力値の変更処理
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     let processedValue = value;
 
@@ -155,13 +155,6 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         setErrors(prev => ({ ...prev, [name]: '' }));
       }
     }
-  };
-
-  const handleAnonymousChange = (isAnonymous: boolean) => {
-    setFormData(prev => ({
-      ...prev,
-      is_contributor_anonymous: isAnonymous
-    }));
   };
 
   // バリデーション
@@ -262,6 +255,29 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
+      {mode === 'create' && (
+        <div>
+          <label htmlFor="is_contributor_anonymous" className="block text-sm font-medium text-gray-700 mb-2">
+            ユーザー名表示
+          </label>
+          <select
+            id="is_contributor_anonymous"
+            name="is_contributor_anonymous"
+            value={formData.is_contributor_anonymous ? 'anonymous' : 'public'}
+            onChange={(e) =>
+              setFormData(prev => ({
+                ...prev,
+                is_contributor_anonymous: e.target.value === 'anonymous'
+              }))
+            }
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white cursor-pointer"
+          >
+            <option value="public">公開</option>
+            <option value="anonymous">匿名</option>
+          </select>
+        </div>
+      )}
+
       {/* 課題タイトル */}
       <div>
         <label htmlFor="title" className="block text-sm font-medium text-gray-700 mb-2">
@@ -376,38 +392,6 @@ const ChallengeForm: React.FC<ChallengeFormProps> = ({
         </>
       ) : (
         <>
-          {/* 投稿者表示設定 */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              投稿者表示
-            </label>
-            <div className="flex flex-wrap gap-4">
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="is_contributor_anonymous"
-                  checked={!formData.is_contributor_anonymous}
-                  onChange={() => handleAnonymousChange(false)}
-                  className="cursor-pointer"
-                />
-                <span className="text-gray-700">公開（デフォルト）</span>
-              </label>
-              <label className="inline-flex items-center gap-2 cursor-pointer">
-                <input
-                  type="radio"
-                  name="is_contributor_anonymous"
-                  checked={!!formData.is_contributor_anonymous}
-                  onChange={() => handleAnonymousChange(true)}
-                  className="cursor-pointer"
-                />
-                <span className="text-gray-700">匿名で投稿する</span>
-              </label>
-            </div>
-            <p className="mt-1 text-sm text-gray-500">
-              匿名を選ぶと、課題上の投稿者ユーザー名は「匿名」と表示されます。
-            </p>
-          </div>
-
           {/* 報酬設定 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
