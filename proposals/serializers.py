@@ -146,6 +146,7 @@ class ProposalListSerializer(serializers.ModelSerializer):
     challenge_current_phase = serializers.SerializerMethodField()
     challenge_status = serializers.SerializerMethodField()
     is_mine = serializers.SerializerMethodField()
+    challenge_updated_at = serializers.DateTimeField(source='challenge.updated_at', read_only=True)
 
     def get_challenge_current_phase(self, obj):
         return obj.challenge.get_current_phase()
@@ -268,7 +269,7 @@ class ProposalListSerializer(serializers.ModelSerializer):
             'anonymous_name_info', 'is_anonymous', 'status', 'is_adopted',
             'rating', 'rating_count', 'created_at', 'updated_at', 'unread_comment_count', 'total_comment_count',
             'nationality', 'gender', 'age',
-            'challenge_current_phase', 'challenge_status', 'is_mine',
+            'challenge_current_phase', 'challenge_status', 'challenge_updated_at', 'is_mine',
         ]
 
 

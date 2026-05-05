@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import type { ProposalListItem } from '../../../types/proposal';
 import type { ChallengeListItem } from '../../../types/challenge';
-import { getProposals } from '../../../lib/proposalAPI';
+import { getAllProposals } from '../../../lib/proposalAPI';
 import { getAllChallenges } from '../../../lib/challengeAPI';
 import { sortExpiredChallenges, sortActiveProposerChallenges, isProposerExpiredOrFailed } from '../../../lib/challengeSortUtils';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -44,8 +44,7 @@ const ProposerDashboard: React.FC = () => {
       setError(null);
       
       // 提案データの取得
-      const proposalsResponse = await getProposals();
-      const proposalsData = proposalsResponse.results || proposalsResponse || [];
+      const proposalsData = await getAllProposals();
       setProposals(proposalsData);
       
       // 課題データの取得（提案者の場合、選出された課題のみ。全件取得でページネーションによる欠落を防ぐ）

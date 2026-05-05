@@ -158,6 +158,13 @@ export function Header() {
                         >
                           課題一覧
                         </Link>
+                        <Link
+                          href="/adopted-proposals"
+                          className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-800 transition-colors duration-200 hover:bg-gray-100"
+                          onClick={() => setIsMenuOpen(false)}
+                        >
+                          採用した解決案
+                        </Link>
                         <span
                           className="block rounded-xl px-4 py-3.5 text-[15px] font-medium leading-snug text-gray-400 cursor-not-allowed line-through"
                         >

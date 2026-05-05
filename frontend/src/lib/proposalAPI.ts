@@ -97,6 +97,53 @@ export async function getProposals(
   return apiCall<ProposalListResponse>(endpoint);
 }
 
+/**
+ * 提案一覧を全件取得（ページネーションを辿って結合）
+ */
+export async function getAllProposals(
+  filters?: ProposalFilters
+): Promise<ProposalListItem[]> {
+  const params = new URLSearchParams();
+  if (filters) {
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== undefined && value !== null && value !== '') {
+        params.append(key, value.toString());
+      }
+    });
+  }
+  const queryString = params.toString();
+
+  const token = tokenManager.getAccessToken();
+  const headers: HeadersInit = {
+    'Content-Type': 'application/json',
+    ...(token && { Authorization: `Bearer ${token}` }),
+  };
+
+  let allResults: ProposalListItem[] = [];
+  let nextUrl: string | null = `${API_BASE_URL}${queryString ? `/?${queryString}` : '/'}`;
+
+  while (nextUrl) {
+    const response = await fetch(nextUrl, { headers });
+    if (!response.ok) {
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        window.location.href = '/auth/login';
+      }
+      const err = await response.json().catch(() => ({}));
+      const detail = typeof err.detail === 'string' ? err.detail : undefined;
+      throw new Error(detail || `HTTP error! status: ${response.status}`);
+    }
+    const data: ProposalListResponse = await response.json();
+    if (data.results && data.results.length > 0) {
+      allResults = [...allResults, ...data.results];
+    }
+    nextUrl = data.next;
+  }
+
+  return allResults;
+}
+
 // 特定課題の提案一覧取得
 export async function getProposalsByChallenge(
   challengeId: number

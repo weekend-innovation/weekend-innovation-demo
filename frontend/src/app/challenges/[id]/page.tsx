@@ -1257,6 +1257,32 @@ const ChallengeDetailPage: React.FC = () => {
                 )}
               </div>
             )}
+
+            {challenge?.status === 'completed' && proposals.some((p) => p.is_adopted) && (
+              <div className="mt-8 border-t border-gray-200 pt-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">採用された解決案</h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  この課題で採用確定された解決案です。
+                </p>
+                <div className="space-y-4">
+                  {[...proposals]
+                    .filter((p) => p.is_adopted)
+                    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+                    .map((proposal) => (
+                      <ProposalCard
+                        key={`adopted-${proposal.id}`}
+                        proposal={proposal}
+                        showActions={false}
+                        showStatus={false}
+                        showComments={true}
+                        readOnlyComments={true}
+                        showChallengeInfo={false}
+                        showUserAttributes={true}
+                      />
+                    ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

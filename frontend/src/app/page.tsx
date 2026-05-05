@@ -187,10 +187,9 @@ export default function Home() {
           className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
           onClick={() => setIsAboutOpen(false)}
         >
-          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div className="p-6" onClick={(e) => e.stopPropagation()}>
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-900">本サービスの構想や詳細について</h3>
+          <div className="bg-white rounded-lg max-w-xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="p-4 sm:p-5" onClick={(e) => e.stopPropagation()}>
+              <div className="flex justify-end mb-2">
                 <button
                   type="button"
                   onClick={() => setIsAboutOpen(false)}
@@ -200,13 +199,13 @@ export default function Home() {
                   ×
                 </button>
               </div>
-              <div className="space-y-3 text-gray-700">
-                <p>本サービスの構想や詳細について：</p>
+              <div className="space-y-3 text-gray-700 text-center">
+                <p className="font-medium">本サービスの構想や詳細について：</p>
                 <a
                   href="https://note.com/k_kohinata/n/n208bfd8d4450"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 underline break-all"
+                  className="inline-block text-blue-600 hover:text-blue-800 underline break-all"
                 >
                   https://note.com/k_kohinata/n/n208bfd8d4450
                 </a>

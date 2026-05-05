@@ -69,6 +69,8 @@ export interface ProposalListItem {
   challenge_current_phase?: 'proposal' | 'edit' | 'evaluation' | 'closed';
   /** 課題の status（一覧から readOnly 判定用） */
   challenge_status?: 'open' | 'closed' | 'completed';
+  /** 課題の更新日時（採用確定の並び順に利用） */
+  challenge_updated_at?: string;
   /** ログインユーザーがこの解決案の提案者か */
   is_mine?: boolean;
   // ユーザー属性（募集終了後の解決案一覧向け）
